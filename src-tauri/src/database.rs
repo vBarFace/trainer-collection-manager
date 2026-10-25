@@ -41,7 +41,11 @@ fn apply_migrations(connection: &mut Connection) -> rusqlite::Result<()> {
     transaction.commit()
 }
 
-fn apply_migration<F>(transaction: &Transaction<'_>, version: i64, migration: F) -> rusqlite::Result<()>
+fn apply_migration<F>(
+    transaction: &Transaction<'_>,
+    version: i64,
+    migration: F,
+) -> rusqlite::Result<()>
 where
     F: FnOnce(&Transaction<'_>) -> rusqlite::Result<()>,
 {
@@ -53,7 +57,10 @@ where
 
     if !already_applied {
         migration(transaction)?;
-        transaction.execute("INSERT INTO schema_migrations (version) VALUES (?1)", [version])?;
+        transaction.execute(
+            "INSERT INTO schema_migrations (version) VALUES (?1)",
+            [version],
+        )?;
     }
 
     Ok(())
@@ -80,7 +87,9 @@ mod tests {
 
         let connection = Connection::open(database_path).expect("database should open");
         let version: i64 = connection
-            .query_row("SELECT version FROM schema_migrations", [], |row| row.get(0))
+            .query_row("SELECT version FROM schema_migrations", [], |row| {
+                row.get(0)
+            })
             .expect("migration version should be recorded");
         assert_eq!(version, 1);
         drop(connection);
