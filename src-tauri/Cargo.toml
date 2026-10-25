@@ -1,0 +1,20 @@
+[package]
+name = "trainer-collection-manager"
+version = "0.1.0"
+description = "Offline-first Pokémon GO collection manager"
+authors = ["Trainer Collection Manager contributors"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = "2.4.1"
+
+[dependencies]
+rusqlite = { version = "0.37.0", features = ["bundled"] }
+tauri = { version = "2.12.4" }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
