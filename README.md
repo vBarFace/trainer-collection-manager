@@ -7,7 +7,7 @@ An open-source, offline-first Windows desktop foundation for Pokémon GO collect
 - Tauri 2 + React + TypeScript desktop shell with keyboard-accessible navigation.
 - Local SQLite initialization in the per-user application-data directory.
 - Ordered SQLite migrations for application settings and normalized Pokémon inventory/tags.
-- Native typed Rust inventory CRUD and tagging APIs, with validation and persistence tests.
+- Native typed Rust inventory CRUD and tagging APIs, including optional appraisal IVs and the `SAVE/SPECIAL` standard tag, with validation and persistence tests.
 - Strict frontend linting, formatting, typechecking, unit-test and CI configuration.
 
 The Inventory, Recommendations, Teams, Bag and Settings views are intentionally placeholders. Inventory persistence exists in Rust only; no inventory UI or renderer commands are connected yet. There is no screenshot/OCR processing, AI, telemetry, cloud service, game automation, data import or external dataset in this release.

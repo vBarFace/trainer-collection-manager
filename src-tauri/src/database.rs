@@ -86,6 +86,27 @@ pub(crate) fn apply_migrations(connection: &mut Connection) -> rusqlite::Result<
             CREATE INDEX pokemon_tags_by_tag ON pokemon_tags(tag_id, pokemon_id);",
         )
     })?;
+    apply_migration(&transaction, 3, |transaction| {
+        transaction.execute_batch(
+            "ALTER TABLE pokemon ADD COLUMN iv_attack INTEGER CHECK (iv_attack BETWEEN 0 AND 15);
+            ALTER TABLE pokemon ADD COLUMN iv_defense INTEGER CHECK (iv_defense BETWEEN 0 AND 15);
+            ALTER TABLE pokemon ADD COLUMN iv_hp INTEGER CHECK (iv_hp BETWEEN 0 AND 15)
+                CHECK (
+                    (iv_attack IS NULL AND iv_defense IS NULL AND iv_hp IS NULL) OR
+                    (iv_attack IS NOT NULL AND iv_defense IS NOT NULL AND iv_hp IS NOT NULL)
+                );
+            DROP TRIGGER standard_tag_insert;
+            DROP TRIGGER standard_tag_update;
+            INSERT INTO tags (name, scope) VALUES ('SAVE/SPECIAL', 'standard')
+                ON CONFLICT(name) DO UPDATE SET name = 'SAVE/SPECIAL', scope = 'standard';
+            CREATE TRIGGER standard_tag_update BEFORE UPDATE ON tags
+                WHEN OLD.scope = 'standard' OR NEW.scope = 'standard'
+                BEGIN SELECT RAISE(ABORT, 'Standard tags are immutable'); END;
+            CREATE TRIGGER standard_tag_insert BEFORE INSERT ON tags
+                WHEN NEW.scope = 'standard'
+                BEGIN SELECT RAISE(ABORT, 'Standard tags are migration-owned'); END;",
+        )
+    })?;
     transaction.commit()
 }
 
@@ -155,13 +176,13 @@ mod tests {
                 .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            2
+            3
         );
         assert_eq!(
             connection
                 .query_row("SELECT count(*) FROM tags", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            8
+            9
         );
         assert_eq!(
             connection
@@ -210,7 +231,7 @@ mod tests {
                 row.get(0)
             })
             .expect("migration version should be recorded");
-        assert_eq!(version, 2);
+        assert_eq!(version, 3);
         drop(connection);
 
         fs::remove_dir_all(temporary_directory).expect("temporary database should be removable");

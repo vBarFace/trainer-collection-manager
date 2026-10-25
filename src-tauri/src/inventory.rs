@@ -32,11 +32,20 @@ impl PokemonId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TagId(i64);
 
+/// Appraisal values, distinct from species base stats and observed HP.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AppraisalIvs {
+    pub attack: u8,
+    pub defense: u8,
+    pub hp: u8,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pokemon {
     pub id: PokemonId,
     pub display_name: String,
     pub cp: Option<i64>,
+    pub ivs: Option<AppraisalIvs>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -46,6 +55,7 @@ pub struct Pokemon {
 pub struct PokemonInput {
     pub display_name: String,
     pub cp: Option<i64>,
+    pub ivs: Option<AppraisalIvs>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -109,6 +119,14 @@ fn validate_pokemon(input: &PokemonInput) -> Result<()> {
     if input.cp.is_some_and(|cp| cp <= 0) {
         return Err(Error::InvalidInput("CP must be positive or absent"));
     }
+    if input
+        .ivs
+        .is_some_and(|ivs| ivs.attack > 15 || ivs.defense > 15 || ivs.hp > 15)
+    {
+        return Err(Error::InvalidInput(
+            "Each appraisal IV must be between 0 and 15",
+        ));
+    }
     Ok(())
 }
 
@@ -119,6 +137,23 @@ fn read_pokemon(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pokemon> {
         cp: row.get(2)?,
         created_at: row.get(3)?,
         updated_at: row.get(4)?,
+        ivs: match (
+            row.get::<_, Option<u8>>(5)?,
+            row.get::<_, Option<u8>>(6)?,
+            row.get::<_, Option<u8>>(7)?,
+        ) {
+            (None, None, None) => None,
+            (Some(attack), Some(defense), Some(hp))
+                if attack <= 15 && defense <= 15 && hp <= 15 =>
+            {
+                Some(AppraisalIvs {
+                    attack,
+                    defense,
+                    hp,
+                })
+            }
+            _ => return Err(rusqlite::Error::InvalidQuery),
+        },
     })
 }
 
@@ -167,8 +202,8 @@ impl InventoryRepository {
             &hex[20..]
         ));
         self.connection.execute(
-            "INSERT INTO pokemon (id, display_name, cp) VALUES (?1, ?2, ?3)",
-            params![id.0, input.display_name, input.cp],
+            "INSERT INTO pokemon (id, display_name, cp, iv_attack, iv_defense, iv_hp) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![id.0, input.display_name, input.cp, input.ivs.map(|v| v.attack), input.ivs.map(|v| v.defense), input.ivs.map(|v| v.hp)],
         )?;
         self.get(&id)
     }
@@ -176,7 +211,7 @@ impl InventoryRepository {
     pub fn get(&self, id: &PokemonId) -> Result<Pokemon> {
         self.connection
             .query_row(
-                "SELECT id, display_name, cp, created_at, updated_at FROM pokemon WHERE id = ?1",
+                "SELECT id, display_name, cp, created_at, updated_at, iv_attack, iv_defense, iv_hp FROM pokemon WHERE id = ?1",
                 [&id.0],
                 read_pokemon,
             )
@@ -187,7 +222,7 @@ impl InventoryRepository {
     /// Deterministic ordering; no domain ranking is implied.
     pub fn list(&self) -> Result<Vec<Pokemon>> {
         let mut statement = self.connection.prepare(
-            "SELECT id, display_name, cp, created_at, updated_at FROM pokemon ORDER BY created_at, id",
+            "SELECT id, display_name, cp, created_at, updated_at, iv_attack, iv_defense, iv_hp FROM pokemon ORDER BY created_at, id",
         )?;
         let records = statement
             .query_map([], read_pokemon)?
@@ -198,8 +233,8 @@ impl InventoryRepository {
     pub fn update(&self, id: &PokemonId, input: &PokemonInput) -> Result<Pokemon> {
         validate_pokemon(input)?;
         if self.connection.execute(
-            "UPDATE pokemon SET display_name = ?2, cp = ?3, updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
-            params![id.0, input.display_name, input.cp],
+            "UPDATE pokemon SET display_name = ?2, cp = ?3, iv_attack = ?4, iv_defense = ?5, iv_hp = ?6, updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
+            params![id.0, input.display_name, input.cp, input.ivs.map(|v| v.attack), input.ivs.map(|v| v.defense), input.ivs.map(|v| v.hp)],
         )? == 0 {
             return Err(Error::NotFound("Pokemon"));
         }
@@ -323,7 +358,205 @@ mod tests {
         PokemonInput {
             display_name: name.into(),
             cp: Some(123),
+            ivs: None,
         }
+    }
+
+    #[test]
+    fn ivs_round_trip_update_clear_and_reject_out_of_range_values() {
+        let repo = repository();
+        for ivs in [
+            AppraisalIvs {
+                attack: 0,
+                defense: 0,
+                hp: 0,
+            },
+            AppraisalIvs {
+                attack: 15,
+                defense: 15,
+                hp: 15,
+            },
+            AppraisalIvs {
+                attack: 12,
+                defense: 9,
+                hp: 14,
+            },
+        ] {
+            let mut data = input("Appraised");
+            data.cp = None;
+            data.ivs = Some(ivs);
+            let created = repo.create(&data).unwrap();
+            assert_eq!(created.ivs, Some(ivs));
+            assert_eq!(repo.get(&created.id).unwrap(), created);
+            assert!(repo.list().unwrap().contains(&created));
+            data.ivs = Some(AppraisalIvs {
+                attack: 1,
+                defense: 2,
+                hp: 3,
+            });
+            let updated = repo.update(&created.id, &data).unwrap();
+            assert_eq!(updated.ivs, data.ivs);
+            assert_eq!(updated.id, created.id);
+            assert_eq!(updated.created_at, created.created_at);
+            data.ivs = None;
+            assert_eq!(repo.update(&created.id, &data).unwrap().ivs, None);
+        }
+        let existing = repo.create(&input("Unchanged")).unwrap();
+        for ivs in [
+            AppraisalIvs {
+                attack: 16,
+                defense: 0,
+                hp: 0,
+            },
+            AppraisalIvs {
+                attack: 0,
+                defense: 255,
+                hp: 0,
+            },
+            AppraisalIvs {
+                attack: 0,
+                defense: 0,
+                hp: 16,
+            },
+        ] {
+            let mut data = input("Invalid");
+            data.ivs = Some(ivs);
+            assert!(matches!(repo.create(&data), Err(Error::InvalidInput(_))));
+            assert!(matches!(
+                repo.update(&existing.id, &data),
+                Err(Error::InvalidInput(_))
+            ));
+            assert_eq!(repo.get(&existing.id).unwrap(), existing);
+        }
+    }
+
+    #[test]
+    fn sql_rejects_partial_and_out_of_range_ivs_on_insert_and_update() {
+        let repo = repository();
+        let existing = repo.create(&input("Unchanged")).unwrap();
+        let mut invalid = vec![
+            (Some(-1), Some(0), Some(0)),
+            (Some(0), Some(-1), Some(0)),
+            (Some(0), Some(0), Some(-1)),
+            (Some(16), Some(0), Some(0)),
+            (Some(0), Some(16), Some(0)),
+            (Some(0), Some(0), Some(16)),
+        ];
+        for mask in 1..7 {
+            invalid.push((
+                if mask & 1 != 0 { Some(10) } else { None },
+                if mask & 2 != 0 { Some(10) } else { None },
+                if mask & 4 != 0 { Some(10) } else { None },
+            ));
+        }
+        for (attack, defense, hp) in invalid {
+            assert!(repo.connection.execute(
+                "INSERT INTO pokemon (id, display_name, iv_attack, iv_defense, iv_hp) VALUES ('00000000-0000-4000-8000-000000000000', 'Invalid', ?1, ?2, ?3)",
+                params![attack, defense, hp],
+            ).is_err());
+            assert!(repo
+                .connection
+                .execute(
+                    "UPDATE pokemon SET iv_attack = ?2, iv_defense = ?3, iv_hp = ?4 WHERE id = ?1",
+                    params![existing.id.0, attack, defense, hp],
+                )
+                .is_err());
+            assert_eq!(repo.get(&existing.id).unwrap(), existing);
+        }
+    }
+
+    #[test]
+    fn version_two_upgrade_preserves_records_and_existing_special_tag_assignments() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        database::configure_connection(&connection).unwrap();
+        connection
+            .execute_batch(include_str!("../tests/fixtures/schema-v2.sql"))
+            .unwrap();
+        connection.execute_batch(
+            "INSERT INTO pokemon (id, display_name, cp, created_at, updated_at)
+                VALUES ('00000000-0000-4000-8000-000000000000', 'Legacy', 123, '2026-01-01 00:00:00', '2026-01-02 00:00:00');
+            INSERT INTO tags (name, scope) VALUES ('save/special', 'local');
+            INSERT INTO pokemon_tags (pokemon_id, tag_id) SELECT '00000000-0000-4000-8000-000000000000', id FROM tags WHERE name = 'save/special';
+            INSERT INTO pokemon_tags (pokemon_id, tag_id) VALUES ('00000000-0000-4000-8000-000000000000', 1);",
+        ).unwrap();
+        let original_tag: (i64, String) = connection
+            .query_row(
+                "SELECT id, created_at FROM tags WHERE name = 'save/special'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        database::apply_migrations(&mut connection).unwrap();
+        database::apply_migrations(&mut connection).unwrap();
+        let repo = InventoryRepository { connection };
+        let id = PokemonId::parse("00000000-0000-4000-8000-000000000000").unwrap();
+        let pokemon = repo.get(&id).unwrap();
+        assert_eq!(pokemon.display_name, "Legacy");
+        assert_eq!(pokemon.cp, Some(123));
+        assert_eq!(pokemon.ivs, None);
+        assert_eq!(pokemon.created_at, "2026-01-01 00:00:00");
+        assert_eq!(pokemon.updated_at, "2026-01-02 00:00:00");
+        let tags = repo.tags_for(&id).unwrap();
+        assert_eq!(tags.len(), 2);
+        let special = tags.iter().find(|t| t.name == "SAVE/SPECIAL").unwrap();
+        assert_eq!(special.id, TagId(original_tag.0));
+        assert_eq!(special.created_at, original_tag.1);
+        assert_eq!(special.scope, TagScope::Standard);
+        assert!(matches!(
+            repo.rename_custom_tag(special.id, "Changed"),
+            Err(Error::StandardTagImmutable)
+        ));
+        assert!(matches!(
+            repo.delete_custom_tag(special.id),
+            Err(Error::StandardTagImmutable)
+        ));
+        assert_eq!(repo.tags().unwrap().len(), 9);
+        assert_eq!(
+            repo.connection
+                .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            3
+        );
+    }
+
+    #[test]
+    fn failed_version_three_upgrade_restores_columns_versions_and_tag_guards() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        database::configure_connection(&connection).unwrap();
+        connection
+            .execute_batch(include_str!("../tests/fixtures/schema-v2.sql"))
+            .unwrap();
+        // Force a late failure after the migration has replaced tag guards.
+        connection
+            .execute_batch("CREATE TRIGGER reject_special BEFORE INSERT ON tags WHEN NEW.name = 'SAVE/SPECIAL' BEGIN SELECT RAISE(ABORT, 'Simulated seeding failure'); END;")
+            .unwrap();
+        assert!(database::apply_migrations(&mut connection).is_err());
+        assert_eq!(
+            connection
+                .query_row("SELECT max(version) FROM schema_migrations", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            2
+        );
+        assert!(connection
+            .prepare("SELECT iv_attack, iv_defense, iv_hp FROM pokemon")
+            .is_err());
+        assert!(connection
+            .execute("UPDATE tags SET name = 'Changed' WHERE id = 1", [])
+            .is_err());
+        assert_eq!(
+            connection
+                .query_row("SELECT count(*) FROM tags", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            8
+        );
+        assert!(connection
+            .execute(
+                "INSERT INTO tags (name, scope) VALUES ('NEW', 'standard')",
+                []
+            )
+            .is_err());
     }
 
     #[test]
@@ -347,6 +580,7 @@ mod tests {
                 &PokemonInput {
                     display_name: "Buddy".into(),
                     cp: None,
+                    ivs: None,
                 },
             )
             .unwrap();
@@ -397,7 +631,8 @@ mod tests {
             assert!(matches!(
                 repo.create(&PokemonInput {
                     display_name: "Buddy".into(),
-                    cp: Some(cp)
+                    cp: Some(cp),
+                    ivs: None,
                 }),
                 Err(Error::InvalidInput(_))
             ));
@@ -422,8 +657,15 @@ mod tests {
         assert_eq!(
             tags.iter().map(|t| t.name.as_str()).collect::<Vec<_>>(),
             vec![
-                "EVOLVE", "POWER UP", "ATTACKER", "GYM DEF", "ROCKET", "PVP 1500", "PVP 2500",
-                "TRANSFER"
+                "EVOLVE",
+                "POWER UP",
+                "ATTACKER",
+                "GYM DEF",
+                "ROCKET",
+                "PVP 1500",
+                "PVP 2500",
+                "TRANSFER",
+                "SAVE/SPECIAL"
             ]
         );
         assert!(tags.iter().all(|t| t.scope == TagScope::Standard));
@@ -445,6 +687,10 @@ mod tests {
         }
         assert!(matches!(
             repo.create_custom_tag("evolve"),
+            Err(Error::DuplicateTag)
+        ));
+        assert!(matches!(
+            repo.create_custom_tag("save/special"),
             Err(Error::DuplicateTag)
         ));
         let custom = repo.create_custom_tag("Favorites").unwrap();
@@ -562,8 +808,19 @@ mod tests {
                 .as_nanos()
         ));
         let repo = InventoryRepository::open(&path).unwrap();
-        let pokemon = repo.create(&input("Buddy")).unwrap();
-        let tag = repo.tags().unwrap()[0].clone();
+        let mut data = input("Buddy");
+        data.ivs = Some(AppraisalIvs {
+            attack: 15,
+            defense: 14,
+            hp: 13,
+        });
+        let pokemon = repo.create(&data).unwrap();
+        let tag = repo
+            .tags()
+            .unwrap()
+            .into_iter()
+            .find(|t| t.name == "SAVE/SPECIAL")
+            .unwrap();
         repo.assign_tag(&pokemon.id, tag.id).unwrap();
         drop(repo);
         let repo = InventoryRepository::open(&path).unwrap();
