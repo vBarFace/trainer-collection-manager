@@ -39,6 +39,24 @@ build/Release
 
 # Dependency directories
 node_modules/
+dist/
+coverage/
+src-tauri/target/
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+*.sqlite-shm
+*.sqlite-wal
+screenshots/
+models/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
 jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)
