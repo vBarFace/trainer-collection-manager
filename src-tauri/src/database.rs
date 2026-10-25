@@ -15,11 +15,11 @@ pub fn initialize(database_path: &Path) -> rusqlite::Result<()> {
     apply_migrations(&mut connection)
 }
 
-fn configure_connection(connection: &Connection) -> rusqlite::Result<()> {
+pub(crate) fn configure_connection(connection: &Connection) -> rusqlite::Result<()> {
     connection.execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;")
 }
 
-fn apply_migrations(connection: &mut Connection) -> rusqlite::Result<()> {
+pub(crate) fn apply_migrations(connection: &mut Connection) -> rusqlite::Result<()> {
     connection.execute_batch(
         "CREATE TABLE IF NOT EXISTS schema_migrations (
             version INTEGER PRIMARY KEY NOT NULL,
@@ -37,6 +37,75 @@ fn apply_migrations(connection: &mut Connection) -> rusqlite::Result<()> {
             ) STRICT;",
         )?;
         Ok(())
+    })?;
+    apply_migration(&transaction, 2, |transaction| {
+        transaction.execute_batch(
+            "CREATE TABLE pokemon (
+                id TEXT PRIMARY KEY NOT NULL CHECK (
+                    length(id) = 36 AND id = lower(id) AND
+                    substr(id, 9, 1) = '-' AND substr(id, 14, 1) = '-' AND
+                    substr(id, 19, 1) = '-' AND substr(id, 24, 1) = '-' AND
+                    length(replace(id, '-', '')) = 32 AND
+                    replace(id, '-', '') NOT GLOB '*[^0-9a-f]*' AND
+                    substr(id, 15, 1) = '4' AND substr(id, 20, 1) IN ('8','9','a','b')
+                ),
+                display_name TEXT NOT NULL CHECK (length(trim(display_name)) BETWEEN 1 AND 100),
+                cp INTEGER CHECK (cp > 0),
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) STRICT;
+            CREATE TRIGGER pokemon_id_immutable BEFORE UPDATE OF id ON pokemon
+                WHEN NEW.id != OLD.id BEGIN SELECT RAISE(ABORT, 'Pokemon UUID is immutable'); END;
+            CREATE TABLE tags (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL COLLATE NOCASE UNIQUE
+                    CHECK (name = trim(name) AND length(name) BETWEEN 1 AND 50),
+                scope TEXT NOT NULL CHECK (scope IN ('standard', 'local')),
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) STRICT;
+            INSERT INTO tags (name, scope) VALUES
+                ('EVOLVE', 'standard'), ('POWER UP', 'standard'),
+                ('ATTACKER', 'standard'), ('GYM DEF', 'standard'),
+                ('ROCKET', 'standard'), ('PVP 1500', 'standard'),
+                ('PVP 2500', 'standard'), ('TRANSFER', 'standard');
+            CREATE TRIGGER standard_tag_update BEFORE UPDATE ON tags
+                WHEN OLD.scope = 'standard' OR NEW.scope = 'standard'
+                BEGIN SELECT RAISE(ABORT, 'Standard tags are immutable'); END;
+            CREATE TRIGGER standard_tag_delete BEFORE DELETE ON tags
+                WHEN OLD.scope = 'standard'
+                BEGIN SELECT RAISE(ABORT, 'Standard tags are immutable'); END;
+            CREATE TRIGGER standard_tag_insert BEFORE INSERT ON tags
+                WHEN NEW.scope = 'standard'
+                BEGIN SELECT RAISE(ABORT, 'Standard tags are migration-owned'); END;
+            CREATE TABLE pokemon_tags (
+                pokemon_id TEXT NOT NULL REFERENCES pokemon(id) ON DELETE CASCADE,
+                tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (pokemon_id, tag_id)
+            ) STRICT;
+            CREATE INDEX pokemon_tags_by_tag ON pokemon_tags(tag_id, pokemon_id);",
+        )
+    })?;
+    apply_migration(&transaction, 3, |transaction| {
+        transaction.execute_batch(
+            "ALTER TABLE pokemon ADD COLUMN iv_attack INTEGER CHECK (iv_attack BETWEEN 0 AND 15);
+            ALTER TABLE pokemon ADD COLUMN iv_defense INTEGER CHECK (iv_defense BETWEEN 0 AND 15);
+            ALTER TABLE pokemon ADD COLUMN iv_hp INTEGER CHECK (iv_hp BETWEEN 0 AND 15)
+                CHECK (
+                    (iv_attack IS NULL AND iv_defense IS NULL AND iv_hp IS NULL) OR
+                    (iv_attack IS NOT NULL AND iv_defense IS NOT NULL AND iv_hp IS NOT NULL)
+                );
+            DROP TRIGGER standard_tag_insert;
+            DROP TRIGGER standard_tag_update;
+            INSERT INTO tags (name, scope) VALUES ('SAVE/SPECIAL', 'standard')
+                ON CONFLICT(name) DO UPDATE SET name = 'SAVE/SPECIAL', scope = 'standard';
+            CREATE TRIGGER standard_tag_update BEFORE UPDATE ON tags
+                WHEN OLD.scope = 'standard' OR NEW.scope = 'standard'
+                BEGIN SELECT RAISE(ABORT, 'Standard tags are immutable'); END;
+            CREATE TRIGGER standard_tag_insert BEFORE INSERT ON tags
+                WHEN NEW.scope = 'standard'
+                BEGIN SELECT RAISE(ABORT, 'Standard tags are migration-owned'); END;",
+        )
     })?;
     transaction.commit()
 }
@@ -71,6 +140,77 @@ mod tests {
     use super::*;
 
     #[test]
+    fn version_one_upgrade_preserves_settings_and_is_idempotent() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        configure_connection(&connection).unwrap();
+        // The exact schema produced by Task 001, before inventory existed.
+        connection
+            .execute_batch(
+                "CREATE TABLE schema_migrations (
+                version INTEGER PRIMARY KEY NOT NULL,
+                applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) STRICT;
+            INSERT INTO schema_migrations (version) VALUES (1);
+            CREATE TABLE application_settings (
+                key TEXT PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) STRICT;
+            INSERT INTO application_settings (key, value) VALUES ('example', 'preserved');",
+            )
+            .unwrap();
+        apply_migrations(&mut connection).unwrap();
+        apply_migrations(&mut connection).unwrap();
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT value FROM application_settings WHERE key = 'example'",
+                    [],
+                    |r| r.get::<_, String>(0)
+                )
+                .unwrap(),
+            "preserved"
+        );
+        assert_eq!(
+            connection
+                .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            3
+        );
+        assert_eq!(
+            connection
+                .query_row("SELECT count(*) FROM tags", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            9
+        );
+        assert_eq!(
+            connection
+                .query_row("SELECT count(*) FROM pokemon", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn failed_inventory_migration_rolls_back_without_recording_version() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        // Simulate a conflicting table: failure must not leave half a migration.
+        connection
+            .execute_batch("CREATE TABLE tags (id INTEGER);")
+            .unwrap();
+        assert!(apply_migrations(&mut connection).is_err());
+        assert_eq!(
+            connection
+                .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        assert_eq!(connection.query_row("SELECT count(*) FROM sqlite_master WHERE name IN ('pokemon', 'application_settings')", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    }
+
+    #[test]
     fn migrations_create_metadata_schema_and_are_idempotent() {
         let temporary_directory = std::env::temp_dir().join(format!(
             "tcm-db-test-{}-{}",
@@ -87,11 +227,11 @@ mod tests {
 
         let connection = Connection::open(database_path).expect("database should open");
         let version: i64 = connection
-            .query_row("SELECT version FROM schema_migrations", [], |row| {
+            .query_row("SELECT max(version) FROM schema_migrations", [], |row| {
                 row.get(0)
             })
             .expect("migration version should be recorded");
-        assert_eq!(version, 1);
+        assert_eq!(version, 3);
         drop(connection);
 
         fs::remove_dir_all(temporary_directory).expect("temporary database should be removable");

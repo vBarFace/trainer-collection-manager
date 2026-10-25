@@ -1,4 +1,5 @@
 mod database;
+pub mod inventory;
 
 use std::path::PathBuf;
 use tauri::{Manager, Runtime};
