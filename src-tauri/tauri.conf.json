@@ -26,6 +26,7 @@
   "bundle": {
     "active": true,
     "targets": "nsis",
+    "icon": ["icons/icon.ico"],
     "copyright": "Copyright (c) 2026 Trainer Collection Manager contributors"
   }
 }

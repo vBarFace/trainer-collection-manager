@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title>Trainer Collection Manager</title>
+  <rect width="512" height="512" rx="112" fill="#18242e"/>
+  <path d="M256 99 410 188v136L256 413 102 324V188z" fill="#71d6b1"/>
+  <path d="m256 158 103 59v78l-103 59-103-59v-78z" fill="#18242e"/>
+  <circle cx="256" cy="256" r="48" fill="#71d6b1"/>
+  <circle cx="256" cy="256" r="21" fill="#18242e"/>
+</svg>
