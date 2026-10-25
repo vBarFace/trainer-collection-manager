@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "inventory-review"
+description = "Read local structured inventory, select one bounded image via a native picker, and confirm a reviewed record. No paths or arbitrary queries are accepted."
+commands.allow = ["inventory_snapshot", "select_screenshot", "confirm_inventory_import"]

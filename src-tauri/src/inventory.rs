@@ -32,6 +32,21 @@ impl PokemonId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TagId(i64);
 
+impl TagId {
+    pub fn as_i64(self) -> i64 {
+        self.0
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        value
+            .parse::<i64>()
+            .ok()
+            .filter(|id| *id > 0)
+            .map(Self)
+            .ok_or(Error::InvalidInput("Expected a positive tag identifier"))
+    }
+}
+
 /// Appraisal values, distinct from species base stats and observed HP.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AppraisalIvs {
@@ -208,6 +223,39 @@ impl InventoryRepository {
         self.get(&id)
     }
 
+    /// The record and all assignments commit together. Failed assignments roll back
+    /// even when a previous assignment succeeded. Matching values are new identities.
+    pub fn create_with_tags(
+        &self,
+        input: &PokemonInput,
+        tags: &[TagId],
+    ) -> Result<(Pokemon, Vec<Tag>)> {
+        let transaction = self.connection.unchecked_transaction()?;
+        let pokemon = self.create(input)?;
+        for tag in tags {
+            self.assign_tag(&pokemon.id, *tag)?;
+        }
+        let assigned = self.tags_for(&pokemon.id)?;
+        transaction.commit()?;
+        Ok((pokemon, assigned))
+    }
+
+    /// A consistent read of records, assignments and available tags.
+    pub fn snapshot(&self) -> Result<(Vec<(Pokemon, Vec<Tag>)>, Vec<Tag>)> {
+        let transaction = self.connection.unchecked_transaction()?;
+        let records = self
+            .list()?
+            .into_iter()
+            .map(|pokemon| {
+                let tags = self.tags_for(&pokemon.id)?;
+                Ok((pokemon, tags))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let tags = self.tags()?;
+        transaction.commit()?;
+        Ok((records, tags))
+    }
+
     pub fn get(&self, id: &PokemonId) -> Result<Pokemon> {
         self.connection
             .query_row(
@@ -362,6 +410,43 @@ mod tests {
         }
     }
 
+    #[test]
+    fn confirmed_import_is_atomic_and_keeps_independent_identities() {
+        let repo = repository();
+        let custom = repo.create_custom_tag("Local favorite").unwrap();
+        let special = repo
+            .tags()
+            .unwrap()
+            .into_iter()
+            .find(|tag| tag.name == "SAVE/SPECIAL")
+            .unwrap();
+        let mut data = input("Reviewed");
+        data.cp = Some(i64::MAX);
+        data.ivs = Some(AppraisalIvs {
+            attack: 0,
+            defense: 14,
+            hp: 15,
+        });
+        let (first, tags) = repo
+            .create_with_tags(&data, &[special.id, custom.id])
+            .unwrap();
+        assert_eq!(tags.len(), 2);
+        assert!(tags.contains(&special));
+        assert!(tags.contains(&custom));
+        let (second, _) = repo.create_with_tags(&data, &[special.id]).unwrap();
+        assert_ne!(first.id, second.id);
+        let before = repo.snapshot().unwrap();
+        assert!(repo
+            .create_with_tags(&data, &[special.id, TagId(i64::MAX)])
+            .is_err());
+        assert_eq!(repo.snapshot().unwrap(), before);
+        // Exercise an actual SQL failure after one assignment succeeds.
+        repo.connection.execute_batch("CREATE TRIGGER fail_assignment BEFORE INSERT ON pokemon_tags WHEN NEW.tag_id = 9 BEGIN SELECT RAISE(ABORT, 'Simulated failure'); END;").unwrap();
+        assert!(repo
+            .create_with_tags(&data, &[custom.id, special.id])
+            .is_err());
+        assert_eq!(repo.snapshot().unwrap(), before);
+    }
     #[test]
     fn ivs_round_trip_update_clear_and_reject_out_of_range_values() {
         let repo = repository();

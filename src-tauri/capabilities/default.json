@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Minimal desktop capability. No filesystem, shell, process, network, SQL or plugin permissions are granted.",
+  "description": "Main-window local inventory review only. No generic filesystem, network, SQL, shell or dialog plugin access.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "inventory-review"]
 }
