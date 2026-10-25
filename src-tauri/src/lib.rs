@@ -14,8 +14,12 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let path = database_path(&app.handle())?;
-            database::initialize(&path)
-                .map_err(|error| format!("Unable to initialize the local database at {}: {error}", path.display()))?;
+            database::initialize(&path).map_err(|error| {
+                format!(
+                    "Unable to initialize the local database at {}: {error}",
+                    path.display()
+                )
+            })?;
             Ok(())
         })
         .run(tauri::generate_context!())
