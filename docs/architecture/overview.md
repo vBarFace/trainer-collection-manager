@@ -1,14 +1,13 @@
 # Architecture overview
 
-## Implemented
+The desktop process uses Tauri 2 and Rust. React + TypeScript renders accessible local inventory review and placeholder navigation. Rust resolves the per-user application-data directory, opens `trainer-collection-manager.sqlite3`, enables foreign keys/WAL and applies ordered migrations.
 
-The desktop process uses Tauri 2 and Rust. React + TypeScript is the renderer, built by Vite. The Rust startup path resolves Tauri's per-user application-data directory, opens `trainer-collection-manager.sqlite3`, enables foreign keys/WAL, and applies ordered migrations. The renderer has no direct database or filesystem access.
+- `src/Inventory.tsx`: manual screenshot review, explicit save confirmation and persisted record list.
+- `src/native.ts`: narrow typed IPC contracts, with CP and tag IDs represented as decimal strings.
+- `src-tauri/src/screenshot.rs`: native picker, bounded local image validation and metadata-free pixel preview.
+- `src-tauri/src/commands.rs`: typed inputs, safe error mapping and presentation DTOs; no image fields in save inputs.
+- `src-tauri/src/database.rs`: initialization and immutable migrations.
+- `src-tauri/src/inventory.rs`: domain validation, structured persistence and atomic record/tag creation.
+- `src-tauri/build.rs`, `permissions/` and `capabilities/default.json`: command ACL restricted to the local main window. No generic filesystem, shell, process, HTTP, SQL or dialog plugin access.
 
-## Boundaries
-
-- `src/`: accessible presentation only.
-- `src-tauri/src/database.rs`: typed persistence initialization and migrations.
-- `src-tauri/src/inventory.rs`: native typed inventory repository and validation; no renderer commands yet.
-- `src-tauri/capabilities/default.json`: least-privilege capability allowlist; no filesystem, shell, process, HTTP or SQL-plugin access.
-
-Future UI/native communication must use narrow, typed commands. Never expose arbitrary SQL, file paths or unrestricted LLM tools to the renderer.
+The renderer never executes SQL or supplies a file/database path. Images stay in temporary native/renderer memory; only explicitly confirmed structured data is persisted. See [manual screenshot review](../development/screenshot-review.md) for limits and contracts. OCR and automatic extraction remain deferred.

@@ -8,9 +8,10 @@ An open-source, offline-first Windows desktop foundation for Pokémon GO collect
 - Local SQLite initialization in the per-user application-data directory.
 - Ordered SQLite migrations for application settings and normalized Pokémon inventory/tags.
 - Native typed Rust inventory CRUD and tagging APIs, including optional appraisal IVs and the `SAVE/SPECIAL` standard tag, with validation and persistence tests.
+- Native PNG/JPEG selection, local preview and manual review with explicit confirmed inventory saving and a persistent list.
 - Strict frontend linting, formatting, typechecking, unit-test and CI configuration.
 
-The Inventory, Recommendations, Teams, Bag and Settings views are intentionally placeholders. Inventory persistence exists in Rust only; no inventory UI or renderer commands are connected yet. There is no screenshot/OCR processing, AI, telemetry, cloud service, game automation, data import or external dataset in this release.
+Inventory supports [manual screenshot review](docs/development/screenshot-review.md) and confirmed saving of display name, optional CP, optional grouped appraisal IVs and existing tags. Recommendations, Teams, Bag and Settings remain placeholders. OCR, automatic extraction, AI, cloud, telemetry, game automation and external datasets are deferred.
 
 ## Quick start (Windows)
 
@@ -25,7 +26,7 @@ See [development setup](docs/development/setup.md) for all commands and prerequi
 
 ## Privacy and data
 
-The application is designed to be useful without an account or network connection. Its SQLite database is created under the application data directory resolved by Tauri; it is excluded from Git. Screenshots and user originals are not handled by this foundation.
+The application is designed to be useful without an account or network connection. Its SQLite database is created under the application data directory resolved by Tauri; it is excluded from Git. Screenshots are opened read-only, validated and previewed in memory. Original image bytes, metadata, paths and filenames are never stored in the application database or copied into application storage. Only explicitly confirmed structured records and tags are saved.
 
 ## Contributing
 

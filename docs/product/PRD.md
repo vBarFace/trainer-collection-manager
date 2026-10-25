@@ -6,7 +6,7 @@ Trainer Collection Manager is a free, open-source, offline-first desktop app for
 
 ## Foundation scope
 
-This release establishes a Windows Tauri shell and private local metadata database. Navigation is placeholder-only. No Pokémon records, account integration, screenshot ingestion, OCR, recommendations, teams, simulations, local LLM runtime, datasets, telemetry or cloud capability is implemented.
+This release provides a Windows Tauri shell, private local inventory and manual screenshot review. Users select one local PNG/JPEG, review a temporary preview, manually enter supported fields/tags and explicitly confirm saving. Inventory lists persisted records after restart. OCR and automatic extraction, account integration, recommendations, teams, simulations, local LLM runtime, datasets, telemetry and cloud capabilities are deferred.
 
 ## Product principles
 
@@ -17,4 +17,4 @@ This release establishes a Windows Tauri shell and private local metadata databa
 
 ## Future constraints
 
-Each Pokémon instance must have a stable UUID. Initial standard tags are `EVOLUIR`, `POWER UP`, `ATACANTE`, `DEF GYM`, `ROCKET`, `PVP 1500`, `PVP 2500`, and `TRANSFERIR`; custom tags are allowed. IV appraisal and second attacks are fields/features, not default tags.
+Each Pokémon instance must have a stable UUID. Standard tags are `EVOLVE`, `POWER UP`, `ATTACKER`, `GYM DEF`, `ROCKET`, `PVP 1500`, `PVP 2500`, `TRANSFER`, and `SAVE/SPECIAL`; custom tags are allowed. IV appraisal and second attacks are fields/features, not default tags.
