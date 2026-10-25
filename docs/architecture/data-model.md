@@ -32,6 +32,10 @@ Typed APIs provide `create`, `get`, `list`, `update`, `delete`, `tags`, `create_
 
 All queries and bound parameters remain in Rust. No arbitrary SQL, SQL plugin or generic database Tauri command is exposed. Task 003 adds three narrow review commands; `create_with_tags` atomically creates a record and its assignments and `snapshot` reads records and tags consistently. CP and tag IDs cross IPC as decimal strings to preserve the full SQLite integer range. See [manual review](../development/screenshot-review.md) for native contracts. There are no image blobs, external identifiers, account fields or network calls.
 
+## Evaluation workflow presentation
+
+All current records are presented as awaiting evaluation. No evaluation engine, completed outcome or evaluated transition exists yet, so this is a presentation state for the entire current inventory, not a stored tag or column. Import review sends no tag assignments; previously stored tags and the native tagging contract remain unchanged. Future evaluation must define durable outcomes, versions and state transitions before evaluated records can be distinguished.
+
 ## Deferred fields and derived data
 
 Species/form identifiers, species base stats, observed HP, shiny status, second-attack state, fast/charged moves, level, capture details, provenance and import validation state remain unimplemented until their definitions and validation rules are reviewed. Appraisal IVs are separate from species base stats, moves and observed CP/HP. This layer stores observed CP and appraisal IVs without calculating their relationship. Second attacks must be explicit structured fields if introduced, never inferred from tags. Imported screenshot data must be user-reviewed before persistence; original image files must not be retained by default.

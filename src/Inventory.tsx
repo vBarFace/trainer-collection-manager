@@ -124,7 +124,9 @@ export function Inventory() {
       );
       releasePreview();
       setFields(emptyReview);
-      setStatus(`Saved ${record.displayName} to your local inventory.`);
+      setStatus(
+        `Saved ${record.displayName} to your local inventory. Awaiting evaluation.`,
+      );
     } catch (failure) {
       if (mounted.current)
         setError(
@@ -139,7 +141,7 @@ export function Inventory() {
     }
   }
 
-  function changeField(key: keyof Omit<ReviewFields, "tagIds">, value: string) {
+  function changeField(key: keyof ReviewFields, value: string) {
     setFields((current) => ({ ...current, [key]: value }));
   }
   const busy = phase !== "idle";
@@ -156,6 +158,10 @@ export function Inventory() {
         <p>
           The screenshot stays local and is released after review. Only the
           fields you explicitly confirm are saved.
+        </p>
+        <p>
+          Review confirms the Pokémon’s data only. Confirmed records await
+          evaluation; evaluation and automatic tagging are not available yet.
         </p>
         <button
           ref={selectButton}
@@ -242,33 +248,8 @@ export function Inventory() {
                     </label>
                   ))}
                 </fieldset>
-                <fieldset>
-                  <legend>Existing tags (optional)</legend>
-                  {snapshot?.tags.map((tag) => (
-                    <label key={tag.id}>
-                      <input
-                        type="checkbox"
-                        checked={fields.tagIds.includes(tag.id)}
-                        onChange={(event) =>
-                          setFields((current) => ({
-                            ...current,
-                            tagIds: event.target.checked
-                              ? [...current.tagIds, tag.id]
-                              : current.tagIds.filter((id) => id !== tag.id),
-                          }))
-                        }
-                      />
-                      {tag.name}
-                      {tag.scope === "local" ? " (custom)" : ""}
-                    </label>
-                  ))}
-                  <p>
-                    SAVE/SPECIAL is your choice to retain a Pokémon; it does not
-                    identify shiny status.
-                  </p>
-                </fieldset>
                 <p>
-                  Confirm to save one new record with these details and tags.
+                  Confirm these data to save a new record awaiting evaluation.
                 </p>
                 <button type="submit">Confirm and save</button>{" "}
                 <button type="button" onClick={cancelReview}>
@@ -280,7 +261,11 @@ export function Inventory() {
         )}
       </section>
       <section aria-labelledby="records-title">
-        <h2 id="records-title">Saved inventory</h2>
+        <h2 id="records-title">Awaiting evaluation</h2>
+        <p>
+          Existing tags are preserved and do not indicate a completed
+          evaluation.
+        </p>
         {loadError ? (
           <div role="alert">
             <p>{loadError}</p>
@@ -291,12 +276,13 @@ export function Inventory() {
         ) : !snapshot ? (
           <p role="status">Loading local inventory…</p>
         ) : snapshot.records.length === 0 ? (
-          <p>No saved Pokémon yet.</p>
+          <p>No Pokémon awaiting evaluation yet.</p>
         ) : (
           <ul className="inventory-list">
             {snapshot.records.map((record) => (
               <li key={record.id}>
                 <h3>{record.displayName}</h3>
+                <p>Evaluation: Pending</p>
                 <p>CP: {record.cp ?? "Unknown"}</p>
                 <p>
                   Appraisal IVs:{" "}

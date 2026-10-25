@@ -15,7 +15,7 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Inventory" }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText("No saved Pokémon yet."),
+      await screen.findByText("No Pokémon awaiting evaluation yet."),
     ).toBeInTheDocument();
   });
 });

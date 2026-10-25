@@ -1,5 +1,7 @@
 # Task 003 validation
 
+Initial implementation results (before the data-only review follow-up below).
+
 Date: 2026-10-25. Scope: local screenshot selection, manual review and confirmed inventory import.
 
 ## Automated checks
@@ -32,3 +34,18 @@ The synthetic fixture contains no Pokémon artwork or personal data and remains 
 ## Review
 
 Existing migrations 1–3 remain unchanged. New commands are enrolled in the Tauri ACL and granted only to the local main window; no filesystem/dialog plugin or broad arbitrary read capability was added. SQL and authoritative validation remain in Rust. No image field exists in save DTOs or the database schema. The native picker reads originals without writing and returns only a sanitized temporary pixel preview. The diff was reviewed for scope, privacy, transaction behavior and numeric precision.
+
+## Follow-up: data-only review and awaiting evaluation
+
+The importer no longer asks for tags and always sends an empty tag list through the unchanged native contract. The record list and save success message explicitly indicate awaiting evaluation. All current records have no completed evaluation; existing tags remain displayed and do not alter that state. No Rust code, migrations, dependency, capability or stored record was changed.
+
+Updated regression tests cover importing without tag controls or assignments, pending presentation after confirmation and remount, retained data on retry, and preservation of existing standard/custom tags. Original Task 003 results above remain historical; the follow-up checks are recorded below.
+
+- `npm run check`: stopped at the same pre-existing Prettier CRLF/LF issues in 20 untouched files; no formatter rules or unrelated files were changed.
+- Targeted Prettier checks: all 12 changed source/document files passed.
+- `npm run lint` and `npm run typecheck`: passed without warnings.
+- `npm test`: 13 tests in 2 files passed outside the sandbox. The initial sandbox attempt again failed before loading tests with a Vitest temporary-file rename `EPERM`; the approved retry passed.
+- `npm run rust:fmt` and `npm run rust:check`: passed. Existing incremental-cache hard-link warnings remained; no Rust source changed, so the original 24-test native suite was not rerun for this UI-only follow-up.
+- `npm run tauri:build`: passed outside the sandbox using the existing NSIS cache; both the release executable and local installer were rebuilt with the updated UI. The existing `.app` bundle-identifier advisory remained.
+- `git diff --check`: passed. Native sources, migrations, dependency manifests/lockfiles and permissions are unchanged.
+- Native GUI smoke verification was not repeated; the original partial smoke-test limitations above still apply.

@@ -2,7 +2,7 @@
 
 The desktop process uses Tauri 2 and Rust. React + TypeScript renders accessible local inventory review and placeholder navigation. Rust resolves the per-user application-data directory, opens `trainer-collection-manager.sqlite3`, enables foreign keys/WAL and applies ordered migrations.
 
-- `src/Inventory.tsx`: manual screenshot review, explicit save confirmation and persisted record list.
+- `src/Inventory.tsx`: manual data review without tag selection, explicit save confirmation and persisted records presented as awaiting evaluation. Existing tags are displayed without implying completed evaluation.
 - `src/native.ts`: narrow typed IPC contracts, with CP and tag IDs represented as decimal strings.
 - `src-tauri/src/screenshot.rs`: native picker, bounded local image validation and metadata-free pixel preview.
 - `src-tauri/src/commands.rs`: typed inputs, safe error mapping and presentation DTOs; no image fields in save inputs.

@@ -6,7 +6,6 @@ export interface ReviewFields {
   attack: string;
   defense: string;
   hp: string;
-  tagIds: string[];
 }
 export const emptyReview: ReviewFields = {
   displayName: "",
@@ -14,7 +13,6 @@ export const emptyReview: ReviewFields = {
   attack: "",
   defense: "",
   hp: "",
-  tagIds: [],
 };
 
 export function validateReview(fields: ReviewFields): ImportInput | string {
@@ -49,6 +47,6 @@ export function validateReview(fields: ReviewFields): ImportInput | string {
           defense: Number(fields.defense),
           hp: Number(fields.hp),
         },
-    tagIds: fields.tagIds,
+    tagIds: [],
   };
 }

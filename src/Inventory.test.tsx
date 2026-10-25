@@ -37,6 +37,7 @@ const saved: InventoryRecord = {
   ivs: { attack: 0, defense: 14, hp: 15 },
   tags: [special, custom],
 };
+const imported: InventoryRecord = { ...saved, tags: [] };
 let createObjectURL: ReturnType<typeof vi.fn>;
 let revokeObjectURL: ReturnType<typeof vi.fn>;
 
@@ -47,7 +48,7 @@ beforeEach(() => {
     tags: [special, custom],
   });
   vi.mocked(native.selectScreenshot).mockResolvedValue(image);
-  vi.mocked(native.confirmImport).mockResolvedValue(saved);
+  vi.mocked(native.confirmImport).mockResolvedValue(imported);
   createObjectURL = vi.fn().mockReturnValue("blob:local-review");
   revokeObjectURL = vi.fn();
   Object.defineProperty(URL, "createObjectURL", {
@@ -147,7 +148,7 @@ describe("manual review validation", () => {
 });
 
 describe("Inventory manual import", () => {
-  it("renders records retrieved from persistence with exact CP, IVs and tags", async () => {
+  it("keeps retrieved records pending across remount and preserves existing tags", async () => {
     vi.mocked(native.snapshot).mockResolvedValue({
       records: [saved],
       tags: [special, custom],
@@ -163,6 +164,18 @@ describe("Inventory manual import", () => {
     expect(
       screen.getByText("Tags: SAVE/SPECIAL, Favorites"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Awaiting evaluation" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Evaluation: Pending")).toBeInTheDocument();
+    cleanup();
+    render(<Inventory />);
+    await screen.findByRole("heading", { name: "Buddy" });
+    expect(screen.getByText("Evaluation: Pending")).toBeInTheDocument();
+    expect(
+      screen.getByText("Tags: SAVE/SPECIAL, Favorites"),
+    ).toBeInTheDocument();
+    expect(native.confirmImport).not.toHaveBeenCalled();
   });
   it("does not persist during review or cancellation and releases preview", async () => {
     render(<Inventory />);
@@ -176,7 +189,7 @@ describe("Inventory manual import", () => {
     await selectImage();
     expect(screen.getByLabelText("Display name (required)")).toHaveValue("");
   });
-  it("saves explicitly confirmed values/tags then renders the returned record", async () => {
+  it("saves confirmed data without tag assignments and displays the record awaiting evaluation", async () => {
     render(<Inventory />);
     await selectImage();
     fillName();
@@ -192,20 +205,23 @@ describe("Inventory manual import", () => {
     fireEvent.change(screen.getByLabelText("HP IV"), {
       target: { value: "15" },
     });
-    fireEvent.click(screen.getByLabelText("SAVE/SPECIAL"));
-    fireEvent.click(screen.getByLabelText("Favorites (custom)"));
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Confirm and save" }));
-    await screen.findByText("Saved Buddy to your local inventory.");
+    await screen.findByText(
+      "Saved Buddy to your local inventory. Awaiting evaluation.",
+    );
     expect(native.confirmImport).toHaveBeenCalledExactlyOnceWith({
       displayName: "Buddy",
       cp: "9223372036854775807",
       ivs: { attack: 0, defense: 14, hp: 15 },
-      tagIds: ["9", "10"],
+      tagIds: [],
     });
     expect(screen.getByRole("heading", { name: "Buddy" })).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(revokeObjectURL).toHaveBeenCalledTimes(1);
     expect(native.snapshot).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Evaluation: Pending")).toBeInTheDocument();
+    expect(screen.getByText("Tags: None")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Select screenshot" }),
     ).toHaveFocus();
@@ -232,7 +248,15 @@ describe("Inventory manual import", () => {
     fireEvent.change(screen.getByLabelText("CP (optional)"), {
       target: { value: "9007199254740993" },
     });
-    fireEvent.click(screen.getByLabelText("SAVE/SPECIAL"));
+    fireEvent.change(screen.getByLabelText("Attack IV"), {
+      target: { value: "0" },
+    });
+    fireEvent.change(screen.getByLabelText("Defense IV"), {
+      target: { value: "14" },
+    });
+    fireEvent.change(screen.getByLabelText("HP IV"), {
+      target: { value: "15" },
+    });
     const submit = screen.getByRole("button", { name: "Confirm and save" });
     const form = submit.closest("form")!;
     fireEvent.submit(form);
@@ -257,11 +281,15 @@ describe("Inventory manual import", () => {
     expect(screen.getByLabelText("CP (optional)")).toHaveValue(
       "9007199254740993",
     );
-    expect(screen.getByLabelText("SAVE/SPECIAL")).toBeChecked();
+    expect(screen.getByLabelText("Attack IV")).toHaveValue("0");
+    expect(screen.getByLabelText("Defense IV")).toHaveValue("14");
+    expect(screen.getByLabelText("HP IV")).toHaveValue("15");
     expect(screen.getByRole("img")).toBeInTheDocument();
     expect(revokeObjectURL).not.toHaveBeenCalled();
     fireEvent.click(submit);
-    await screen.findByText("Saved Buddy to your local inventory.");
+    await screen.findByText(
+      "Saved Buddy to your local inventory. Awaiting evaluation.",
+    );
     expect(native.confirmImport).toHaveBeenCalledTimes(2);
   });
   it("releases replaced preview even when native picker is cancelled", async () => {

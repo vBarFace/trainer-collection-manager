@@ -11,7 +11,7 @@ An open-source, offline-first Windows desktop foundation for Pokémon GO collect
 - Native PNG/JPEG selection, local preview and manual review with explicit confirmed inventory saving and a persistent list.
 - Strict frontend linting, formatting, typechecking, unit-test and CI configuration.
 
-Inventory supports [manual screenshot review](docs/development/screenshot-review.md) and confirmed saving of display name, optional CP, optional grouped appraisal IVs and existing tags. Recommendations, Teams, Bag and Settings remain placeholders. OCR, automatic extraction, AI, cloud, telemetry, game automation and external datasets are deferred.
+Inventory supports [manual screenshot review](docs/development/screenshot-review.md) and confirmed saving of display name, optional CP and optional grouped appraisal IVs. Confirmed records appear in **Awaiting evaluation**. Import review confirms data only; it does not ask for classification tags. Previously saved tags remain visible. Evaluation and automatic tagging are deferred. Recommendations, Teams, Bag and Settings remain placeholders. OCR, automatic extraction, AI, cloud, telemetry, game automation and external datasets are deferred.
 
 ## Quick start (Windows)
 
