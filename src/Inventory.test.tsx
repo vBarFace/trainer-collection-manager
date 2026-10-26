@@ -23,6 +23,7 @@ vi.mock("./native", async (importOriginal) => {
       selectScreenshot: vi.fn(),
       confirmImport: vi.fn(),
       evaluate: vi.fn(),
+      correctIvs: vi.fn(),
     },
   };
 });
@@ -630,6 +631,316 @@ describe("persisted appraisal evaluation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Evaluate appraisal" }));
     next.unmount();
     await act(async () => pending.resolve(evaluated));
+    expect(native.confirmImport).not.toHaveBeenCalled();
+  });
+});
+
+describe("confirmed saved-IV corrections", () => {
+  const appraised: InventoryRecord = {
+    ...saved,
+    evaluation: {
+      ...saved.evaluation,
+      state: "evaluated",
+      rulesetVersion: "appraisal-1",
+      evaluatedAt: "2026-10-26 12:00:00",
+      result: {
+        ivs: saved.ivs,
+        total: 29,
+        appraisalPercentage: (29 * 100) / 45,
+        perfect: false,
+        findings: [],
+        recommendations: [],
+        missingData: [],
+        limitations: ["Appraisal is descriptive only."],
+      },
+    },
+  };
+  const corrected: InventoryRecord = {
+    ...appraised,
+    ivs: { attack: 15, defense: 15, hp: 15 },
+    evaluation: { ...appraised.evaluation, state: "stale", result: null },
+  };
+  async function openCorrection() {
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Review appraisal for Buddy" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Correct saved IVs" }));
+    expect(screen.getByLabelText("Corrected attack IV")).toHaveFocus();
+  }
+  function changeIvs(attack: string, defense: string, hp: string) {
+    for (const [label, value] of [
+      ["Corrected attack IV", attack],
+      ["Corrected defense IV", defense],
+      ["Corrected HP IV", hp],
+    ])
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  }
+  beforeEach(() => {
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [appraised],
+      tags: [special, custom],
+    });
+    vi.mocked(native.correctIvs).mockResolvedValue(corrected);
+  });
+  it("prefills saved IVs, keeps edits as drafts and cancels without writes", async () => {
+    render(<Inventory />);
+    await openCorrection();
+    expect(screen.getByLabelText("Corrected attack IV")).toHaveValue("0");
+    expect(screen.getByLabelText("Corrected defense IV")).toHaveValue("14");
+    expect(screen.getByLabelText("Corrected HP IV")).toHaveValue("15");
+    expect(
+      screen.getByRole("button", { name: "Re-evaluate appraisal" }),
+    ).toBeDisabled();
+    changeIvs("15", "15", "15");
+    expect(screen.getByText("Evaluation: Evaluated")).toBeInTheDocument();
+    expect(native.correctIvs).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Cancel IV correction" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Correct saved IVs" }),
+    ).toHaveFocus();
+    expect(
+      screen.queryByLabelText("Corrected attack IV"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Correct saved IVs" }));
+    expect(screen.getByLabelText("Corrected attack IV")).toHaveValue("0");
+    expect(native.confirmImport).not.toHaveBeenCalled();
+    expect(native.correctIvs).not.toHaveBeenCalled();
+    expect(native.evaluate).not.toHaveBeenCalled();
+  });
+  it("validates groups before saving and requires confirmation before clearing to unknown", async () => {
+    const cleared: InventoryRecord = { ...corrected, ivs: null };
+    vi.mocked(native.correctIvs).mockResolvedValue(cleared);
+    render(<Inventory />);
+    await openCorrection();
+    for (const attack of ["16", "-1", "1.5", "1e1", " "]) {
+      changeIvs(attack, "14", "15");
+      fireEvent.click(
+        screen.getByRole("button", { name: "Confirm IV correction" }),
+      );
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Leave all three appraisal IVs empty",
+      );
+    }
+    changeIvs("0", "", "15");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm IV correction" }),
+    );
+    expect(native.correctIvs).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mark all IVs unknown" }),
+    );
+    for (const label of [
+      "Corrected attack IV",
+      "Corrected defense IV",
+      "Corrected HP IV",
+    ])
+      expect(screen.getByLabelText(label)).toHaveValue("");
+    expect(native.correctIvs).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm IV correction" }),
+    );
+    await screen.findByText(/IV correction saved/);
+    expect(native.correctIvs).toHaveBeenCalledExactlyOnceWith(
+      saved.id,
+      saved.ivs,
+      null,
+    );
+    expect(screen.getByText("Appraisal IVs: Unknown")).toBeInTheDocument();
+    expect(screen.getByText("Evaluation: Stale")).toBeInTheDocument();
+    expect(native.evaluate).not.toHaveBeenCalled();
+  });
+  it("saves only confirmed IVs once, shows stale state and permits a separate re-evaluation", async () => {
+    const pending = deferred<InventoryRecord>();
+    vi.mocked(native.correctIvs).mockReturnValueOnce(pending.promise);
+    vi.mocked(native.evaluate).mockResolvedValue({
+      ...corrected,
+      evaluation: {
+        ...appraised.evaluation,
+        result: {
+          ...appraised.evaluation.result!,
+          ivs: corrected.ivs,
+          total: 45,
+          appraisalPercentage: 100,
+          perfect: true,
+        },
+      },
+    });
+    render(<Inventory />);
+    await openCorrection();
+    changeIvs("15", "15", "15");
+    const form = screen.getByRole("form", {
+      name: "Correct saved appraisal IVs",
+    });
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    expect(native.correctIvs).toHaveBeenCalledExactlyOnceWith(
+      saved.id,
+      saved.ivs,
+      corrected.ivs,
+    );
+    expect(screen.getByLabelText("Corrected attack IV")).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Cancel IV correction" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Review appraisal for Buddy" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Re-evaluate appraisal" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText("Saving confirmed IV corrections locally…"),
+    ).toBeInTheDocument();
+    await act(async () => pending.resolve(corrected));
+    expect(screen.getByText("Evaluation: Stale")).toBeInTheDocument();
+    expect(
+      screen.getByText("Appraisal IVs: 15 / 15 / 15 (attack / defense / HP)"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Total appraisal IVs: 29 / 45"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("CP: 9223372036854775807")).toBeInTheDocument();
+    expect(
+      screen.getByText("Tags: SAVE/SPECIAL, Favorites"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Correct saved IVs" }),
+    ).toHaveFocus();
+    expect(native.evaluate).not.toHaveBeenCalled();
+    expect(native.confirmImport).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Re-evaluate appraisal" }),
+    );
+    await screen.findByText("Appraisal percentage: 100.00%");
+    expect(native.evaluate).toHaveBeenCalledExactlyOnceWith(saved.id);
+    cleanup();
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [corrected],
+      tags: [special, custom],
+    });
+    render(<Inventory />);
+    await openCorrection();
+    expect(screen.getByLabelText("Corrected attack IV")).toHaveValue("15");
+    expect(screen.getByText("Evaluation: Stale")).toBeInTheDocument();
+  });
+  it("retains corrected values on a safe failure and saves them on retry", async () => {
+    vi.mocked(native.correctIvs).mockRejectedValueOnce("private path or SQL");
+    render(<Inventory />);
+    await openCorrection();
+    changeIvs("15", "15", "15");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm IV correction" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Your draft is retained; try again.",
+    );
+    expect(screen.queryByText("private path or SQL")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Corrected attack IV")).toHaveValue("15");
+    expect(screen.getByText("Evaluation: Evaluated")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm IV correction" }),
+    );
+    await screen.findByText(/IV correction saved/);
+    expect(native.correctIvs).toHaveBeenCalledTimes(2);
+    expect(native.correctIvs).toHaveBeenLastCalledWith(
+      saved.id,
+      saved.ivs,
+      corrected.ivs,
+    );
+  });
+  it.each(["conflict", "missing_pokemon"])(
+    "requires reload after %s without overwriting saved data",
+    async (code) => {
+      vi.mocked(native.correctIvs).mockRejectedValueOnce({
+        code,
+        message: "Reload the inventory before saving again.",
+      });
+      vi.mocked(native.snapshot)
+        .mockResolvedValueOnce({ records: [appraised], tags: [] })
+        .mockResolvedValue({
+          records: code === "conflict" ? [corrected] : [],
+          tags: [],
+        });
+      render(<Inventory />);
+      await openCorrection();
+      changeIvs("0", "0", "0");
+      fireEvent.click(
+        screen.getByRole("button", { name: "Confirm IV correction" }),
+      );
+      await screen.findByRole("alert");
+      expect(screen.getByLabelText("Corrected attack IV")).toHaveValue("0");
+      expect(
+        screen.getByRole("button", { name: "Confirm IV correction" }),
+      ).toBeDisabled();
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Discard corrections and reload inventory",
+        }),
+      );
+      expect(native.correctIvs).toHaveBeenCalledTimes(1);
+      if (code === "conflict") {
+        await screen.findByText("Evaluation: Stale");
+        fireEvent.click(
+          screen.getByRole("button", { name: "Correct saved IVs" }),
+        );
+        expect(screen.getByLabelText("Corrected attack IV")).toHaveValue("15");
+      } else
+        expect(
+          await screen.findByText(/No Pokémon saved yet/),
+        ).toBeInTheDocument();
+    },
+  );
+  it("can fill an unknown group and discards unsaved drafts when selecting another record", async () => {
+    const unknown: InventoryRecord = { ...saved, ivs: null };
+    const second: InventoryRecord = {
+      ...saved,
+      id: "00000000-0000-4000-8000-000000000001",
+      displayName: "Second",
+    };
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [unknown, second],
+      tags: [],
+    });
+    render(<Inventory />);
+    await openCorrection();
+    expect(screen.getByLabelText("Corrected attack IV")).toHaveValue("");
+    changeIvs("0", "15", "15");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review appraisal for Second" }),
+    );
+    expect(
+      screen.queryByLabelText("Corrected attack IV"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review appraisal for Buddy" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Correct saved IVs" }));
+    expect(screen.getByLabelText("Corrected attack IV")).toHaveValue("");
+    changeIvs("0", "15", "15");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm IV correction" }),
+    );
+    await screen.findByText(/IV correction saved/);
+    expect(native.correctIvs).toHaveBeenCalledExactlyOnceWith(saved.id, null, {
+      attack: 0,
+      defense: 15,
+      hp: 15,
+    });
+  });
+  it("ignores late correction completion after unmount", async () => {
+    const pending = deferred<InventoryRecord>();
+    vi.mocked(native.correctIvs).mockReturnValueOnce(pending.promise);
+    const view = render(<Inventory />);
+    await openCorrection();
+    changeIvs("15", "15", "15");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm IV correction" }),
+    );
+    view.unmount();
+    await act(async () => pending.resolve(corrected));
+    expect(native.evaluate).not.toHaveBeenCalled();
     expect(native.confirmImport).not.toHaveBeenCalled();
   });
 });

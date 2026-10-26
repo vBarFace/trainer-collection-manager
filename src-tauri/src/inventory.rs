@@ -92,6 +92,7 @@ pub struct Tag {
 #[derive(Debug)]
 pub enum Error {
     InvalidInput(&'static str),
+    Conflict,
     NotFound(&'static str),
     DuplicateTag,
     StandardTagImmutable,
@@ -102,6 +103,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidInput(message) => write!(f, "{message}"),
+            Self::Conflict => write!(f, "The saved IVs changed; reload before correcting them"),
             Self::NotFound(entity) => write!(f, "{entity} not found"),
             Self::DuplicateTag => write!(f, "A tag with this name already exists"),
             Self::StandardTagImmutable => write!(f, "Standard tags cannot be changed"),
@@ -136,10 +138,11 @@ fn validate_pokemon(input: &PokemonInput) -> Result<()> {
     if input.cp.is_some_and(|cp| cp <= 0) {
         return Err(Error::InvalidInput("CP must be positive or absent"));
     }
-    if input
-        .ivs
-        .is_some_and(|ivs| ivs.attack > 15 || ivs.defense > 15 || ivs.hp > 15)
-    {
+    validate_ivs(input.ivs)
+}
+
+fn validate_ivs(ivs: Option<AppraisalIvs>) -> Result<()> {
+    if ivs.is_some_and(|ivs| ivs.attack > 15 || ivs.defense > 15 || ivs.hp > 15) {
         return Err(Error::InvalidInput(
             "Each appraisal IV must be between 0 and 15",
         ));
@@ -326,6 +329,41 @@ impl InventoryRepository {
         self.get(id)
     }
 
+    /// Correct only confirmed IVs. Compare the displayed group while holding the
+    /// writer lock so a stale draft cannot overwrite different saved IVs.
+    pub fn correct_ivs(
+        &self,
+        id: &PokemonId,
+        expected: Option<AppraisalIvs>,
+        corrected: Option<AppraisalIvs>,
+    ) -> Result<(Pokemon, Vec<Tag>)> {
+        validate_ivs(expected)?;
+        validate_ivs(corrected)?;
+        let transaction = rusqlite::Transaction::new_unchecked(
+            &self.connection,
+            rusqlite::TransactionBehavior::Immediate,
+        )?;
+        let existing = self.get(id)?;
+        if existing.ivs != expected {
+            return Err(Error::Conflict);
+        }
+        if existing.ivs != corrected {
+            self.connection.execute(
+                "UPDATE pokemon SET iv_attack = ?2, iv_defense = ?3, iv_hp = ?4,
+                    updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
+                params![
+                    id.as_str(),
+                    corrected.map(|v| v.attack),
+                    corrected.map(|v| v.defense),
+                    corrected.map(|v| v.hp)
+                ],
+            )?;
+        }
+        let result = (self.get(id)?, self.tags_for(id)?);
+        transaction.commit()?;
+        Ok(result)
+    }
+
     /// Read inputs, persist the successful appraisal attempt and return a consistent
     /// record with tags in one write transaction. No tag assignments are changed.
     pub fn evaluate(&self, id: &PokemonId) -> Result<(Pokemon, Vec<Tag>)> {
@@ -468,6 +506,199 @@ mod tests {
             cp: Some(123),
             ivs: None,
         }
+    }
+
+    #[test]
+    fn confirmed_iv_corrections_persist_preserve_other_fields_and_invalidate_appraisal() {
+        let path = std::env::temp_dir().join(format!(
+            "tcm-correct-{}-{}.sqlite3",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let repo = InventoryRepository::open(&path).unwrap();
+        let data = PokemonInput {
+            display_name: "Saved".into(),
+            cp: Some(i64::MAX),
+            ivs: None,
+        };
+        let original = repo.create(&data).unwrap();
+        let tag = repo.create_custom_tag("Favorite").unwrap();
+        repo.assign_tag(&original.id, tag.id).unwrap();
+        let standard = repo.tags().unwrap()[8].id;
+        repo.assign_tag(&original.id, standard).unwrap();
+        let tags = repo.tags_for(&original.id).unwrap();
+        let zero = Some(AppraisalIvs {
+            attack: 0,
+            defense: 0,
+            hp: 0,
+        });
+        let perfect = Some(AppraisalIvs {
+            attack: 15,
+            defense: 15,
+            hp: 15,
+        });
+        let (pending, _) = repo.correct_ivs(&original.id, None, zero).unwrap();
+        assert_eq!(pending.evaluation.state, EvaluationState::Pending);
+        repo.evaluate(&original.id).unwrap();
+        // A no-op must not touch even the timestamp or revision.
+        repo.connection
+            .execute(
+                "UPDATE pokemon SET updated_at = '2000-01-01 00:00:00' WHERE id = ?1",
+                [original.id.as_str()],
+            )
+            .unwrap();
+        let before = repo.get(&original.id).unwrap();
+        assert_eq!(
+            repo.correct_ivs(&original.id, zero, zero).unwrap().0,
+            before
+        );
+        let (corrected, assigned) = repo.correct_ivs(&original.id, zero, perfect).unwrap();
+        assert_eq!(corrected.ivs, perfect);
+        assert_eq!(corrected.id, original.id);
+        assert_eq!(corrected.display_name, original.display_name);
+        assert_eq!(corrected.cp, original.cp);
+        assert_eq!(corrected.created_at, original.created_at);
+        assert_ne!(corrected.updated_at, before.updated_at);
+        assert_eq!(assigned, tags);
+        assert_eq!(corrected.evaluation.state, EvaluationState::Stale);
+        assert_eq!(
+            corrected.evaluation.evaluated_at,
+            before.evaluation.evaluated_at
+        );
+        assert!(corrected.evaluation.result.is_none());
+        let expected = repo.snapshot().unwrap();
+        drop(repo);
+        let repo = InventoryRepository::open(&path).unwrap();
+        assert_eq!(repo.snapshot().unwrap(), expected);
+        let (evaluated, _) = repo.evaluate(&original.id).unwrap();
+        assert_eq!(evaluated.evaluation.result.unwrap().total, Some(45));
+        let (cleared, _) = repo.correct_ivs(&original.id, perfect, None).unwrap();
+        assert_eq!(cleared.ivs, None);
+        assert_eq!(cleared.evaluation.state, EvaluationState::Stale);
+        assert_eq!(
+            repo.evaluate(&original.id).unwrap().0.evaluation.state,
+            EvaluationState::NeedsData
+        );
+        let (refilled, _) = repo.correct_ivs(&original.id, None, zero).unwrap();
+        assert_eq!(refilled.evaluation.state, EvaluationState::Stale);
+        assert_eq!(
+            repo.evaluate(&original.id)
+                .unwrap()
+                .0
+                .evaluation
+                .result
+                .unwrap()
+                .total,
+            Some(0)
+        );
+        assert_eq!(repo.tags_for(&original.id).unwrap(), tags);
+        drop(repo);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn iv_corrections_reject_stale_drafts_invalid_values_and_missing_records_without_writes() {
+        let repo = repository();
+        let pokemon = repo.create(&input("Original")).unwrap();
+        let id = &pokemon.id;
+        let first = Some(AppraisalIvs {
+            attack: 0,
+            defense: 14,
+            hp: 15,
+        });
+        let other = Some(AppraisalIvs {
+            attack: 15,
+            defense: 15,
+            hp: 15,
+        });
+        // Another writer changes the group before this draft is confirmed.
+        repo.correct_ivs(id, None, first).unwrap();
+        let before = repo.snapshot().unwrap();
+        assert!(matches!(
+            repo.correct_ivs(id, None, other),
+            Err(Error::Conflict)
+        ));
+        assert_eq!(repo.snapshot().unwrap(), before);
+        for invalid in [
+            AppraisalIvs {
+                attack: 16,
+                defense: 0,
+                hp: 0,
+            },
+            AppraisalIvs {
+                attack: 0,
+                defense: 16,
+                hp: 0,
+            },
+            AppraisalIvs {
+                attack: 0,
+                defense: 0,
+                hp: 255,
+            },
+        ] {
+            assert!(matches!(
+                repo.correct_ivs(id, first, Some(invalid)),
+                Err(Error::InvalidInput(_))
+            ));
+            assert!(matches!(
+                repo.correct_ivs(id, Some(invalid), other),
+                Err(Error::InvalidInput(_))
+            ));
+            assert_eq!(repo.snapshot().unwrap(), before);
+        }
+        // Unrelated data changes must not be overwritten by the old UI snapshot.
+        repo.update(
+            id,
+            &PokemonInput {
+                display_name: "Renamed elsewhere".into(),
+                cp: Some(i64::MAX),
+                ivs: first,
+            },
+        )
+        .unwrap();
+        let (corrected, _) = repo.correct_ivs(id, first, other).unwrap();
+        assert_eq!(corrected.display_name, "Renamed elsewhere");
+        assert_eq!(corrected.cp, Some(i64::MAX));
+        repo.delete(id).unwrap();
+        assert!(matches!(
+            repo.correct_ivs(id, other, None),
+            Err(Error::NotFound("Pokemon"))
+        ));
+        assert!(repo.list().unwrap().is_empty());
+    }
+
+    #[test]
+    fn failed_iv_correction_rolls_back_fields_revision_and_appraisal() {
+        let repo = repository();
+        let pokemon = repo.create(&input("Unchanged")).unwrap();
+        repo.evaluate(&pokemon.id).unwrap();
+        let before = repo.snapshot().unwrap();
+        repo.connection.execute_batch("CREATE TRIGGER reject_correction AFTER UPDATE OF iv_hp ON pokemon BEGIN SELECT RAISE(ABORT, 'Simulated correction failure'); END;").unwrap();
+        assert!(repo
+            .correct_ivs(
+                &pokemon.id,
+                None,
+                Some(AppraisalIvs {
+                    attack: 0,
+                    defense: 15,
+                    hp: 15
+                })
+            )
+            .is_err());
+        assert_eq!(repo.snapshot().unwrap(), before);
+        assert_eq!(
+            repo.connection
+                .query_row(
+                    "SELECT appraisal_revision FROM pokemon WHERE id=?1",
+                    [pokemon.id.as_str()],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+            0
+        );
     }
 
     #[test]

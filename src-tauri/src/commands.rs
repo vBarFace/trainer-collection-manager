@@ -23,6 +23,7 @@ impl From<inventory::Error> for CommandError {
     fn from(error: inventory::Error) -> Self {
         match error {
             inventory::Error::InvalidInput(message) => Self { code: "invalid_input", message },
+            inventory::Error::Conflict => Self { code: "conflict", message: "The saved IVs changed while you were editing. Reload the inventory before correcting them again." },
             inventory::Error::NotFound("Tag") => Self { code: "missing_tag", message: "A selected tag no longer exists. Cancel and reload the inventory to review tags." },
             inventory::Error::NotFound(_) => Self { code: "missing_pokemon", message: "This Pokémon no longer exists. Reload the inventory." },
             _ => Self::storage(),
@@ -45,6 +46,26 @@ pub struct ImportInput {
     cp: Option<String>,
     ivs: Option<Ivs>,
     tag_ids: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CorrectIvsInput {
+    // These nullable fields must be explicit: omission must never clear data.
+    #[serde(deserialize_with = "Option::<Ivs>::deserialize")]
+    expected_ivs: Option<Ivs>,
+    #[serde(deserialize_with = "Option::<Ivs>::deserialize")]
+    ivs: Option<Ivs>,
+}
+
+impl From<Ivs> for AppraisalIvs {
+    fn from(ivs: Ivs) -> Self {
+        Self {
+            attack: ivs.attack,
+            defense: ivs.defense,
+            hp: ivs.hp,
+        }
+    }
 }
 
 fn parse_cp(value: Option<&str>) -> Result<Option<i64>, CommandError> {
@@ -154,6 +175,21 @@ pub fn evaluate(repository: &InventoryRepository, id: &str) -> Result<RecordView
     Ok(repository.evaluate(&id)?.into())
 }
 
+pub fn correct_ivs(
+    repository: &InventoryRepository,
+    id: &str,
+    input: CorrectIvsInput,
+) -> Result<RecordView, CommandError> {
+    let id = inventory::PokemonId::parse(id)?;
+    Ok(repository
+        .correct_ivs(
+            &id,
+            input.expected_ivs.map(Into::into),
+            input.ivs.map(Into::into),
+        )?
+        .into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -183,6 +219,116 @@ mod tests {
         ] {
             assert_eq!(parse_cp(Some(cp)).unwrap_err().code, "invalid_input");
         }
+    }
+
+    #[test]
+    fn iv_correction_contract_requires_explicit_groups_and_rejects_unrelated_fields() {
+        assert!(serde_json::from_value::<CorrectIvsInput>(
+            serde_json::json!({"expectedIvs":null,"ivs":null})
+        )
+        .is_ok());
+        for value in [
+            serde_json::json!({}),
+            serde_json::json!({"expectedIvs":null}),
+            serde_json::json!({"ivs":null}),
+            serde_json::json!({"expectedIvs":null,"ivs":{"attack":15}}),
+            serde_json::json!({"expectedIvs":null,"ivs":{"attack":1.5,"defense":0,"hp":0}}),
+            serde_json::json!({"expectedIvs":null,"ivs":{"attack":-1,"defense":0,"hp":0}}),
+        ] {
+            assert!(serde_json::from_value::<CorrectIvsInput>(value).is_err());
+        }
+        for field in [
+            "displayName",
+            "cp",
+            "tagIds",
+            "path",
+            "extraction",
+            "evaluation",
+        ] {
+            let mut value = serde_json::json!({"expectedIvs":null,"ivs":null});
+            value[field] = serde_json::json!("unrelated data");
+            assert!(serde_json::from_value::<CorrectIvsInput>(value).is_err());
+        }
+    }
+
+    #[test]
+    fn iv_correction_command_returns_current_record_and_safe_errors() {
+        let path = std::env::temp_dir().join(format!(
+            "tcm-correct-command-{}-{}.sqlite3",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let repo = InventoryRepository::open(&path).unwrap();
+        let original = confirm(&repo, serde_json::from_value(serde_json::json!({"displayName":"Saved","cp":"9223372036854775807","ivs":null,"tagIds":["9"]})).unwrap()).unwrap();
+        evaluate(&repo, &original.id).unwrap();
+        let request =
+            serde_json::json!({"expectedIvs":null,"ivs":{"attack":0,"defense":14,"hp":15}});
+        let saved = correct_ivs(
+            &repo,
+            &original.id,
+            serde_json::from_value(request.clone()).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(saved.id, original.id);
+        assert_eq!(saved.cp, original.cp);
+        assert_eq!(saved.ivs.unwrap().attack, 0);
+        assert_eq!(
+            serde_json::to_value(saved.tags).unwrap(),
+            serde_json::to_value(original.tags).unwrap()
+        );
+        assert_eq!(
+            saved.evaluation.state,
+            crate::evaluation::EvaluationState::Stale
+        );
+        assert_eq!(
+            correct_ivs(
+                &repo,
+                &original.id,
+                serde_json::from_value(request.clone()).unwrap()
+            )
+            .unwrap_err()
+            .code,
+            "conflict"
+        );
+        let invalid =
+            serde_json::json!({"expectedIvs":null,"ivs":{"attack":16,"defense":0,"hp":0}});
+        assert_eq!(
+            correct_ivs(
+                &repo,
+                &original.id,
+                serde_json::from_value(invalid).unwrap()
+            )
+            .unwrap_err()
+            .code,
+            "invalid_input"
+        );
+        assert_eq!(
+            correct_ivs(
+                &repo,
+                "malformed",
+                serde_json::from_value(request.clone()).unwrap()
+            )
+            .unwrap_err()
+            .code,
+            "invalid_input"
+        );
+        repo.delete(&inventory::PokemonId::parse(&original.id).unwrap())
+            .unwrap();
+        assert_eq!(
+            correct_ivs(
+                &repo,
+                &original.id,
+                serde_json::from_value(request).unwrap()
+            )
+            .unwrap_err()
+            .code,
+            "missing_pokemon"
+        );
+        drop(repo);
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]

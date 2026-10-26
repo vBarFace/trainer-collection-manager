@@ -4,6 +4,7 @@ fn main() {
             "inventory_snapshot",
             "confirm_inventory_import",
             "evaluate_pokemon",
+            "correct_pokemon_ivs",
             "select_screenshot",
         ]),
     ))

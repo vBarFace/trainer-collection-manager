@@ -107,6 +107,15 @@ export interface ImportInput {
 export const native = {
   snapshot: () => invoke<InventorySnapshot>("inventory_snapshot"),
   evaluate: (id: string) => invoke<InventoryRecord>("evaluate_pokemon", { id }),
+  correctIvs: (
+    id: string,
+    expectedIvs: AppraisalIvs | null,
+    ivs: AppraisalIvs | null,
+  ) =>
+    invoke<InventoryRecord>("correct_pokemon_ivs", {
+      id,
+      input: { expectedIvs, ivs },
+    }),
   selectScreenshot: () => invoke<ScreenshotPreview | null>("select_screenshot"),
   confirmImport: (input: ImportInput) =>
     invoke<InventoryRecord>("confirm_inventory_import", { input }),

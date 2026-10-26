@@ -1,5 +1,10 @@
-import { useEffect, useRef } from "react";
-import { evaluationLabels, type InventoryRecord } from "./native";
+import { useEffect, useRef, useState } from "react";
+import {
+  evaluationLabels,
+  type AppraisalIvs,
+  type InventoryRecord,
+} from "./native";
+import { IvCorrectionForm } from "./IvCorrectionForm";
 
 export function AppraisalPanel({
   record,
@@ -7,24 +12,37 @@ export function AppraisalPanel({
   error,
   onEvaluate,
   onReload,
+  savingIvs,
+  onSaveIvs,
 }: {
   record: InventoryRecord;
   busy: boolean;
   error: string;
   onEvaluate: () => void;
   onReload: () => void;
+  savingIvs: boolean;
+  onSaveIvs: (
+    expected: AppraisalIvs | null,
+    corrected: AppraisalIvs | null,
+  ) => Promise<void>;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
+  const correctionButton = useRef<HTMLButtonElement>(null);
+  const [editing, setEditing] = useState(false);
+  const [correctionStatus, setCorrectionStatus] = useState("");
   useEffect(() => {
     heading.current?.focus();
   }, [record.id]);
+  useEffect(() => {
+    if (!editing && correctionStatus) correctionButton.current?.focus();
+  }, [editing, correctionStatus]);
   const evaluation = record.evaluation;
   const result = evaluation.result;
   return (
     <section
       className="appraisal-panel"
       aria-labelledby="appraisal-title"
-      aria-busy={busy}
+      aria-busy={busy || savingIvs}
     >
       <h3 id="appraisal-title" ref={heading} tabIndex={-1}>
         Appraisal for {record.displayName}
@@ -49,7 +67,45 @@ export function AppraisalPanel({
           re-evaluate to assess current data.
         </p>
       )}
-      <button type="button" onClick={onEvaluate} disabled={busy}>
+      <button
+        ref={correctionButton}
+        type="button"
+        disabled={busy || savingIvs || editing}
+        onClick={() => {
+          setCorrectionStatus("");
+          setEditing(true);
+        }}
+      >
+        Correct saved IVs
+      </button>
+      {editing && (
+        <IvCorrectionForm
+          ivs={record.ivs}
+          busy={savingIvs}
+          onSave={onSaveIvs}
+          onSaved={() => {
+            setEditing(false);
+            setCorrectionStatus(
+              "IV correction saved. Re-evaluate separately if the appraisal is stale.",
+            );
+          }}
+          onCancel={() => {
+            setEditing(false);
+            setCorrectionStatus("IV correction cancelled. Nothing was saved.");
+          }}
+          onReload={() => {
+            setEditing(false);
+            setCorrectionStatus("");
+            onReload();
+          }}
+        />
+      )}
+      {correctionStatus && <p role="status">{correctionStatus}</p>}
+      <button
+        type="button"
+        onClick={onEvaluate}
+        disabled={busy || savingIvs || editing}
+      >
         {busy
           ? "Evaluating appraisal…"
           : error
@@ -62,7 +118,11 @@ export function AppraisalPanel({
       {error && (
         <div role="alert">
           <p>{error}</p>
-          <button type="button" onClick={onReload}>
+          <button
+            type="button"
+            onClick={onReload}
+            disabled={savingIvs || editing}
+          >
             Reload inventory
           </button>
         </div>
@@ -87,9 +147,9 @@ export function AppraisalPanel({
               {result.missingData
                 .map((field) => (field === "hp" ? "HP" : field))
                 .join(", ")}
-              . No total or percentage can be calculated. Review confirmation
-              accepts all three IVs together; editing existing inventory data is
-              not available in this increment.
+              . No total or percentage can be calculated. Use Correct saved IVs
+              to confirm all three values, then request appraisal evaluation
+              again.
             </p>
           )}
           <h4>Appraisal findings</h4>

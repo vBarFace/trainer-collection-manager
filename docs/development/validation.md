@@ -1,4 +1,31 @@
-# Task 005 appraisal evaluation validation
+# Saved-IV correction validation
+
+Date: 2026-10-26. Scope: explicit correction of saved appraisal IVs, building on Task 005 commit `0b7b99b` on branch `feat/confirmed-iv-corrections`.
+
+## Results
+
+- `npm run check`: stops at the existing repository-wide Prettier CRLF/LF differences in 34 untouched files. A read-only diagnostic confirmed that all 34 differ from HEAD only by line endings and that their committed contents pass Prettier. The previously untouched `review.ts` is now changed and formatted within scope. No quality checks or configuration were weakened.
+- Targeted Prettier: changed/new formatter-supported source and documentation files pass.
+- `npm run lint`, `npm run typecheck`: passed without warnings.
+- `npm test`: 40 tests in four suites passed outside the sandbox, including a final run after the form help update. The initial sandbox run failed before loading tests because of the existing Vitest temporary-cache rename `EPERM`; the approved retry ran the tests.
+- `npm run rust:fmt`, `npm run rust:check`: passed. Existing incremental-cache hard-link warnings remain; Cargo copies files instead.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: 53 passed; 2 existing private-image diagnostics ignored. Binary/doc targets contain zero tests.
+- `npm run tauri:build`: passed outside the sandbox, producing the optimized Windows executable and x64 NSIS installer (11.43 MiB). The sandbox compiled the release executable but could not resolve the NSIS packaging download (11001); the approved final retry completed. The existing `.app` bundle-identifier advisory remains.
+- `git diff --check`: passed. No migration, dependency, ruleset or screenshot-import contract change. The main-window command ACL adds only `correct_pokemon_ivs`.
+
+## Evidence and limits
+
+Native tests exercise explicit complete/null correction inputs, omitted/partial/fractional/negative/unrelated payload rejection, authoritative range validation, malformed/deleted records and safe conflicts. Repository tests cover adding unknown IVs, 0/15 boundaries, pending/stale/evaluated/needs-data transitions, correction persistence across reopen, metadata retention, unchanged submissions preserving timestamps/state, UUID/name/exact CP/creation-time/tag preservation, rejection of stale drafts and rollback of failed updates/revisions. A simulated intervening name/CP update is retained because correction SQL changes only IV columns.
+
+Frontend tests cover prefilled values and focus, draft-only edits, cancellation, grouped validation, explicit confirmation before clearing to unknown, filling unknown groups, duplicate submission prevention, disabled controls during saving, stale results withheld after save, separate re-evaluation, retained drafts and retry after storage failure, conflict/deletion requiring discard/reload, fresh fields after remount or record selection, preserved CP/tags and ignored late completion after unmount. All existing import, OCR and appraisal tests remain intact.
+
+A bounded independent code review reported no blocking issue. Its suggestion to explain draft loss when selecting another record was added to the form help.
+
+The conflict check compares the saved IV group with the values shown when editing started inside an immediate transaction. It prevents overwriting different current IVs; it is not a revision-token contract and accepts an intervening change/revert restoring the expected group. The existing migration-4 trigger continues to govern appraisal invalidation. Full inventory editing, automatic evaluation, strategic recommendations and automatic tagging remain outside this increment.
+
+No real collection records were modified by validation. A Windows build and automated renderer/native repository checks are not manual native GUI correction/restart verification; the installer was not installed or launched. No new dependencies, game data or assets were added, so no new licensing review was required. See [evaluation and correction workflow](evaluation.md).
+
+# Task 005 appraisal evaluation validation (historical)
 
 Date: 2026-10-26. Scope: persisted appraisal lifecycle, deterministic Rust rules and Inventory evaluation UI. Started from fetched `origin/main` at `b8cc42d` on `feat/deterministic-evaluation`.
 

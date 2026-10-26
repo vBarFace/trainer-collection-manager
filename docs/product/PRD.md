@@ -6,7 +6,7 @@ Trainer Collection Manager is a free, open-source, offline-first desktop app for
 
 ## Foundation scope
 
-This release provides a Windows Tauri shell, private local inventory, screenshot review and deterministic appraisal evaluation. Users select one local PNG/JPEG, inspect a temporary preview and local name/CP/IV suggestions, enter/correct supported data fields, then explicitly confirm saving. Review confirms data only and creates a pending record. Users can select a saved Pokémon and request an appraisal evaluation or re-evaluation. Inventory preserves existing records, UUIDs and assigned tags, and presents Pending, Evaluated, Needs data or Stale appraisal states after restart. Broad screenshot recognition, strategic recommendations, automatic tagging, account integration, teams, simulations, local LLM runtime, datasets, telemetry and cloud capabilities are deferred.
+This release provides a Windows Tauri shell, private local inventory, screenshot review, confirmed saved-IV corrections and deterministic appraisal evaluation. Users select one local PNG/JPEG, inspect a temporary preview and local name/CP/IV suggestions, enter/correct supported data fields, then explicitly confirm saving. Review confirms data only and creates a pending record. Users can select a saved Pokémon, correct its appraisal IV group and request an appraisal evaluation or re-evaluation separately. Inventory preserves existing records, UUIDs and assigned tags, and presents Pending, Evaluated, Needs data or Stale appraisal states after restart. Broad screenshot recognition, strategic recommendations, automatic tagging, account integration, teams, simulations, local LLM runtime, datasets, telemetry and cloud capabilities are deferred.
 
 ## Product principles
 
@@ -26,7 +26,13 @@ Select a screenshot → attempt local name/CP/IV extraction → review/correct t
 - These facts describe appraisal only. They do not establish PvP rank, PvE strength, overall quality, transfer suitability or universal competitive superiority. PvP, PvE, gym, Rocket and investment analysis have not been performed.
 - Each evaluation attempt has a ruleset version and UTC timestamp. Changes to actual IV values or a ruleset mismatch make it Stale; re-evaluation replaces the attempt metadata. Name, CP and tag changes do not affect this scope. Stale results are withheld until re-evaluation.
 - Findings, future recommendations/suggested tags and assigned tags are distinct. This engine emits no recommendations and never changes tags or infers shiny status or user preferences.
-- Selection and evaluation controls support keyboard use, loading, safe errors and retry. Full inventory editing and filtering remain deferred; relevant updates through the native repository invalidate appraisal results.
+- Selection, IV correction and evaluation controls support keyboard use, loading, safe errors and retry. Full inventory editing and filtering remain deferred.
+
+## Saved appraisal-IV correction
+
+- Select a saved record and choose **Correct saved IVs**. The form starts with the confirmed values. Supply all three integers from 0 to 15, or clear all three to mark the group unknown, then explicitly confirm. Partial groups are rejected; cancelling or switching records discards the unsaved draft.
+- Only IVs can be changed. Names, CP, UUIDs, creation timestamps and tags are preserved. Changed IVs invalidate a prior appraisal through the existing lifecycle; unchanged values preserve its state. Saving never runs evaluation automatically.
+- Save failures retain the draft for retry. If current saved IVs differ from those displayed when correction began, reject the save and require a reload before retrying that draft. Missing/deleted records also require reload. No screenshot selection or extraction is needed for correction.
 
 ## Future constraints
 
