@@ -107,6 +107,24 @@ pub(crate) fn apply_migrations(connection: &mut Connection) -> rusqlite::Result<
                 BEGIN SELECT RAISE(ABORT, 'Standard tags are migration-owned'); END;",
         )
     })?;
+    apply_migration(&transaction, 4, |transaction| {
+        transaction.execute_batch(
+            "ALTER TABLE pokemon ADD COLUMN appraisal_revision INTEGER NOT NULL DEFAULT 0
+                CHECK (appraisal_revision >= 0);
+            CREATE TABLE pokemon_appraisals (
+                pokemon_id TEXT PRIMARY KEY NOT NULL REFERENCES pokemon(id) ON DELETE CASCADE,
+                input_revision INTEGER NOT NULL CHECK (input_revision >= 0),
+                ruleset_version TEXT NOT NULL CHECK (length(trim(ruleset_version)) > 0),
+                evaluated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) STRICT;
+            CREATE TRIGGER pokemon_appraisal_changed AFTER UPDATE OF iv_attack, iv_defense, iv_hp ON pokemon
+                WHEN NEW.iv_attack IS NOT OLD.iv_attack OR NEW.iv_defense IS NOT OLD.iv_defense
+                    OR NEW.iv_hp IS NOT OLD.iv_hp
+                BEGIN
+                    UPDATE pokemon SET appraisal_revision = OLD.appraisal_revision + 1 WHERE id = NEW.id;
+                END;",
+        )
+    })?;
     transaction.commit()
 }
 
@@ -176,7 +194,7 @@ mod tests {
                 .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            3
+            4
         );
         assert_eq!(
             connection
@@ -231,9 +249,42 @@ mod tests {
                 row.get(0)
             })
             .expect("migration version should be recorded");
-        assert_eq!(version, 3);
+        assert_eq!(version, 4);
         drop(connection);
 
         fs::remove_dir_all(temporary_directory).expect("temporary database should be removable");
+    }
+
+    #[test]
+    fn failed_appraisal_upgrade_rolls_back_revision_column_and_version() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        configure_connection(&connection).unwrap();
+        connection
+            .execute_batch(include_str!("../tests/fixtures/schema-v2.sql"))
+            .unwrap();
+        connection
+            .execute_batch(include_str!("../tests/fixtures/migration-v3.sql"))
+            .unwrap();
+        // Conflict after ALTER TABLE must not leave a partially applied upgrade.
+        connection
+            .execute_batch("CREATE TABLE pokemon_appraisals (conflict TEXT);")
+            .unwrap();
+        assert!(apply_migrations(&mut connection).is_err());
+        assert!(connection
+            .prepare("SELECT appraisal_revision FROM pokemon")
+            .is_err());
+        assert_eq!(
+            connection
+                .query_row("SELECT max(version) FROM schema_migrations", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            3
+        );
+        assert_eq!(
+            connection
+                .query_row("SELECT count(*) FROM tags", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            9
+        );
     }
 }

@@ -1,4 +1,38 @@
-# Automatic OCR follow-up validation
+# Task 005 appraisal evaluation validation
+
+Date: 2026-10-26. Scope: persisted appraisal lifecycle, deterministic Rust rules and Inventory evaluation UI. Started from fetched `origin/main` at `b8cc42d` on `feat/deterministic-evaluation`.
+
+## Results
+
+- `npm run check`: stops at the repository-wide Prettier check because of existing CRLF/LF differences in 35 untouched files. The first run reported 37 files; the changed validation page and updated App assertion were subsequently formatted within scope. A read-only diagnostic verified every failing tracked file differed from its committed version only by line endings, and every committed version passed Prettier. No checks/configuration were weakened and unrelated files were not reformatted.
+- Targeted Prettier checks: changed/new formatter-supported files pass.
+- `npm run lint`: passed without warnings after moving the shared state labels out of the component module.
+- `npm run typecheck`: passed.
+- `npm test`: 32 tests in four suites passed outside the sandbox. The initial sandbox run could not load the suites because of the existing Vitest temporary-cache rename `EPERM`; the approved retry ran the actual tests.
+- `npm run rust:fmt`, `npm run rust:check`: passed. Existing incremental-cache hard-link warnings remain; Cargo copies files instead.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: 48 passed, 2 existing private-image diagnostics ignored; binary/doc targets have zero tests.
+- `npm run tauri:build`: passed outside the sandbox, including the optimized Windows executable and x64 NSIS installer (11.43 MiB). The release executable compiled in the sandbox, but installer packaging initially failed resolving the NSIS download host (11001); the approved retry completed. The existing `.app` bundle-identifier advisory remains.
+- `git diff --check`: passed. Existing migrations 1–3, dependency manifests/lockfiles, screenshot inputs and tag operations remain unchanged. The narrow command ACL adds only `evaluate_pokemon`.
+
+## Regression evidence
+
+- A frozen version-3 upgrade fixture models Task 004 databases. Migration/reopen tests preserve UUID, name, exact SQLite maximum CP, known IVs, creation/update timestamps, standard/custom tag identities and assignments. Existing version-1/version-2 upgrades and new-database initialization remain covered. A late migration-4 conflict rolls back the revision column and migration version.
+- Repository tests cover Pending → Needs data, Needs data → Stale after adding IVs, Stale → Evaluated, clearing IVs, same-second change/revert, identical-value updates, and ruleset invalidation for known and unknown data. All four states and current results survive reopening. Name/CP/tag changes do not invalidate appraisal. Direct SQL IV updates also invalidate through the trigger.
+- Failed first/repeated evaluation writes roll back safely; missing/deleted records return typed errors and deletion cascades appraisal metadata. Appraisal attempts retain UUIDs and Pokémon timestamps and never mutate user tag assignments.
+- Pure engine tests exhaust all 4,096 valid IV combinations, including 0/0/0 and 15/15/15, repeat every evaluation deterministically, reject out-of-range inputs and assert that no recommendations are emitted. Unknown IVs yield explicit missing attack/defense/HP and no invented total, percentage or perfect flag.
+- Typed command tests cover confirmed-input appraisal, serialized scope/version/state/facts, empty recommendations, unchanged assigned tags, malformed UUIDs and deleted Pokémon. Existing import confirmation, image/path payload rejection, extraction and persistence tests still pass.
+- UI tests cover all four native states, empty/loading behavior, keyboard focus on selection, selected-ID-only requests, repeated-click prevention, native facts and limitations, findings/recommendations/assigned tags separation, retained stale state after failure, retry, missing data, reload after deletion, result rendering after remount and ignored late evaluation completion after unmount. Existing OCR/manual-review, cancellation, confirmation-only persistence and no-tag import tests remain intact.
+- A bounded independent code review found no blocking correctness issue. It identified the stale empty-list assertion, a shared-constant Fast Refresh warning and review-specific storage error text; all were corrected.
+
+## Limits and decisions
+
+Automated renderer and native-command/repository checks plus a Windows build do not constitute manual native GUI evaluation/restart verification. The generated installer was not installed or launched as part of this task, and no test records were added to the user's real collection.
+
+The current ruleset is `appraisal-1` and the scope is appraisal only. Only latest-attempt metadata and an IV revision are stored; current facts are recalculated. Stale result details are withheld because old inputs are not retained. No strategic evaluation, recommendation, automatic tag, shiny inference, game dataset, model or new dependency is introduced. There is no new licensing concern for this original-code increment. Future strategies require confirmed species/form and applicable moves/level, reviewed licensed/versioned game data, validated formulas and user goals where relevant. Existing OCR evidence remains one supplied example, without a representative accuracy benchmark.
+
+See [evaluation workflow](evaluation.md), [data model](../architecture/data-model.md) and [decision 0005](../decisions/0005-persisted-appraisal-evaluation.md).
+
+# Automatic OCR follow-up validation (historical)
 
 Date: 2026-10-26. Supersedes the initial bounded milestone's name/CP deferral. Scope: bundled offline OCR, native crop preparation and real appraisal-bar support, with explicit editable confirmation.
 

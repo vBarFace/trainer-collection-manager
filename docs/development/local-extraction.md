@@ -32,7 +32,7 @@ The existing screenshot response now includes temporary `textRegions` PNG arrays
 | method           | tesseract_lstm, appraisal_geometry_v1 or unavailable. Geometry's existing identifier denotes rule-based provenance with expanded real-image evidence gates. |
 | engineConfidence | Optional raw Tesseract score, not a probability.                                                                                                            |
 
-The preview appears during reading, with an accessible status and Cancel extraction. Fields remain locked until completion. Suggestions are editable with descriptions linked by aria-describedby; manual corrections retain original suggestions. Replacement immediately clears the old draft. Failed saves retain entered values. OCR failure/timeout preserves native IV suggestions and manual fallback. Late results after cancellation/unmount cannot update or save. Explicit confirmation saves reviewed fields with no tags; records remain Awaiting evaluation.
+The preview appears during reading, with an accessible status and Cancel extraction. Fields remain locked until completion. Suggestions are editable with descriptions linked by aria-describedby; manual corrections retain original suggestions. Replacement immediately clears the old draft. Failed saves retain entered values. OCR failure/timeout preserves native IV suggestions and manual fallback. Late results after cancellation/unmount cannot update or save. Explicit confirmation saves reviewed fields with no tags; records start Pending until users separately request [appraisal evaluation](evaluation.md).
 
 ## Evidence and distribution
 

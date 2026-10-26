@@ -1,5 +1,6 @@
 mod commands;
 mod database;
+pub mod evaluation;
 mod extraction;
 pub mod inventory;
 mod ocr_regions;
@@ -49,6 +50,23 @@ async fn confirm_inventory_import(
 }
 
 #[tauri::command]
+async fn evaluate_pokemon(
+    state: State<'_, NativeInventory>,
+    id: String,
+) -> Result<commands::RecordView, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        commands::evaluate(&repository, &id)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
 async fn select_screenshot(
     window: tauri::WebviewWindow,
 ) -> Result<Option<screenshot::Preview>, screenshot::Error> {
@@ -91,6 +109,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             inventory_snapshot,
             confirm_inventory_import,
+            evaluate_pokemon,
             select_screenshot
         ])
         .run(tauri::generate_context!())
