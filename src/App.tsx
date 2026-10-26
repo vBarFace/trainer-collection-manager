@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Inventory } from "./Inventory";
 
 const navigationItems = [
   "Inventory",
@@ -10,8 +11,7 @@ const navigationItems = [
 type NavigationItem = (typeof navigationItems)[number];
 
 const descriptions: Record<NavigationItem, string> = {
-  Inventory:
-    "Your local collection will appear here after the inventory data model is implemented.",
+  Inventory: "Review screenshots manually and save your local collection.",
   Recommendations:
     "Explainable, deterministic recommendations are planned for a later milestone.",
   Teams:
@@ -58,15 +58,19 @@ export function App() {
       <main id="main-content">
         <p className="eyebrow">Foundation release</p>
         <h1>{activeItem}</h1>
-        <section className="placeholder" aria-labelledby="placeholder-title">
-          <p className="status">Planned</p>
-          <h2 id="placeholder-title">This area is a placeholder</h2>
-          <p>{descriptions[activeItem]}</p>
-          <p>
-            The app database initializes locally at startup with versioned
-            migrations only.
-          </p>
-        </section>
+        {activeItem === "Inventory" ? (
+          <Inventory />
+        ) : (
+          <section className="placeholder" aria-labelledby="placeholder-title">
+            <p className="status">Planned</p>
+            <h2 id="placeholder-title">This area is a placeholder</h2>
+            <p>{descriptions[activeItem]}</p>
+            <p>
+              The app database initializes locally at startup with versioned
+              migrations only.
+            </p>
+          </section>
+        )}
       </main>
     </div>
   );

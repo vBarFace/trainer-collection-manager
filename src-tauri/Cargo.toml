@@ -6,11 +6,17 @@ authors = ["Trainer Collection Manager contributors"]
 edition = "2021"
 
 [build-dependencies]
-tauri-build = "2.4.1"
+tauri-build = { version = "2.4.1", features = [] }
 
 [dependencies]
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
+rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] }
 rusqlite = { version = "0.37.0", features = ["bundled"] }
-tauri = { version = "2.12.4" }
+serde = { version = "1.0.229", features = ["derive"] }
+tauri = { version = "2.12.4", features = [] }
+
+[dev-dependencies]
+serde_json = "1.0"
 
 [profile.release]
 panic = "abort"
