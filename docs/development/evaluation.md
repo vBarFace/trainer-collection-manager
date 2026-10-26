@@ -2,6 +2,8 @@
 
 Task 005 introduces an offline, deterministic appraisal workflow. It evaluates confirmed structured IVs only; it does not run screenshot extraction or read temporary review suggestions.
 
+Task 006 adds a separate [reference context](reference-data.md) to the pure native evaluation boundary and displays available species/form metadata in Inventory. Missing reference data does not affect IV appraisal. No strategic formula is enabled; `appraisal-1` and its invalidation rules are unchanged.
+
 ## Using Inventory
 
 1. Confirm a screenshot review to save a new pending record, or select an existing record.

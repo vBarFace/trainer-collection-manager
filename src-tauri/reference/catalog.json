@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "dataset": {
+    "datasetId": "tcm-empty",
+    "version": "empty-1",
+    "sourceUrl": "https://github.com/vBarFace/trainer-collection-manager",
+    "upstreamRevision": "original-empty-1",
+    "license": "MIT (original empty manifest only)",
+    "notice": "No game dataset is bundled. Pokémon GO reference data is unavailable pending verified redistribution rights.",
+    "retrievedAt": "2026-10-26",
+    "rightsEvidenceUrl": "https://github.com/vBarFace/trainer-collection-manager/blob/main/LICENSE"
+  },
+  "species": [],
+  "forms": []
+}

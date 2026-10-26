@@ -34,6 +34,10 @@ Select a screenshot → attempt local name/CP/IV extraction → review/correct t
 - Only IVs can be changed. Names, CP, UUIDs, creation timestamps and tags are preserved. Changed IVs invalidate a prior appraisal through the existing lifecycle; unchanged values preserve its state. Saving never runs evaluation automatically.
 - Save failures retain the draft for retry. If current saved IVs differ from those displayed when correction began, reject the save and require a reload before retrying that draft. Missing/deleted records also require reload. No screenshot selection or extraction is needed for correction.
 
+## Reference identity foundation
+
+Task 006 separates manually confirmed species/form identity from display names and tentative OCR. A selected record exposes reference resolution, available metadata and version/provenance, with a narrow correction form. Missing or ambiguous identity remains explicit; unknown form never implies a default. UUIDs, observations, tags and appraisal lifecycle are preserved. The catalog loader validates versioned offline snapshots, but this release bundles an empty catalog pending verified redistribution rights. No real GO metadata or strategic recommendation is claimed. See [reference data](../development/reference-data.md).
+
 ## Future constraints
 
 Each Pokémon instance must have a stable UUID. Standard tags are `EVOLVE`, `POWER UP`, `ATTACKER`, `GYM DEF`, `ROCKET`, `PVP 1500`, `PVP 2500`, `TRANSFER`, and `SAVE/SPECIAL`; custom tags are allowed. IV appraisal and second attacks are fields/features, not default tags.

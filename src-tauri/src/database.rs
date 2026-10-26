@@ -125,6 +125,21 @@ pub(crate) fn apply_migrations(connection: &mut Connection) -> rusqlite::Result<
                 END;",
         )
     })?;
+    apply_migration(&transaction, 5, |transaction| {
+        transaction.execute_batch(
+            "CREATE TABLE pokemon_reference_identity (
+                pokemon_id TEXT PRIMARY KEY NOT NULL REFERENCES pokemon(id) ON DELETE CASCADE,
+                species_query TEXT NOT NULL CHECK (length(species_query) BETWEEN 1 AND 100 AND species_query = trim(species_query)),
+                form_query TEXT CHECK (length(form_query) BETWEEN 1 AND 100 AND form_query = trim(form_query)),
+                dataset_id TEXT,
+                species_id TEXT,
+                form_id TEXT,
+                confirmed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CHECK ((dataset_id IS NULL AND species_id IS NULL AND form_id IS NULL) OR
+                    (dataset_id IS NOT NULL AND species_id IS NOT NULL AND form_id IS NOT NULL AND form_query IS NOT NULL))
+            ) STRICT;",
+        )
+    })?;
     transaction.commit()
 }
 
@@ -156,6 +171,28 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reference_migration_rejects_conflicts_without_recording_version() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        configure_connection(&connection).unwrap();
+        apply_migrations(&mut connection).unwrap();
+        connection.execute_batch("DROP TABLE pokemon_reference_identity; DELETE FROM schema_migrations WHERE version = 5; CREATE TABLE pokemon_reference_identity (conflict TEXT);").unwrap();
+        assert!(apply_migrations(&mut connection).is_err());
+        assert_eq!(
+            connection
+                .query_row("SELECT max(version) FROM schema_migrations", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            4
+        );
+        assert!(connection
+            .prepare("SELECT conflict FROM pokemon_reference_identity")
+            .is_ok());
+        assert!(connection
+            .prepare("SELECT appraisal_revision FROM pokemon")
+            .is_ok());
+    }
 
     #[test]
     fn version_one_upgrade_preserves_settings_and_is_idempotent() {
@@ -194,7 +231,7 @@ mod tests {
                 .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            4
+            5
         );
         assert_eq!(
             connection
@@ -249,7 +286,7 @@ mod tests {
                 row.get(0)
             })
             .expect("migration version should be recorded");
-        assert_eq!(version, 4);
+        assert_eq!(version, 5);
         drop(connection);
 
         fs::remove_dir_all(temporary_directory).expect("temporary database should be removable");

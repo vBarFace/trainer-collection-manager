@@ -1,6 +1,7 @@
 //! Native-only inventory API. No SQL or database path is exposed to the renderer.
 use crate::database;
 use crate::evaluation::{self, Evaluation, EvaluationScope, EvaluationState};
+use crate::reference::{Catalog, Identity, Pin, Resolution, ResolutionState};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::{fmt, path::Path};
 
@@ -65,6 +66,7 @@ pub struct Pokemon {
     pub created_at: String,
     pub updated_at: String,
     pub evaluation: Evaluation,
+    pub reference: Resolution,
 }
 
 /// A complete replacement of editable fields; identity and timestamps are native-owned.
@@ -93,6 +95,7 @@ pub struct Tag {
 pub enum Error {
     InvalidInput(&'static str),
     Conflict,
+    IdentityConflict,
     NotFound(&'static str),
     DuplicateTag,
     StandardTagImmutable,
@@ -104,6 +107,10 @@ impl fmt::Display for Error {
         match self {
             Self::InvalidInput(message) => write!(f, "{message}"),
             Self::Conflict => write!(f, "The saved IVs changed; reload before correcting them"),
+            Self::IdentityConflict => write!(
+                f,
+                "The confirmed identity changed; reload before correcting it"
+            ),
             Self::NotFound(entity) => write!(f, "{entity} not found"),
             Self::DuplicateTag => write!(f, "A tag with this name already exists"),
             Self::StandardTagImmutable => write!(f, "Standard tags cannot be changed"),
@@ -150,7 +157,7 @@ fn validate_ivs(ivs: Option<AppraisalIvs>) -> Result<()> {
     Ok(())
 }
 
-fn read_pokemon(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pokemon> {
+fn read_pokemon(row: &rusqlite::Row<'_>, catalog: &Catalog) -> rusqlite::Result<Pokemon> {
     let ivs = match (
         row.get::<_, Option<u8>>(5)?,
         row.get::<_, Option<u8>>(6)?,
@@ -181,11 +188,35 @@ fn read_pokemon(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pokemon> {
         Some(_) if ivs.is_none() => EvaluationState::NeedsData,
         Some(_) => EvaluationState::Evaluated,
     };
+    let identity = row
+        .get::<_, Option<String>>(12)?
+        .map(|species| {
+            Ok::<_, rusqlite::Error>(Identity {
+                species,
+                form: row.get(13)?,
+            })
+        })
+        .transpose()?;
+    let pin = row
+        .get::<_, Option<String>>(14)?
+        .map(|dataset_id| {
+            Ok::<_, rusqlite::Error>(Pin {
+                dataset_id,
+                species_id: row.get(15)?,
+                form_id: row.get(16)?,
+            })
+        })
+        .transpose()?;
+    let reference = catalog.resolve(identity.as_ref(), pin.as_ref());
     let result = if matches!(
         state,
         EvaluationState::Evaluated | EvaluationState::NeedsData
     ) {
-        Some(evaluation::appraise(ivs).map_err(|_| rusqlite::Error::InvalidQuery)?)
+        Some(
+            evaluation::assess(ivs, &reference)
+                .map_err(|_| rusqlite::Error::InvalidQuery)?
+                .appraisal,
+        )
     } else {
         None
     };
@@ -196,6 +227,7 @@ fn read_pokemon(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pokemon> {
         created_at: row.get(3)?,
         updated_at: row.get(4)?,
         ivs,
+        reference,
         evaluation: Evaluation {
             scope: EvaluationScope::Appraisal,
             state,
@@ -209,8 +241,10 @@ fn read_pokemon(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pokemon> {
 
 const POKEMON_SELECT: &str = "SELECT p.id, p.display_name, p.cp, p.created_at, p.updated_at,
     p.iv_attack, p.iv_defense, p.iv_hp, p.appraisal_revision,
-    a.input_revision, a.ruleset_version, a.evaluated_at
-    FROM pokemon p LEFT JOIN pokemon_appraisals a ON a.pokemon_id = p.id";
+    a.input_revision, a.ruleset_version, a.evaluated_at,
+    r.species_query, r.form_query, r.dataset_id, r.species_id, r.form_id
+    FROM pokemon p LEFT JOIN pokemon_appraisals a ON a.pokemon_id = p.id
+    LEFT JOIN pokemon_reference_identity r ON r.pokemon_id = p.id";
 
 fn read_tag(row: &rusqlite::Row<'_>) -> rusqlite::Result<Tag> {
     Ok(Tag {
@@ -229,6 +263,7 @@ fn read_tag(row: &rusqlite::Row<'_>) -> rusqlite::Result<Tag> {
 /// enables foreign keys before migrations or repository operations.
 pub struct InventoryRepository {
     connection: Connection,
+    catalog: Catalog,
 }
 
 impl InventoryRepository {
@@ -236,7 +271,16 @@ impl InventoryRepository {
         database::initialize(path)?;
         let connection = Connection::open(path)?;
         database::configure_connection(&connection)?;
-        Ok(Self { connection })
+        Ok(Self {
+            connection,
+            catalog: Catalog::bundled().map_err(Error::InvalidInput)?,
+        })
+    }
+
+    /// Native-only whole-snapshot replacement. Invalid data leaves the current catalog intact.
+    /// There is deliberately no renderer import/path command or online updater.
+    pub fn activate_reference(&mut self, bytes: &[u8]) -> Result<()> {
+        self.catalog.activate(bytes).map_err(Error::InvalidInput)
     }
 
     pub fn create(&self, input: &PokemonInput) -> Result<Pokemon> {
@@ -301,7 +345,7 @@ impl InventoryRepository {
             .query_row(
                 &format!("{POKEMON_SELECT} WHERE p.id = ?1"),
                 [&id.0],
-                read_pokemon,
+                |row| read_pokemon(row, &self.catalog),
             )
             .optional()?
             .ok_or(Error::NotFound("Pokemon"))
@@ -313,7 +357,7 @@ impl InventoryRepository {
             .connection
             .prepare(&format!("{POKEMON_SELECT} ORDER BY p.created_at, p.id"))?;
         let records = statement
-            .query_map([], read_pokemon)?
+            .query_map([], |row| read_pokemon(row, &self.catalog))?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(records)
     }
@@ -364,6 +408,70 @@ impl InventoryRepository {
         Ok(result)
     }
 
+    /// Explicit confirmation never changes the individual's observations or UUID.
+    pub fn correct_identity(
+        &self,
+        id: &PokemonId,
+        expected: Option<Identity>,
+        corrected: Option<Identity>,
+    ) -> Result<(Pokemon, Vec<Tag>)> {
+        for identity in [expected.as_ref(), corrected.as_ref()]
+            .into_iter()
+            .flatten()
+        {
+            identity.validate().map_err(Error::InvalidInput)?;
+        }
+        let transaction = rusqlite::Transaction::new_unchecked(
+            &self.connection,
+            rusqlite::TransactionBehavior::Immediate,
+        )?;
+        let existing = self.get(id)?;
+        if existing.reference.identity != expected {
+            return Err(Error::IdentityConflict);
+        }
+        let pinned: bool = self.connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM pokemon_reference_identity WHERE pokemon_id = ?1 AND dataset_id IS NOT NULL)",
+            [id.as_str()], |row| row.get(0),
+        )?;
+        if existing.reference.identity == corrected && pinned {
+            let result = (existing, self.tags_for(id)?);
+            transaction.commit()?;
+            return Ok(result);
+        }
+        match corrected {
+            None => {
+                self.connection.execute(
+                    "DELETE FROM pokemon_reference_identity WHERE pokemon_id = ?1",
+                    [id.as_str()],
+                )?;
+            }
+            Some(identity) => {
+                let resolved = self.catalog.resolve(Some(&identity), None);
+                let pin = if resolved.state == ResolutionState::Resolved {
+                    Some(Pin {
+                        dataset_id: resolved.dataset.dataset_id,
+                        species_id: resolved.species.unwrap().id,
+                        form_id: resolved.form.unwrap().id,
+                    })
+                } else {
+                    None
+                };
+                self.connection.execute(
+                    "INSERT INTO pokemon_reference_identity (pokemon_id, species_query, form_query, dataset_id, species_id, form_id)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                     ON CONFLICT(pokemon_id) DO UPDATE SET species_query = excluded.species_query,
+                        form_query = excluded.form_query, dataset_id = excluded.dataset_id,
+                        species_id = excluded.species_id, form_id = excluded.form_id, confirmed_at = CURRENT_TIMESTAMP",
+                    params![id.as_str(), identity.species, identity.form,
+                        pin.as_ref().map(|p| &p.dataset_id), pin.as_ref().map(|p| &p.species_id), pin.as_ref().map(|p| &p.form_id)],
+                )?;
+            }
+        }
+        let result = (self.get(id)?, self.tags_for(id)?);
+        transaction.commit()?;
+        Ok(result)
+    }
+
     /// Read inputs, persist the successful appraisal attempt and return a consistent
     /// record with tags in one write transaction. No tag assignments are changed.
     pub fn evaluate(&self, id: &PokemonId) -> Result<(Pokemon, Vec<Tag>)> {
@@ -374,7 +482,7 @@ impl InventoryRepository {
             rusqlite::TransactionBehavior::Immediate,
         )?;
         let pokemon = self.get(id)?;
-        evaluation::appraise(pokemon.ivs)?;
+        evaluation::assess(pokemon.ivs, &pokemon.reference)?;
         self.connection.execute(
             "INSERT INTO pokemon_appraisals (pokemon_id, input_revision, ruleset_version)
              SELECT id, appraisal_revision, ?2 FROM pokemon WHERE id = ?1
@@ -493,11 +601,134 @@ impl InventoryRepository {
 mod tests {
     use super::*;
 
+    #[test]
+    fn confirmed_reference_identity_preserves_observations_and_pins_across_updates() {
+        use crate::reference::tests::{document, identity, FIXTURE};
+        let mut repo = repository();
+        repo.activate_reference(FIXTURE).unwrap();
+        let original = repo
+            .create(&PokemonInput {
+                display_name: "A nickname".into(),
+                cp: Some(i64::MAX),
+                ivs: Some(AppraisalIvs {
+                    attack: 0,
+                    defense: 14,
+                    hp: 15,
+                }),
+            })
+            .unwrap();
+        let tag = repo.tags().unwrap()[0].id;
+        repo.assign_tag(&original.id, tag).unwrap();
+        let original = repo.evaluate(&original.id).unwrap().0;
+        assert_eq!(original.reference.state, ResolutionState::NotSet);
+        let query = identity("Essai", Some("Base"));
+        let (linked, tags) = repo
+            .correct_identity(&original.id, None, Some(query.clone()))
+            .unwrap();
+        assert_eq!(linked.reference.state, ResolutionState::Resolved);
+        assert_eq!(linked.reference.identity, Some(query.clone()));
+        assert_eq!(linked.id, original.id);
+        assert_eq!(linked.display_name, original.display_name);
+        assert_eq!(linked.cp, original.cp);
+        assert_eq!(linked.ivs, original.ivs);
+        assert_eq!(linked.created_at, original.created_at);
+        assert_eq!(linked.updated_at, original.updated_at);
+        assert_eq!(linked.evaluation, original.evaluation);
+        assert_eq!(tags[0].id, tag);
+        let mut next = document();
+        next["dataset"]["version"] = "test-2".into();
+        next["species"][0]["aliases"] = serde_json::json!(["New alias"]);
+        next["forms"][0]["aliases"] = serde_json::json!([]);
+        repo.activate_reference(&serde_json::to_vec(&next).unwrap())
+            .unwrap();
+        let unchanged = repo
+            .correct_identity(&original.id, Some(query.clone()), Some(query.clone()))
+            .unwrap()
+            .0;
+        assert_eq!(unchanged.reference.state, ResolutionState::Resolved);
+        assert_eq!(unchanged.reference.form.unwrap().id, "testling-normal");
+        assert_eq!(
+            repo.get(&original.id).unwrap().reference.state,
+            ResolutionState::Resolved
+        );
+        assert!(repo.activate_reference(b"broken").is_err());
+        assert_eq!(
+            repo.get(&original.id).unwrap().reference.dataset.version,
+            "test-2"
+        );
+        assert!(matches!(
+            repo.correct_identity(&original.id, None, None),
+            Err(Error::IdentityConflict)
+        ));
+        let unresolved = identity("Unknown raw name", Some("Unknown form"));
+        let (saved, _) = repo
+            .correct_identity(&original.id, Some(query), Some(unresolved.clone()))
+            .unwrap();
+        assert_eq!(saved.reference.state, ResolutionState::UnknownSpecies);
+        assert_eq!(saved.reference.identity, Some(unresolved.clone()));
+        let cleared = repo
+            .correct_identity(&original.id, Some(unresolved), None)
+            .unwrap()
+            .0;
+        assert_eq!(cleared.reference.state, ResolutionState::NotSet);
+        repo.delete(&original.id).unwrap();
+        assert!(matches!(
+            repo.correct_identity(&original.id, None, None),
+            Err(Error::NotFound(_))
+        ));
+    }
+
+    #[test]
+    fn version_four_upgrade_and_reopen_preserve_inventory_and_unresolved_identity() {
+        use crate::reference::tests::identity;
+        let path = std::env::temp_dir().join(format!(
+            "tcm-reference-{}-{}.sqlite3",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let repo = InventoryRepository::open(&path).unwrap();
+        let record = repo.create(&input("Legacy nickname")).unwrap();
+        repo.assign_tag(&record.id, repo.tags().unwrap()[0].id)
+            .unwrap();
+        let before = repo.evaluate(&record.id).unwrap();
+        // Reconstruct exactly the v4 schema; v5 only adds this separate table.
+        repo.connection.execute_batch("DROP TABLE pokemon_reference_identity; DELETE FROM schema_migrations WHERE version = 5;").unwrap();
+        drop(repo);
+        let repo = InventoryRepository::open(&path).unwrap();
+        assert_eq!(repo.get(&record.id).unwrap(), before.0);
+        assert_eq!(repo.tags_for(&record.id).unwrap(), before.1);
+        let query = identity("Explicit species", None);
+        repo.correct_identity(&record.id, None, Some(query.clone()))
+            .unwrap();
+        drop(repo);
+        let repo = InventoryRepository::open(&path).unwrap();
+        let loaded = repo.get(&record.id).unwrap();
+        assert_eq!(loaded.reference.identity, Some(query));
+        assert_eq!(loaded.reference.state, ResolutionState::Unavailable);
+        assert_eq!(loaded.evaluation, before.0.evaluation);
+        repo.delete(&record.id).unwrap();
+        assert_eq!(
+            repo.connection
+                .query_row("SELECT count(*) FROM pokemon_reference_identity", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        drop(repo);
+        std::fs::remove_file(path).unwrap();
+    }
+
     fn repository() -> InventoryRepository {
         let mut connection = Connection::open_in_memory().unwrap();
         database::configure_connection(&connection).unwrap();
         database::apply_migrations(&mut connection).unwrap();
-        InventoryRepository { connection }
+        InventoryRepository {
+            connection,
+            catalog: Catalog::bundled().unwrap(),
+        }
     }
 
     fn input(name: &str) -> PokemonInput {
@@ -1106,7 +1337,10 @@ mod tests {
             .unwrap();
         database::apply_migrations(&mut connection).unwrap();
         database::apply_migrations(&mut connection).unwrap();
-        let repo = InventoryRepository { connection };
+        let repo = InventoryRepository {
+            connection,
+            catalog: Catalog::bundled().unwrap(),
+        };
         let id = PokemonId::parse("00000000-0000-4000-8000-000000000000").unwrap();
         let pokemon = repo.get(&id).unwrap();
         assert_eq!(pokemon.display_name, "Legacy");
@@ -1134,7 +1368,7 @@ mod tests {
                 .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            4
+            5
         );
     }
 

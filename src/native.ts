@@ -17,6 +17,48 @@ export interface InventoryRecord {
   ivs: AppraisalIvs | null;
   tags: Tag[];
   evaluation: Evaluation;
+  reference: ReferenceResolution;
+}
+export interface ReferenceIdentity {
+  species: string;
+  form: string | null;
+}
+export interface ReferenceResolution {
+  state:
+    | "not_set"
+    | "unavailable"
+    | "unknown_species"
+    | "unknown_form"
+    | "ambiguous"
+    | "resolved";
+  identity: ReferenceIdentity | null;
+  dataset: {
+    datasetId: string;
+    version: string;
+    sourceUrl: string;
+    upstreamRevision: string;
+    retrievedAt: string;
+    rightsEvidenceUrl: string;
+    license: string;
+    notice: string;
+  };
+  species: {
+    id: string;
+    dexNumber: number;
+    name: string;
+    aliases: string[];
+  } | null;
+  form: {
+    id: string;
+    speciesId: string;
+    name: string;
+    aliases: string[];
+    types: string[] | null;
+    baseStats: { attack: number; defense: number; stamina: number } | null;
+    evolutions:
+      | { targetFormId: string; requirements: string[] | null }[]
+      | null;
+  } | null;
 }
 export type EvaluationState = "pending" | "evaluated" | "needs_data" | "stale";
 export const evaluationLabels: Record<EvaluationState, string> = {
@@ -107,6 +149,15 @@ export interface ImportInput {
 export const native = {
   snapshot: () => invoke<InventorySnapshot>("inventory_snapshot"),
   evaluate: (id: string) => invoke<InventoryRecord>("evaluate_pokemon", { id }),
+  correctIdentity: (
+    id: string,
+    expectedIdentity: ReferenceIdentity | null,
+    identity: ReferenceIdentity | null,
+  ) =>
+    invoke<InventoryRecord>("correct_pokemon_identity", {
+      id,
+      input: { expectedIdentity, identity },
+    }),
   correctIvs: (
     id: string,
     expectedIvs: AppraisalIvs | null,
