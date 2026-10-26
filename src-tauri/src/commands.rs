@@ -14,7 +14,7 @@ impl CommandError {
     pub fn storage() -> Self {
         Self {
             code: "storage",
-            message: "Local inventory is unavailable. Your review has been kept; try again.",
+            message: "Local inventory is unavailable. Your existing data and any open review are retained; try again.",
         }
     }
 }
@@ -23,7 +23,8 @@ impl From<inventory::Error> for CommandError {
     fn from(error: inventory::Error) -> Self {
         match error {
             inventory::Error::InvalidInput(message) => Self { code: "invalid_input", message },
-            inventory::Error::NotFound(_) => Self { code: "missing_tag", message: "A selected tag no longer exists. Cancel and reload the inventory to review tags." },
+            inventory::Error::NotFound("Tag") => Self { code: "missing_tag", message: "A selected tag no longer exists. Cancel and reload the inventory to review tags." },
+            inventory::Error::NotFound(_) => Self { code: "missing_pokemon", message: "This Pokémon no longer exists. Reload the inventory." },
             _ => Self::storage(),
         }
     }
@@ -94,6 +95,7 @@ pub struct RecordView {
     cp: Option<String>,
     ivs: Option<Ivs>,
     tags: Vec<TagView>,
+    evaluation: crate::evaluation::Evaluation,
 }
 impl From<(Pokemon, Vec<Tag>)> for RecordView {
     fn from((pokemon, tags): (Pokemon, Vec<Tag>)) -> Self {
@@ -107,6 +109,7 @@ impl From<(Pokemon, Vec<Tag>)> for RecordView {
                 hp: v.hp,
             }),
             tags: tags.into_iter().map(Into::into).collect(),
+            evaluation: pokemon.evaluation,
         }
     }
 }
@@ -146,6 +149,11 @@ pub fn confirm(
     Ok(repository.create_with_tags(&pokemon, &tags)?.into())
 }
 
+pub fn evaluate(repository: &InventoryRepository, id: &str) -> Result<RecordView, CommandError> {
+    let id = inventory::PokemonId::parse(id)?;
+    Ok(repository.evaluate(&id)?.into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -175,6 +183,57 @@ mod tests {
         ] {
             assert_eq!(parse_cp(Some(cp)).unwrap_err().code, "invalid_input");
         }
+    }
+
+    #[test]
+    fn evaluation_contract_uses_confirmed_data_only_and_safe_errors() {
+        let path = std::env::temp_dir().join(format!(
+            "tcm-evaluate-command-{}-{}.sqlite3",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let repo = InventoryRepository::open(&path).unwrap();
+        let input = serde_json::from_value(serde_json::json!({
+            "displayName": "Confirmed", "cp": null,
+            "ivs": {"attack":15,"defense":15,"hp":15}, "tagIds":["9"]
+        }))
+        .unwrap();
+        let saved = confirm(&repo, input).unwrap();
+        assert_eq!(
+            saved.evaluation.state,
+            crate::evaluation::EvaluationState::Pending
+        );
+        let evaluated = evaluate(&repo, &saved.id).unwrap();
+        let json = serde_json::to_value(&evaluated).unwrap();
+        assert_eq!(json["evaluation"]["scope"], "appraisal");
+        assert_eq!(json["evaluation"]["state"], "evaluated");
+        assert_eq!(json["evaluation"]["rulesetVersion"], "appraisal-1");
+        assert_eq!(json["evaluation"]["result"]["total"], 45);
+        assert_eq!(json["evaluation"]["result"]["appraisalPercentage"], 100.0);
+        assert_eq!(
+            json["evaluation"]["result"]["findings"][0]["code"],
+            "perfect_appraisal"
+        );
+        assert_eq!(
+            json["evaluation"]["result"]["recommendations"],
+            serde_json::json!([])
+        );
+        assert_eq!(json["tags"], serde_json::to_value(&saved.tags).unwrap());
+        assert_eq!(
+            evaluate(&repo, "malformed").unwrap_err().code,
+            "invalid_input"
+        );
+        let id = inventory::PokemonId::parse(&saved.id).unwrap();
+        repo.delete(&id).unwrap();
+        assert_eq!(
+            evaluate(&repo, &saved.id).unwrap_err().code,
+            "missing_pokemon"
+        );
+        drop(repo);
+        std::fs::remove_file(path).unwrap();
     }
     #[test]
     fn typed_input_rejects_partial_fractional_and_unexpected_fields() {

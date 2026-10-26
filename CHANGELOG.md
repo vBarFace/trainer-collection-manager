@@ -6,9 +6,11 @@ All notable changes are documented here.
 
 ### Changed
 
-- Import review now confirms data without tag selection. Records appear in Awaiting evaluation, with existing tag assignments preserved. Evaluation and automatic classification remain deferred.
+- Inventory now distinguishes Pending, Evaluated, Needs data and Stale appraisal states, with record selection and explicit evaluation/re-evaluation. Import review continues to confirm data without tag selection; existing assignments remain intact.
 
 ### Added
+
+- Task 005: migration 4 persists per-Pokémon appraisal metadata and an IV revision counter. The deterministic `appraisal-1` Rust engine reports confirmed IVs, total, descriptive percentage and a perfect-appraisal finding. Typed findings/recommendation foundations are separate from assigned tags; no strategic recommendations or automatic tag assignments are produced. IV changes and ruleset mismatches invalidate previous attempts.
 
 - Automatic offline screenshot name/CP OCR with bundled English/Portuguese Tesseract resources, temporary native crop preparation, real appraisal-bar palettes/rounded-track support, cancellation/timeout and manual fallback. Verified the supplied real example; no general accuracy rate is claimed.
 

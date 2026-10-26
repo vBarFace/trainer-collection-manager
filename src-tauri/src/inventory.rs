@@ -1,5 +1,6 @@
 //! Native-only inventory API. No SQL or database path is exposed to the renderer.
 use crate::database;
+use crate::evaluation::{self, Evaluation, EvaluationScope, EvaluationState};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::{fmt, path::Path};
 
@@ -48,14 +49,14 @@ impl TagId {
 }
 
 /// Appraisal values, distinct from species base stats and observed HP.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct AppraisalIvs {
     pub attack: u8,
     pub defense: u8,
     pub hp: u8,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Pokemon {
     pub id: PokemonId,
     pub display_name: String,
@@ -63,6 +64,7 @@ pub struct Pokemon {
     pub ivs: Option<AppraisalIvs>,
     pub created_at: String,
     pub updated_at: String,
+    pub evaluation: Evaluation,
 }
 
 /// A complete replacement of editable fields; identity and timestamps are native-owned.
@@ -146,31 +148,66 @@ fn validate_pokemon(input: &PokemonInput) -> Result<()> {
 }
 
 fn read_pokemon(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pokemon> {
+    let ivs = match (
+        row.get::<_, Option<u8>>(5)?,
+        row.get::<_, Option<u8>>(6)?,
+        row.get::<_, Option<u8>>(7)?,
+    ) {
+        (None, None, None) => None,
+        (Some(attack), Some(defense), Some(hp)) if attack <= 15 && defense <= 15 && hp <= 15 => {
+            Some(AppraisalIvs {
+                attack,
+                defense,
+                hp,
+            })
+        }
+        _ => return Err(rusqlite::Error::InvalidQuery),
+    };
+    let revision: i64 = row.get(8)?;
+    let input_revision: Option<i64> = row.get(9)?;
+    let ruleset_version: Option<String> = row.get(10)?;
+    let evaluated_at = row.get(11)?;
+    let state = match input_revision {
+        None => EvaluationState::Pending,
+        Some(input)
+            if input != revision
+                || ruleset_version.as_deref() != Some(evaluation::RULESET_VERSION) =>
+        {
+            EvaluationState::Stale
+        }
+        Some(_) if ivs.is_none() => EvaluationState::NeedsData,
+        Some(_) => EvaluationState::Evaluated,
+    };
+    let result = if matches!(
+        state,
+        EvaluationState::Evaluated | EvaluationState::NeedsData
+    ) {
+        Some(evaluation::appraise(ivs).map_err(|_| rusqlite::Error::InvalidQuery)?)
+    } else {
+        None
+    };
     Ok(Pokemon {
         id: PokemonId(row.get(0)?),
         display_name: row.get(1)?,
         cp: row.get(2)?,
         created_at: row.get(3)?,
         updated_at: row.get(4)?,
-        ivs: match (
-            row.get::<_, Option<u8>>(5)?,
-            row.get::<_, Option<u8>>(6)?,
-            row.get::<_, Option<u8>>(7)?,
-        ) {
-            (None, None, None) => None,
-            (Some(attack), Some(defense), Some(hp))
-                if attack <= 15 && defense <= 15 && hp <= 15 =>
-            {
-                Some(AppraisalIvs {
-                    attack,
-                    defense,
-                    hp,
-                })
-            }
-            _ => return Err(rusqlite::Error::InvalidQuery),
+        ivs,
+        evaluation: Evaluation {
+            scope: EvaluationScope::Appraisal,
+            state,
+            current_ruleset_version: evaluation::RULESET_VERSION,
+            ruleset_version,
+            evaluated_at,
+            result,
         },
     })
 }
+
+const POKEMON_SELECT: &str = "SELECT p.id, p.display_name, p.cp, p.created_at, p.updated_at,
+    p.iv_attack, p.iv_defense, p.iv_hp, p.appraisal_revision,
+    a.input_revision, a.ruleset_version, a.evaluated_at
+    FROM pokemon p LEFT JOIN pokemon_appraisals a ON a.pokemon_id = p.id";
 
 fn read_tag(row: &rusqlite::Row<'_>) -> rusqlite::Result<Tag> {
     Ok(Tag {
@@ -259,7 +296,7 @@ impl InventoryRepository {
     pub fn get(&self, id: &PokemonId) -> Result<Pokemon> {
         self.connection
             .query_row(
-                "SELECT id, display_name, cp, created_at, updated_at, iv_attack, iv_defense, iv_hp FROM pokemon WHERE id = ?1",
+                &format!("{POKEMON_SELECT} WHERE p.id = ?1"),
                 [&id.0],
                 read_pokemon,
             )
@@ -269,9 +306,9 @@ impl InventoryRepository {
 
     /// Deterministic ordering; no domain ranking is implied.
     pub fn list(&self) -> Result<Vec<Pokemon>> {
-        let mut statement = self.connection.prepare(
-            "SELECT id, display_name, cp, created_at, updated_at, iv_attack, iv_defense, iv_hp FROM pokemon ORDER BY created_at, id",
-        )?;
+        let mut statement = self
+            .connection
+            .prepare(&format!("{POKEMON_SELECT} ORDER BY p.created_at, p.id"))?;
         let records = statement
             .query_map([], read_pokemon)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -287,6 +324,29 @@ impl InventoryRepository {
             return Err(Error::NotFound("Pokemon"));
         }
         self.get(id)
+    }
+
+    /// Read inputs, persist the successful appraisal attempt and return a consistent
+    /// record with tags in one write transaction. No tag assignments are changed.
+    pub fn evaluate(&self, id: &PokemonId) -> Result<(Pokemon, Vec<Tag>)> {
+        // Acquire the writer before reading: another connection cannot change IVs
+        // between appraisal and recording its revision.
+        let transaction = rusqlite::Transaction::new_unchecked(
+            &self.connection,
+            rusqlite::TransactionBehavior::Immediate,
+        )?;
+        let pokemon = self.get(id)?;
+        evaluation::appraise(pokemon.ivs)?;
+        self.connection.execute(
+            "INSERT INTO pokemon_appraisals (pokemon_id, input_revision, ruleset_version)
+             SELECT id, appraisal_revision, ?2 FROM pokemon WHERE id = ?1
+             ON CONFLICT(pokemon_id) DO UPDATE SET input_revision = excluded.input_revision,
+                ruleset_version = excluded.ruleset_version, evaluated_at = CURRENT_TIMESTAMP",
+            params![id.as_str(), evaluation::RULESET_VERSION],
+        )?;
+        let result = (self.get(id)?, self.tags_for(id)?);
+        transaction.commit()?;
+        Ok(result)
     }
 
     pub fn delete(&self, id: &PokemonId) -> Result<()> {
@@ -408,6 +468,248 @@ mod tests {
             cp: Some(123),
             ivs: None,
         }
+    }
+
+    #[test]
+    fn appraisal_lifecycle_tracks_only_ivs_and_keeps_tags_and_identity() {
+        let repo = repository();
+        let mut data = input("Confirmed");
+        let pokemon = repo.create(&data).unwrap();
+        let id = &pokemon.id;
+        let standard = repo.tags().unwrap()[0].id;
+        let custom = repo.create_custom_tag("Keep").unwrap().id;
+        repo.assign_tag(id, standard).unwrap();
+        repo.assign_tag(id, custom).unwrap();
+        let tags = repo.tags_for(id).unwrap();
+        assert_eq!(pokemon.evaluation.state, EvaluationState::Pending);
+        assert!(pokemon.evaluation.result.is_none());
+        let (unknown, assigned) = repo.evaluate(id).unwrap();
+        assert_eq!(unknown.evaluation.state, EvaluationState::NeedsData);
+        assert_eq!(
+            unknown.evaluation.ruleset_version.as_deref(),
+            Some(evaluation::RULESET_VERSION)
+        );
+        assert!(unknown.evaluation.evaluated_at.is_some());
+        assert_eq!(assigned, tags);
+        // A null-to-null write is not a data change.
+        assert_eq!(
+            repo.update(id, &data).unwrap().evaluation,
+            unknown.evaluation
+        );
+        data.ivs = Some(AppraisalIvs {
+            attack: 15,
+            defense: 15,
+            hp: 15,
+        });
+        let changed = repo.update(id, &data).unwrap();
+        assert_eq!(changed.evaluation.state, EvaluationState::Stale);
+        assert!(changed.evaluation.result.is_none());
+        let (evaluated, _) = repo.evaluate(id).unwrap();
+        let result = evaluated.evaluation.result.as_ref().unwrap();
+        assert_eq!(evaluated.evaluation.state, EvaluationState::Evaluated);
+        assert_eq!(result.total, Some(45));
+        assert_eq!(result.appraisal_percentage, Some(100.0));
+        assert_eq!(result.perfect, Some(true));
+        assert!(result.recommendations.is_empty());
+        assert_eq!(
+            repo.evaluate(id).unwrap().0.evaluation.result.as_ref(),
+            Some(result)
+        );
+        data.display_name = "Renamed".into();
+        data.cp = Some(i64::MAX);
+        let renamed = repo.update(id, &data).unwrap();
+        assert_eq!(renamed.evaluation.result.as_ref(), Some(result));
+        assert_eq!(renamed.evaluation.state, EvaluationState::Evaluated);
+        repo.remove_tag(id, standard).unwrap();
+        assert_eq!(repo.get(id).unwrap().evaluation, renamed.evaluation);
+        repo.assign_tag(id, standard).unwrap();
+        assert_eq!(repo.get(id).unwrap().evaluation, renamed.evaluation);
+        assert_eq!(renamed.id, pokemon.id);
+        assert_eq!(renamed.created_at, pokemon.created_at);
+        assert_eq!(repo.tags_for(id).unwrap(), tags);
+        // A change and revert in the same second must still invalidate.
+        data.ivs = Some(AppraisalIvs {
+            attack: 0,
+            defense: 0,
+            hp: 0,
+        });
+        repo.update(id, &data).unwrap();
+        data.ivs = evaluated.ivs;
+        assert_eq!(
+            repo.update(id, &data).unwrap().evaluation.state,
+            EvaluationState::Stale
+        );
+        repo.evaluate(id).unwrap();
+        data.ivs = None;
+        assert_eq!(
+            repo.update(id, &data).unwrap().evaluation.state,
+            EvaluationState::Stale
+        );
+        assert_eq!(
+            repo.evaluate(id).unwrap().0.evaluation.state,
+            EvaluationState::NeedsData
+        );
+        assert_eq!(repo.tags_for(id).unwrap(), tags);
+    }
+
+    #[test]
+    fn ruleset_changes_invalidate_known_and_missing_data_attempts() {
+        let repo = repository();
+        for ivs in [
+            None,
+            Some(AppraisalIvs {
+                attack: 0,
+                defense: 14,
+                hp: 15,
+            }),
+        ] {
+            let mut data = input("Versioned");
+            data.ivs = ivs;
+            let pokemon = repo.create(&data).unwrap();
+            repo.evaluate(&pokemon.id).unwrap();
+            repo.connection.execute("UPDATE pokemon_appraisals SET ruleset_version = 'old-rules' WHERE pokemon_id = ?1", [pokemon.id.as_str()]).unwrap();
+            let stale = repo.get(&pokemon.id).unwrap();
+            assert_eq!(stale.evaluation.state, EvaluationState::Stale);
+            assert_eq!(
+                stale.evaluation.ruleset_version.as_deref(),
+                Some("old-rules")
+            );
+            assert!(stale.evaluation.result.is_none());
+            let current = repo.evaluate(&pokemon.id).unwrap().0;
+            assert_eq!(
+                current.evaluation.ruleset_version.as_deref(),
+                Some(evaluation::RULESET_VERSION)
+            );
+            assert_eq!(
+                current.evaluation.state,
+                if ivs.is_some() {
+                    EvaluationState::Evaluated
+                } else {
+                    EvaluationState::NeedsData
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn missing_deleted_and_failed_evaluations_do_not_leave_metadata() {
+        let repo = repository();
+        let pokemon = repo.create(&input("Temporary")).unwrap();
+        repo.connection.execute_batch("CREATE TRIGGER fail_evaluation BEFORE INSERT ON pokemon_appraisals BEGIN SELECT RAISE(ABORT, 'Simulated failure'); END;").unwrap();
+        assert!(repo.evaluate(&pokemon.id).is_err());
+        assert_eq!(
+            repo.get(&pokemon.id).unwrap().evaluation.state,
+            EvaluationState::Pending
+        );
+        repo.connection
+            .execute_batch("DROP TRIGGER fail_evaluation;")
+            .unwrap();
+        repo.evaluate(&pokemon.id).unwrap();
+        // Re-evaluation failure retains the previously persisted attempt.
+        let previous = repo.get(&pokemon.id).unwrap();
+        repo.connection.execute_batch("CREATE TRIGGER fail_revaluation BEFORE UPDATE ON pokemon_appraisals BEGIN SELECT RAISE(ABORT, 'Simulated failure'); END;").unwrap();
+        assert!(repo.evaluate(&pokemon.id).is_err());
+        assert_eq!(repo.get(&pokemon.id).unwrap(), previous);
+        repo.delete(&pokemon.id).unwrap();
+        assert!(matches!(
+            repo.evaluate(&pokemon.id),
+            Err(Error::NotFound("Pokemon"))
+        ));
+        let missing = PokemonId::parse("00000000-0000-4000-8000-000000000000").unwrap();
+        assert!(matches!(
+            repo.evaluate(&missing),
+            Err(Error::NotFound("Pokemon"))
+        ));
+        assert_eq!(
+            repo.connection
+                .query_row("SELECT count(*) FROM pokemon_appraisals", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn version_three_upgrade_and_reopening_preserve_every_lifecycle_state() {
+        let path = std::env::temp_dir().join(format!(
+            "tcm-evaluations-{}-{}.sqlite3",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let connection = Connection::open(&path).unwrap();
+        database::configure_connection(&connection).unwrap();
+        connection
+            .execute_batch(include_str!("../tests/fixtures/schema-v2.sql"))
+            .unwrap();
+        connection
+            .execute_batch(include_str!("../tests/fixtures/migration-v3.sql"))
+            .unwrap();
+        connection.execute_batch("INSERT INTO pokemon (id, display_name, cp, iv_attack, iv_defense, iv_hp, created_at, updated_at) VALUES ('00000000-0000-4000-8000-000000000000', 'Legacy', 9223372036854775807, 0, 14, 15, '2026-01-01 00:00:00', '2026-01-02 00:00:00'); INSERT INTO tags (name, scope) VALUES ('Favorite', 'local'); INSERT INTO pokemon_tags (pokemon_id, tag_id) SELECT '00000000-0000-4000-8000-000000000000', id FROM tags;").unwrap();
+        let old_assignments = connection
+            .query_row("SELECT count(*) FROM pokemon_tags", [], |r| {
+                r.get::<_, i64>(0)
+            })
+            .unwrap();
+        drop(connection);
+        let repo = InventoryRepository::open(&path).unwrap();
+        let legacy = repo.list().unwrap().remove(0);
+        assert_eq!(legacy.id.as_str(), "00000000-0000-4000-8000-000000000000");
+        assert_eq!(legacy.display_name, "Legacy");
+        assert_eq!(legacy.cp, Some(i64::MAX));
+        assert_eq!(
+            legacy.ivs,
+            Some(AppraisalIvs {
+                attack: 0,
+                defense: 14,
+                hp: 15
+            })
+        );
+        assert_eq!(legacy.created_at, "2026-01-01 00:00:00");
+        assert_eq!(legacy.updated_at, "2026-01-02 00:00:00");
+        assert_eq!(legacy.evaluation.state, EvaluationState::Pending);
+        assert_eq!(
+            repo.tags_for(&legacy.id).unwrap().len() as i64,
+            old_assignments
+        );
+        let needs_data = repo.create(&input("Missing IVs")).unwrap();
+        repo.evaluate(&needs_data.id).unwrap();
+        let pending = repo.create(&input("Pending")).unwrap();
+        let stale = repo.create(&input("Stale")).unwrap();
+        repo.evaluate(&stale.id).unwrap();
+        // Direct SQL updates also invalidate, without relying on repository calls.
+        repo.connection
+            .execute(
+                "UPDATE pokemon SET iv_attack=1, iv_defense=2, iv_hp=3 WHERE id=?1",
+                [stale.id.as_str()],
+            )
+            .unwrap();
+        repo.evaluate(&legacy.id).unwrap();
+        let before = repo.snapshot().unwrap();
+        drop(repo);
+        let repo = InventoryRepository::open(&path).unwrap();
+        assert_eq!(repo.snapshot().unwrap(), before);
+        assert_eq!(
+            repo.get(&legacy.id).unwrap().evaluation.state,
+            EvaluationState::Evaluated
+        );
+        assert_eq!(
+            repo.get(&needs_data.id).unwrap().evaluation.state,
+            EvaluationState::NeedsData
+        );
+        assert_eq!(
+            repo.get(&pending.id).unwrap().evaluation.state,
+            EvaluationState::Pending
+        );
+        assert_eq!(
+            repo.get(&stale.id).unwrap().evaluation.state,
+            EvaluationState::Stale
+        );
+        assert_eq!(repo.get(&legacy.id).unwrap().updated_at, legacy.updated_at);
+        drop(repo);
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]
@@ -601,7 +903,7 @@ mod tests {
                 .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            3
+            4
         );
     }
 

@@ -6,7 +6,7 @@ Trainer Collection Manager is a free, open-source, offline-first desktop app for
 
 ## Foundation scope
 
-This release provides a Windows Tauri shell, private local inventory and manual screenshot review. Users select one local PNG/JPEG, inspect a temporary preview and local name/CP/IV suggestions, enter/correct supported data fields, then explicitly confirm saving. Review confirms data only; classification tags belong to a later system evaluation. Inventory lists persisted records under **Awaiting evaluation**, including after restart, and preserves any existing tags. All current records are unevaluated; evaluation and automatic tagging are not implemented. Broad screenshot recognition, account integration, recommendations, teams, simulations, local LLM runtime, datasets, telemetry and cloud capabilities are deferred.
+This release provides a Windows Tauri shell, private local inventory, screenshot review and deterministic appraisal evaluation. Users select one local PNG/JPEG, inspect a temporary preview and local name/CP/IV suggestions, enter/correct supported data fields, then explicitly confirm saving. Review confirms data only and creates a pending record. Users can select a saved Pokémon and request an appraisal evaluation or re-evaluation. Inventory preserves existing records, UUIDs and assigned tags, and presents Pending, Evaluated, Needs data or Stale appraisal states after restart. Broad screenshot recognition, strategic recommendations, automatic tagging, account integration, teams, simulations, local LLM runtime, datasets, telemetry and cloud capabilities are deferred.
 
 ## Product principles
 
@@ -17,8 +17,19 @@ This release provides a Windows Tauri shell, private local inventory and manual 
 
 ## Intended import and evaluation flow
 
-Select a screenshot → attempt local appraisal-bar extraction → review/correct the data → confirm saving → await evaluation → evaluate and propose classification tags/recommendations. Name, visible CP and IVs are suggested automatically for supported layouts; unreadable or hidden fields remain unresolved and can be entered manually. Experimental geometry matches are tentative suggestions, validated on one supplied real example, with no general accuracy measurement. Review confirmation does not assert that the Pokémon has been evaluated. Existing user-assigned tags do not establish evaluation status.
+Select a screenshot → attempt local name/CP/IV extraction → review/correct the data → confirm saving → select the pending record → request appraisal evaluation → review facts, findings and limitations. Name, visible CP and IVs are suggested automatically for supported layouts; unreadable or hidden fields remain unresolved and can be entered manually. Experimental geometry matches are tentative suggestions, validated on one supplied real example, with no general accuracy measurement. Review confirmation does not assert that the Pokémon has been evaluated. Existing user-assigned tags do not establish evaluation status.
+
+## Appraisal evaluation
+
+- The offline Rust engine uses confirmed appraisal IVs only. All three values are required; unknown values remain unknown and produce Needs data with explicit missing fields.
+- Known values yield attack, defense and HP IVs (0–15), total appraisal IVs (0–45), and appraisal percentage (`total × 100 / 45`). A 15/15/15 appraisal produces a noteworthy perfect-appraisal finding.
+- These facts describe appraisal only. They do not establish PvP rank, PvE strength, overall quality, transfer suitability or universal competitive superiority. PvP, PvE, gym, Rocket and investment analysis have not been performed.
+- Each evaluation attempt has a ruleset version and UTC timestamp. Changes to actual IV values or a ruleset mismatch make it Stale; re-evaluation replaces the attempt metadata. Name, CP and tag changes do not affect this scope. Stale results are withheld until re-evaluation.
+- Findings, future recommendations/suggested tags and assigned tags are distinct. This engine emits no recommendations and never changes tags or infers shiny status or user preferences.
+- Selection and evaluation controls support keyboard use, loading, safe errors and retry. Full inventory editing and filtering remain deferred; relevant updates through the native repository invalidate appraisal results.
 
 ## Future constraints
 
 Each Pokémon instance must have a stable UUID. Standard tags are `EVOLVE`, `POWER UP`, `ATTACKER`, `GYM DEF`, `ROCKET`, `PVP 1500`, `PVP 2500`, `TRANSFER`, and `SAVE/SPECIAL`; custom tags are allowed. IV appraisal and second attacks are fields/features, not default tags.
+
+Future strategic recommendations require validated species/form identification, explicit structured moves/level and other applicable observations, licensed and versioned game data, validated formulas, and user goals where relevant. They must have their own scope and provenance. CP or aggregate IV percentage alone must never justify transfer, evolution or power-up.

@@ -16,6 +16,60 @@ export interface InventoryRecord {
   cp: string | null;
   ivs: AppraisalIvs | null;
   tags: Tag[];
+  evaluation: Evaluation;
+}
+export type EvaluationState = "pending" | "evaluated" | "needs_data" | "stale";
+export const evaluationLabels: Record<EvaluationState, string> = {
+  pending: "Pending",
+  evaluated: "Evaluated",
+  needs_data: "Needs data",
+  stale: "Stale",
+};
+export type IvField = "attack" | "defense" | "hp";
+export type StandardClassification =
+  | "EVOLVE"
+  | "POWER UP"
+  | "ATTACKER"
+  | "GYM DEF"
+  | "ROCKET"
+  | "PVP 1500"
+  | "PVP 2500"
+  | "TRANSFER"
+  | "SAVE/SPECIAL";
+export interface ObservedFact {
+  field: IvField;
+  value: number;
+}
+export interface Recommendation {
+  code: string;
+  proposedClassification: StandardClassification | null;
+  explanation: string;
+  observedFacts: ObservedFact[];
+  rulesetVersion: string;
+  limitations: string[];
+  missingData: IvField[];
+}
+export interface AppraisalResult {
+  ivs: AppraisalIvs | null;
+  total: number | null;
+  appraisalPercentage: number | null;
+  perfect: boolean | null;
+  findings: {
+    code: "perfect_appraisal";
+    explanation: string;
+    observedFacts: ObservedFact[];
+  }[];
+  recommendations: Recommendation[];
+  missingData: IvField[];
+  limitations: string[];
+}
+export interface Evaluation {
+  scope: "appraisal";
+  state: EvaluationState;
+  currentRulesetVersion: string;
+  rulesetVersion: string | null;
+  evaluatedAt: string | null;
+  result: AppraisalResult | null;
 }
 export interface InventorySnapshot {
   records: InventoryRecord[];
@@ -52,6 +106,7 @@ export interface ImportInput {
 
 export const native = {
   snapshot: () => invoke<InventorySnapshot>("inventory_snapshot"),
+  evaluate: (id: string) => invoke<InventoryRecord>("evaluate_pokemon", { id }),
   selectScreenshot: () => invoke<ScreenshotPreview | null>("select_screenshot"),
   confirmImport: (input: ImportInput) =>
     invoke<InventoryRecord>("confirm_inventory_import", { input }),

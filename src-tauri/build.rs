@@ -3,6 +3,7 @@ fn main() {
         tauri_build::AppManifest::new().commands(&[
             "inventory_snapshot",
             "confirm_inventory_import",
+            "evaluate_pokemon",
             "select_screenshot",
         ]),
     ))

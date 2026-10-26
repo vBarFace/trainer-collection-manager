@@ -3,11 +3,13 @@ import type { FormEvent } from "react";
 import {
   native,
   nativeErrorMessage,
+  evaluationLabels,
   type InventorySnapshot,
   type ScreenshotExtraction,
 } from "./native";
 import { emptyReview, validateReview, type ReviewFields } from "./review";
 import { extractText } from "./ocr";
+import { AppraisalPanel } from "./AppraisalPanel";
 
 interface Preview {
   url: string;
@@ -29,6 +31,10 @@ export function Inventory() {
   >("idle");
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [evaluating, setEvaluating] = useState<string | null>(null);
+  const [evaluationError, setEvaluationError] = useState("");
+  const evaluationOperation = useRef(false);
   const operation = useRef<"selecting" | "saving" | null>(null);
   const previewUrl = useRef<string | null>(null);
   const mounted = useRef(false);
@@ -48,7 +54,12 @@ export function Inventory() {
     setLoadError("");
     try {
       const next = await native.snapshot();
-      if (mounted.current && version === loadVersion.current) setSnapshot(next);
+      if (mounted.current && version === loadVersion.current) {
+        setSnapshot(next);
+        setSelectedId((current) =>
+          next.records.some((record) => record.id === current) ? current : null,
+        );
+      }
     } catch (failure) {
       if (mounted.current && version === loadVersion.current)
         setLoadError(
@@ -194,6 +205,38 @@ export function Inventory() {
     setFields((current) => ({ ...current, [key]: value }));
     setEdited((current) => ({ ...current, [key]: true }));
   }
+  async function evaluateSelected() {
+    if (!selectedId || evaluationOperation.current) return;
+    evaluationOperation.current = true;
+    setEvaluating(selectedId);
+    setEvaluationError("");
+    ++loadVersion.current;
+    try {
+      const record = await native.evaluate(selectedId);
+      if (mounted.current)
+        setSnapshot((current) =>
+          current
+            ? {
+                ...current,
+                records: current.records.map((existing) =>
+                  existing.id === record.id ? record : existing,
+                ),
+              }
+            : current,
+        );
+    } catch (failure) {
+      if (mounted.current)
+        setEvaluationError(
+          nativeErrorMessage(
+            failure,
+            "Unable to evaluate appraisal. Your existing data is retained; try again.",
+          ),
+        );
+    } finally {
+      evaluationOperation.current = false;
+      if (mounted.current) setEvaluating(null);
+    }
+  }
   function evidence(key: keyof ReviewFields) {
     const field = preview?.extraction[key];
     if (!field) return null;
@@ -230,7 +273,8 @@ export function Inventory() {
         </p>
         <p>
           Review confirms the Pokémon’s data only. Confirmed records await
-          evaluation; evaluation and automatic tagging are not available yet.
+          evaluation. Run appraisal separately below; no tags are applied
+          automatically.
         </p>
         <button
           ref={selectButton}
@@ -357,7 +401,7 @@ export function Inventory() {
         )}
       </section>
       <section aria-labelledby="records-title">
-        <h2 id="records-title">Awaiting evaluation</h2>
+        <h2 id="records-title">Local collection</h2>
         <p>
           Existing tags are preserved and do not indicate a completed
           evaluation.
@@ -372,13 +416,14 @@ export function Inventory() {
         ) : !snapshot ? (
           <p role="status">Loading local inventory…</p>
         ) : snapshot.records.length === 0 ? (
-          <p>No Pokémon awaiting evaluation yet.</p>
+          <p>No Pokémon saved yet. Confirm a screenshot review to add one.</p>
         ) : (
           <ul className="inventory-list">
             {snapshot.records.map((record) => (
               <li key={record.id}>
                 <h3>{record.displayName}</h3>
-                <p>Evaluation: Pending</p>
+                <p>Evaluation: {evaluationLabels[record.evaluation.state]}</p>
+                <p>Appraisal only · Strategic analysis not performed</p>
                 <p>CP: {record.cp ?? "Unknown"}</p>
                 <p>
                   Appraisal IVs:{" "}
@@ -392,10 +437,38 @@ export function Inventory() {
                     ? record.tags.map((tag) => tag.name).join(", ")
                     : "None"}
                 </p>
+                <button
+                  type="button"
+                  aria-expanded={selectedId === record.id}
+                  aria-controls={
+                    selectedId === record.id ? "appraisal-panel" : undefined
+                  }
+                  disabled={evaluating !== null}
+                  onClick={() => {
+                    setSelectedId(record.id);
+                    setEvaluationError("");
+                  }}
+                >
+                  Review appraisal for {record.displayName}
+                </button>
               </li>
             ))}
           </ul>
         )}
+        {!loadError &&
+          snapshot?.records.find((record) => record.id === selectedId) && (
+            <div id="appraisal-panel">
+              <AppraisalPanel
+                record={
+                  snapshot.records.find((record) => record.id === selectedId)!
+                }
+                busy={evaluating !== null}
+                error={evaluationError}
+                onEvaluate={() => void evaluateSelected()}
+                onReload={() => void loadInventory()}
+              />
+            </div>
+          )}
       </section>
     </div>
   );

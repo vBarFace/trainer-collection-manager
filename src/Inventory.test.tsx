@@ -22,6 +22,7 @@ vi.mock("./native", async (importOriginal) => {
       snapshot: vi.fn(),
       selectScreenshot: vi.fn(),
       confirmImport: vi.fn(),
+      evaluate: vi.fn(),
     },
   };
 });
@@ -78,6 +79,14 @@ const saved: InventoryRecord = {
   cp: "9223372036854775807",
   ivs: { attack: 0, defense: 14, hp: 15 },
   tags: [special, custom],
+  evaluation: {
+    scope: "appraisal",
+    state: "pending",
+    currentRulesetVersion: "appraisal-1",
+    rulesetVersion: null,
+    evaluatedAt: null,
+    result: null,
+  },
 };
 const imported: InventoryRecord = { ...saved, tags: [] };
 let createObjectURL: ReturnType<typeof vi.fn>;
@@ -210,7 +219,7 @@ describe("Inventory manual import", () => {
       screen.getByText("Tags: SAVE/SPECIAL, Favorites"),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Awaiting evaluation" }),
+      screen.getByRole("heading", { name: "Local collection" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Evaluation: Pending")).toBeInTheDocument();
     cleanup();
@@ -385,6 +394,243 @@ describe("Inventory manual import", () => {
       screen.getByRole("button", { name: "Retry loading inventory" }),
     );
     await selectImage();
+  });
+});
+
+describe("persisted appraisal evaluation", () => {
+  const evaluated: InventoryRecord = {
+    ...saved,
+    evaluation: {
+      scope: "appraisal",
+      state: "evaluated",
+      currentRulesetVersion: "appraisal-1",
+      rulesetVersion: "appraisal-1",
+      evaluatedAt: "2026-10-26 12:00:00",
+      result: {
+        ivs: { attack: 15, defense: 15, hp: 15 },
+        total: 45,
+        appraisalPercentage: 100,
+        perfect: true,
+        findings: [
+          {
+            code: "perfect_appraisal",
+            explanation:
+              "Perfect appraisal does not imply universal competitive superiority.",
+            observedFacts: [
+              { field: "attack", value: 15 },
+              { field: "defense", value: 15 },
+              { field: "hp", value: 15 },
+            ],
+          },
+        ],
+        recommendations: [],
+        missingData: [],
+        limitations: [
+          "Appraisal percentage is descriptive only, not a PvP ranking or transfer criterion.",
+        ],
+      },
+    },
+    ivs: { attack: 15, defense: 15, hp: 15 },
+  };
+  async function selectRecord() {
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Review appraisal for Buddy" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Appraisal for Buddy" }),
+    ).toHaveFocus();
+  }
+  it("renders all four native lifecycle states and an empty collection", async () => {
+    render(<Inventory />);
+    expect(await screen.findByText(/No Pokémon saved yet/)).toBeInTheDocument();
+    cleanup();
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: ["pending", "evaluated", "needs_data", "stale"].map(
+        (state, index) => ({
+          ...saved,
+          id: String(index),
+          displayName: state,
+          evaluation: {
+            ...saved.evaluation,
+            state: state as InventoryRecord["evaluation"]["state"],
+          },
+        }),
+      ),
+      tags: [],
+    });
+    render(<Inventory />);
+    for (const label of ["Pending", "Evaluated", "Needs data", "Stale"])
+      expect(
+        await screen.findByText(`Evaluation: ${label}`),
+      ).toBeInTheDocument();
+    expect(native.evaluate).not.toHaveBeenCalled();
+  });
+  it("requests only a selected ID, prevents duplicate requests and displays native results separately from tags", async () => {
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [saved],
+      tags: [special, custom],
+    });
+    const pending = deferred<InventoryRecord>();
+    vi.mocked(native.evaluate).mockReturnValueOnce(pending.promise);
+    render(<Inventory />);
+    await selectRecord();
+    const button = screen.getByRole("button", { name: "Evaluate appraisal" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+    expect(
+      screen.getByText("Evaluating confirmed appraisal IVs locally…"),
+    ).toBeInTheDocument();
+    expect(native.evaluate).toHaveBeenCalledExactlyOnceWith(saved.id);
+    await act(async () => pending.resolve(evaluated));
+    expect(screen.getByText("Evaluation: Evaluated")).toBeInTheDocument();
+    expect(
+      screen.getByText("Total appraisal IVs: 45 / 45"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Appraisal percentage: 100.00%"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Perfect 15/15/15 appraisal: Yes"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/does not imply universal competitive/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/No action recommendations or suggested tags/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Assigned tags" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Tags: SAVE/SPECIAL, Favorites"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/not a PvP ranking or transfer criterion/),
+    ).toBeInTheDocument();
+    expect(native.confirmImport).not.toHaveBeenCalled();
+    cleanup();
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [evaluated],
+      tags: [special, custom],
+    });
+    render(<Inventory />);
+    await selectRecord();
+    expect(
+      screen.getByText("Appraisal percentage: 100.00%"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/2026-10-26 12:00:00 UTC · appraisal-1/),
+    ).toBeInTheDocument();
+    expect(native.evaluate).toHaveBeenCalledTimes(1);
+  });
+  it("shows missing data explicitly and permits re-evaluation", async () => {
+    const missing: InventoryRecord = {
+      ...saved,
+      ivs: null,
+      evaluation: {
+        ...evaluated.evaluation,
+        state: "needs_data",
+        result: {
+          ...evaluated.evaluation.result!,
+          ivs: null,
+          total: null,
+          appraisalPercentage: null,
+          perfect: null,
+          findings: [],
+          missingData: ["attack", "defense", "hp"],
+        },
+      },
+    };
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [missing],
+      tags: [],
+    });
+    vi.mocked(native.evaluate).mockResolvedValue(missing);
+    render(<Inventory />);
+    await selectRecord();
+    expect(
+      screen.getByText(
+        /Required confirmed IVs are unknown: attack, defense, HP/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Appraisal percentage: /),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Re-evaluate appraisal" }),
+    );
+    await waitFor(() =>
+      expect(native.evaluate).toHaveBeenCalledExactlyOnceWith(saved.id),
+    );
+  });
+  it("withholds stale results and recovers from safe failure with retry", async () => {
+    const stale: InventoryRecord = {
+      ...saved,
+      evaluation: {
+        ...evaluated.evaluation,
+        state: "stale",
+        rulesetVersion: "old-rules",
+        result: null,
+      },
+    };
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [stale],
+      tags: [],
+    });
+    vi.mocked(native.evaluate)
+      .mockRejectedValueOnce("private path or SQL")
+      .mockResolvedValueOnce(evaluated);
+    render(<Inventory />);
+    await selectRecord();
+    expect(screen.getByText(/previous result is withheld/)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Appraisal percentage: /),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Re-evaluate appraisal" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Unable to evaluate appraisal.",
+    );
+    expect(screen.queryByText("private path or SQL")).not.toBeInTheDocument();
+    expect(screen.getByText("Evaluation: Stale")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Retry appraisal evaluation" }),
+    );
+    await screen.findByText("Evaluation: Evaluated");
+    expect(native.evaluate).toHaveBeenCalledTimes(2);
+  });
+  it("allows reloading after deletion and ignores a late result on unmount", async () => {
+    vi.mocked(native.snapshot)
+      .mockResolvedValueOnce({ records: [saved], tags: [] })
+      .mockResolvedValue({ records: [], tags: [] });
+    vi.mocked(native.evaluate).mockRejectedValueOnce({
+      code: "missing_pokemon",
+      message: "This Pokémon no longer exists. Reload the inventory.",
+    });
+    const view = render(<Inventory />);
+    await selectRecord();
+    fireEvent.click(screen.getByRole("button", { name: "Evaluate appraisal" }));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Reload inventory" }));
+    await screen.findByText(/No Pokémon saved yet/);
+    expect(
+      screen.queryByRole("heading", { name: "Appraisal for Buddy" }),
+    ).not.toBeInTheDocument();
+    view.unmount();
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [saved],
+      tags: [],
+    });
+    const pending = deferred<InventoryRecord>();
+    vi.mocked(native.evaluate).mockReturnValueOnce(pending.promise);
+    const next = render(<Inventory />);
+    await selectRecord();
+    fireEvent.click(screen.getByRole("button", { name: "Evaluate appraisal" }));
+    next.unmount();
+    await act(async () => pending.resolve(evaluated));
+    expect(native.confirmImport).not.toHaveBeenCalled();
   });
 });
 

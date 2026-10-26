@@ -196,6 +196,17 @@ h1 {
   border-radius: 7px;
   overflow-wrap: anywhere;
 }
+.appraisal-panel {
+  padding: 20px;
+  border: 1px solid #526575;
+  border-radius: 7px;
+  background: #fff;
+  overflow-wrap: anywhere;
+}
+.appraisal-panel h3:focus {
+  outline: 3px solid #26765c;
+  outline-offset: 3px;
+}
 @media (max-width: 1000px) {
   .review-layout {
     grid-template-columns: 1fr;
