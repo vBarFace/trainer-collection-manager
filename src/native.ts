@@ -26,11 +26,13 @@ export interface ScreenshotPreview {
   width: number;
   height: number;
   extraction: ScreenshotExtraction;
+  textRegions: { displayName: number[] | null; cp: number[] | null };
 }
 export interface ExtractedField<T> {
   value: T | null;
   confidence: "none" | "tentative";
-  method: "unavailable" | "appraisal_geometry_v1";
+  method: "unavailable" | "appraisal_geometry_v1" | "tesseract_lstm";
+  engineConfidence?: number;
   state: "detected" | "unresolved" | "unavailable";
 }
 export interface ScreenshotExtraction {

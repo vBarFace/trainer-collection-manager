@@ -1,0 +1,28 @@
+Offline OCR third-party notices
+
+Tesseract.js 6.0.1 and tesseract.js-core 6.1.2
+Copyright the Tesseract.js and Tesseract contributors.
+Apache License 2.0. Full license copies accompany these bundled assets.
+Sources: https://github.com/naptha/tesseract.js
+         https://github.com/naptha/tesseract.js-core
+The WebAssembly core includes Tesseract, Leptonica, giflib, libjpeg,
+libpng, LibTIFF, libwebp, openlibm and zlib. Their pinned source revisions,
+copyright notices, complete applicable license texts and required
+acknowledgements are in OCR-THIRD-PARTY-LICENSES.txt alongside these files.
+The JavaScript worker's original extracted notices are retained unchanged
+in worker.min.js.LICENSE.txt; additional full component texts are also in
+OCR-THIRD-PARTY-LICENSES.txt. These files must accompany the runtime on
+redistribution and must be reviewed together when upgrading the packages.
+
+This software is based in part on the work of the Independent JPEG Group.
+
+English and Portuguese trained language data:
+@tesseract.js-data/eng 1.0.0 and @tesseract.js-data/por 1.0.0,
+4.0.0_best_int variants, unchanged from the npm packages.
+The package metadata declares MIT for the packaging. The upstream tessdata
+repository licenses the trained data under Apache-2.0, whose license is
+included as TESSERACT-CORE-LICENSE.txt in this directory.
+Source: https://github.com/naptha/tessdata
+Copyright the upstream Tesseract trained-data contributors.
+
+No Pokemon artwork, species dataset or user screenshots are included.

@@ -18,6 +18,7 @@ pub struct Preview {
     pub width: u32,
     pub height: u32,
     pub extraction: crate::extraction::Extraction,
+    pub text_regions: crate::ocr_regions::TextRegions,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -88,7 +89,10 @@ fn decode_preview(bytes: &[u8]) -> Result<Preview, Error> {
     let decoded = reader(bytes, format).decode().map_err(image_error)?;
     dimensions(decoded.width(), decoded.height())?;
     // Reuse validated full-resolution pixels, before preview downsampling.
-    let extraction = crate::extraction::extract(&decoded.to_rgba8());
+    let rgba = decoded.to_rgba8();
+    let extraction = crate::extraction::extract(&rgba);
+    let text_regions = crate::ocr_regions::prepare(&rgba);
+    drop(rgba);
     // A fresh pixel-only PNG discards EXIF, text, profiles, names and other
     // metadata. The smaller preview also bounds IPC and renderer memory.
     let pixels = if width > PREVIEW_SIDE || height > PREVIEW_SIDE {
@@ -106,6 +110,7 @@ fn decode_preview(bytes: &[u8]) -> Result<Preview, Error> {
         width,
         height,
         extraction,
+        text_regions,
     })
 }
 
@@ -147,6 +152,18 @@ pub fn select(parent: &tauri::WebviewWindow) -> Result<Option<Preview>, Error> {
 mod tests {
     use super::*;
     use image::{DynamicImage, ImageBuffer, Rgba};
+
+    #[test]
+    #[ignore = "requires an explicit private TCM_REFERENCE_SCREENSHOT; no fixture retained"]
+    fn inspect_local_extraction_for_ocr() {
+        let path =
+            std::env::var_os("TCM_REFERENCE_SCREENSHOT").expect("explicit reference path required");
+        let preview = read_selected(Path::new(&path)).unwrap();
+        println!(
+            "TCM_OCR_INPUT={}",
+            serde_json::json!({"extraction": preview.extraction, "textRegions": preview.text_regions})
+        );
+    }
 
     fn encoded(image: &DynamicImage, format: ImageFormat) -> Vec<u8> {
         let mut output = Cursor::new(Vec::new());

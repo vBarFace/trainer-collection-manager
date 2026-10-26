@@ -102,21 +102,36 @@ pub fn extract(pixels: &RgbaImage) -> Extraction {
     }
 }
 
-// Narrow palette gates deliberately prefer unresolved over guessing. Transparent
-// source pixels must never supply evidence invisible in the preview.
+// Palette gates include the neutral grey tracks used by actual appraisal UI.
+// Transparent pixels never supply evidence invisible in the preview.
 fn color([r, g, b, a]: [u8; 4]) -> u8 {
     if a < 250 {
         return 0;
     }
-    if r >= 225 && (95..=185).contains(&g) && b <= 115 && r.saturating_sub(g) >= 50 {
+    if r >= 190
+        && (95..=205).contains(&g)
+        && b <= 150
+        && r.saturating_sub(g) >= 35
+        && g.saturating_sub(b) >= 20
+    {
         1 // orange partial fill
-    } else if r >= 220 && (75..=155).contains(&g) && (95..=175).contains(&b) {
+    } else if r >= 180
+        && (60..=190).contains(&g)
+        && (70..=190).contains(&b)
+        && r.saturating_sub(g) >= 45
+        && r.saturating_sub(b) >= 35
+        && g.abs_diff(b) < 65
+    {
         2 // pink complete fill
-    } else if r >= 225
-        && (195..=235).contains(&g)
-        && (175..=225).contains(&b)
-        && r.saturating_sub(g) >= 8
-        && g >= b
+    } else if (185..=242).contains(&r)
+        && (185..=242).contains(&g)
+        && (185..=242).contains(&b)
+        && r.max(g).max(b) - r.min(g).min(b) <= 18
+        || r >= 225
+            && (195..=235).contains(&g)
+            && (175..=225).contains(&b)
+            && r.saturating_sub(g) >= 8
+            && g >= b
     {
         3 // visible empty track
     } else {
@@ -131,6 +146,7 @@ struct Track {
     top: u32,
     bottom: u32,
     value: u8,
+    rows: u32,
 }
 
 fn measure(row: &[u8]) -> Option<u8> {
@@ -139,17 +155,21 @@ fn measure(row: &[u8]) -> Option<u8> {
     let mut fill = 0;
     let mut kind = 0;
     let mut separators = [false; 2];
+    let mut unknown = Vec::new();
     for (x, &pixel) in row.iter().enumerate() {
+        if let Some(index) = [width / 3, width * 2 / 3]
+            .iter()
+            .position(|&tick| x.abs_diff(tick) <= (width / 45).max(1))
+        {
+            // Ignore JPEG colour bleeding at separator edges, while requiring
+            // actual uncoloured separator evidence inside both regions.
+            separators[index] |= pixel == 0;
+            continue;
+        }
         match pixel {
             0 => {
-                // Only the two known segment separators may interrupt a track.
-                let Some(index) = [width / 3, width * 2 / 3]
-                    .iter()
-                    .position(|&tick| x.abs_diff(tick) <= (width / 150).max(1))
-                else {
-                    return None;
-                };
-                separators[index] = true;
+                // A few mixed-colour pixels may surround the fill endpoint.
+                unknown.push(x);
             }
             3 => empty = true,
             1 | 2 if !empty && (kind == 0 || kind == pixel) => {
@@ -164,10 +184,31 @@ fn measure(row: &[u8]) -> Option<u8> {
     if !separators.iter().all(|found| *found) || (!empty && kind != 2) || (empty && kind == 2) {
         return None;
     }
+    for tick in [width / 3, width * 2 / 3] {
+        let tolerance = (width / 45).max(1);
+        if kind == 1
+            && empty
+            && fill.abs_diff(tick) <= tolerance + 1
+            && row[tick - tolerance - 1] == 1
+            && row[tick + tolerance + 1] == 3
+        {
+            // An endpoint inside a separator is exactly IV5 or IV10; the
+            // unpainted separator itself must not shorten the filled length.
+            fill = tick;
+        }
+    }
+    if unknown.len() > (width / 60).max(1)
+        || unknown
+            .iter()
+            .any(|&x| x.abs_diff(fill) > (width / 60).max(1))
+    {
+        return None;
+    }
     let steps = fill as f64 * 15.0 / width as f64;
     let value = steps.round();
-    // At most ~1 pixel of endpoint uncertainty, and never close to half a step.
-    if (steps - value).abs() > (15.0 / width as f64).min(0.15) {
+    // Rounded caps and JPEG mixing can move the observed endpoint slightly.
+    // Refuse anything close to the halfway point between two IVs.
+    if (steps - value).abs() > 0.22 {
         return None;
     }
     Some(value as u8)
@@ -212,16 +253,24 @@ fn bars(pixels: &RgbaImage) -> Option<[u8; 3]> {
             let Some(value) = measure(&row[start..end]) else {
                 continue;
             };
-            if let Some(track) = tracks
-                .iter_mut()
-                .rev()
-                .find(|t| t.bottom + 1 == y && t.x == start as u32 && t.width == length as u32)
-            {
+            if let Some(track) = tracks.iter_mut().rev().find(|t| {
+                y > t.bottom
+                    && y - t.bottom <= (t.width / 15).max(1)
+                    && y - t.top < t.width / 10
+                    && t.x.abs_diff(start as u32) <= (t.width / 20).max(1)
+                    && (t.x + t.width).abs_diff(end as u32) <= (t.width / 20).max(1)
+            }) {
                 // Contradictory rows invalidate the entire group, not just one IV.
                 if track.value != value {
                     return None;
                 }
                 track.bottom = y;
+                track.rows += 1;
+                // Interior rows of rounded bars carry the complete width.
+                if length as u32 > track.width {
+                    track.x = start as u32;
+                    track.width = length as u32;
+                }
             } else {
                 // Bounded storage even for adversarially patterned valid images.
                 if tracks.len() >= 128 {
@@ -233,12 +282,13 @@ fn bars(pixels: &RgbaImage) -> Option<[u8; 3]> {
                     top: y,
                     bottom: y,
                     value,
+                    rows: 1,
                 });
             }
         }
     }
-    // Do not discard short contradictory fragments: an occlusion splitting a
-    // track into a long and a short band must invalidate the complete result.
+    // Multiple nearby agreeing scanlines establish a band despite JPEG noise.
+    // A valid contradictory row invalidates it above rather than being voted away.
     if tracks.len() != 3 {
         return None;
     }
@@ -247,14 +297,19 @@ fn bars(pixels: &RgbaImage) -> Option<[u8; 3]> {
         || c.bottom + 3 >= height
         || tracks.iter().any(|t| {
             let thickness = t.bottom - t.top + 1;
-            thickness < 3 || thickness * 12 > t.width
+            thickness < 3 || t.rows < 3 || thickness * 10 > t.width
         })
-        || [b, c]
-            .iter()
-            .any(|t| t.x != a.x || t.width != a.width || t.bottom - t.top != a.bottom - a.top)
+        || [b, c].iter().any(|t| {
+            t.x.abs_diff(a.x) > (a.width / 60).max(1)
+                || t.width.abs_diff(a.width) > (a.width / 40).max(1)
+                || (t.bottom - t.top + 1) * 3 < a.bottom - a.top + 1
+                || t.bottom - t.top + 1 > (a.bottom - a.top + 1) * 3
+        })
         || b.top <= a.bottom
         || c.top <= b.bottom
-        || (b.top - a.top).abs_diff(c.top - b.top) > 1
+        || ((b.top + b.bottom) / 2 - (a.top + a.bottom) / 2)
+            .abs_diff((c.top + c.bottom) / 2 - (b.top + b.bottom) / 2)
+            > (a.width / 40).max(2)
         || b.top - a.top < (a.bottom - a.top + 1) * 2
         || b.top - a.top > a.width / 2
     {
@@ -267,6 +322,23 @@ fn bars(pixels: &RgbaImage) -> Option<[u8; 3]> {
 pub(crate) mod tests {
     use super::*;
     use image::Rgba;
+
+    #[test]
+    #[ignore = "Requires an explicitly supplied private reference image; never copies it"]
+    fn inspect_authorized_reference() {
+        let path = std::env::var_os("TCM_REFERENCE_IMAGE").expect("Set TCM_REFERENCE_IMAGE");
+        let pixels = image::open(path).unwrap().to_rgba8();
+        let result = extract(&pixels);
+        println!("{}", serde_json::to_string(&result).unwrap());
+        if let Ok(expected) = std::env::var("TCM_REFERENCE_IVS") {
+            let expected: Vec<u8> = expected.split(',').map(|v| v.parse().unwrap()).collect();
+            assert_eq!(expected.len(), 3);
+            assert_eq!(
+                [result.attack.value, result.defense.value, result.hp.value],
+                [Some(expected[0]), Some(expected[1]), Some(expected[2])]
+            );
+        }
+    }
 
     // Original MIT test drawings, generated in memory; no game artwork/assets.
     pub fn fixture(scale: u32, values: [u8; 3]) -> RgbaImage {
@@ -301,6 +373,88 @@ pub(crate) mod tests {
             for iv in 0..=15 {
                 assert_eq!(bars(&fixture(scale, [iv, 0, 15])), Some([iv, 0, 15]));
             }
+        }
+    }
+
+    fn rounded_fixture(scale: u32, values: [u8; 3]) -> RgbaImage {
+        let mut pixels = RgbaImage::from_pixel(360 * scale, 480 * scale, Rgba([255; 4]));
+        let radius = 7 * scale;
+        for (index, value) in values.into_iter().enumerate() {
+            for y in 0..14 * scale {
+                for x in 0..240 * scale {
+                    let dx = if x < radius {
+                        radius - x
+                    } else {
+                        x.saturating_sub(240 * scale - radius - 1)
+                    };
+                    let dy = y.abs_diff(radius);
+                    if dx * dx + dy * dy > radius * radius {
+                        continue;
+                    }
+                    let rgb = if (80 * scale..83 * scale).contains(&x)
+                        || (160 * scale..163 * scale).contains(&x)
+                    {
+                        [255; 4]
+                    } else if x < u32::from(value) * 16 * scale {
+                        if value == 15 {
+                            [228, 125, 129, 255]
+                        } else {
+                            [243, 167, 73, 255]
+                        }
+                    } else {
+                        [226, 226, 228, 255]
+                    };
+                    pixels.put_pixel(
+                        40 * scale + x,
+                        (200 + index as u32 * 60) * scale + y,
+                        Rgba(rgb),
+                    );
+                }
+            }
+        }
+        pixels
+    }
+
+    #[test]
+    fn rounded_neutral_tracks_quantize_every_iv_at_multiple_scales() {
+        for scale in [1, 2, 4] {
+            for value in 0..=15 {
+                assert_eq!(
+                    bars(&rounded_fixture(scale, [value, 0, 15])),
+                    Some([value, 0, 15])
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn jpeg_rounding_and_compression_preserve_clear_appraisal_group() {
+        for scale in [1, 2, 4] {
+            let rgb = image::DynamicImage::ImageRgba8(rounded_fixture(scale, [15, 2, 2])).to_rgb8();
+            let mut encoded = Vec::new();
+            image::codecs::jpeg::JpegEncoder::new_with_quality(&mut encoded, 85)
+                .encode_image(&rgb)
+                .unwrap();
+            let decoded = image::load_from_memory(&encoded).unwrap().to_rgba8();
+            assert_eq!(bars(&decoded), Some([15, 2, 2]));
+        }
+    }
+
+    #[test]
+    fn rounded_tracks_reject_shared_occlusion_and_image_boundary_crops() {
+        let pixels = rounded_fixture(1, [15, 2, 2]);
+        let mut occluded = pixels.clone();
+        for y in 195..340 {
+            for x in 200..280 {
+                occluded.put_pixel(x, y, Rgba([255; 4]));
+            }
+        }
+        assert_eq!(bars(&occluded), None);
+        for (x, y, width, height) in [(45, 0, 300, 480), (0, 0, 360, 326)] {
+            assert_eq!(
+                bars(&image::imageops::crop_imm(&pixels, x, y, width, height).to_image()),
+                None
+            );
         }
     }
 

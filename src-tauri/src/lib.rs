@@ -2,6 +2,7 @@ mod commands;
 mod database;
 mod extraction;
 pub mod inventory;
+mod ocr_regions;
 mod screenshot;
 
 use std::sync::{

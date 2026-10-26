@@ -10,6 +10,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Inventory } from "./Inventory";
 import { native, type InventoryRecord, type ScreenshotPreview } from "./native";
 import { emptyReview, validateReview } from "./review";
+import { extractText } from "./ocr";
+
+vi.mock("./ocr", () => ({ extractText: vi.fn() }));
 
 vi.mock("./native", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./native")>();
@@ -29,6 +32,7 @@ const image: ScreenshotPreview = {
   png: [137, 80, 78, 71],
   width: 1080,
   height: 1920,
+  textRegions: { displayName: null, cp: null },
   extraction: {
     displayName: {
       value: null,
@@ -81,6 +85,9 @@ let revokeObjectURL: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(extractText).mockImplementation(
+    async (selected) => selected.extraction,
+  );
   vi.mocked(native.snapshot).mockResolvedValue({
     records: [],
     tags: [special, custom],
@@ -382,6 +389,79 @@ describe("Inventory manual import", () => {
 });
 
 describe("local extraction review", () => {
+  it("cancels OCR during initialization without saving or retaining the preview", async () => {
+    vi.mocked(extractText).mockImplementationOnce(
+      (_image, signal) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Cancelled", "AbortError")),
+            { once: true },
+          );
+        }),
+    );
+    render(<Inventory />);
+    await selectImage();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel extraction" }));
+    await screen.findByText("Extraction cancelled. Nothing was saved.");
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(native.confirmImport).not.toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+  });
+  it("aborts pending OCR on unmount and ignores a late result", async () => {
+    const pending = deferred<ScreenshotPreview["extraction"]>();
+    let signal: AbortSignal | undefined;
+    vi.mocked(extractText).mockImplementationOnce((_image, current) => {
+      signal = current;
+      return pending.promise;
+    });
+    const view = render(<Inventory />);
+    await selectImage();
+    view.unmount();
+    expect(signal?.aborted).toBe(true);
+    await act(async () => pending.resolve(image.extraction));
+    expect(native.confirmImport).not.toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+  });
+  it("prefills OCR name and CP, permits correction and saves only after confirmation", async () => {
+    vi.mocked(extractText).mockResolvedValueOnce({
+      ...image.extraction,
+      displayName: {
+        value: "Abra",
+        method: "tesseract_lstm",
+        state: "detected",
+        confidence: "tentative",
+        engineConfidence: 94,
+      },
+      cp: {
+        value: "468",
+        method: "tesseract_lstm",
+        state: "detected",
+        confidence: "tentative",
+        engineConfidence: 95,
+      },
+    });
+    render(<Inventory />);
+    await selectImage();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Display name (required)")).toHaveValue(
+        "Abra",
+      ),
+    );
+    expect(screen.getByLabelText("CP (optional)")).toHaveValue("468");
+    expect(native.confirmImport).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("CP (optional)"), {
+      target: { value: "469" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and save" }));
+    await screen.findByText(/Saved Buddy/);
+    expect(native.confirmImport).toHaveBeenCalledWith({
+      displayName: "Abra",
+      cp: "469",
+      ivs: null,
+      tagIds: [],
+    });
+  });
   const detected: ScreenshotPreview = {
     ...image,
     extraction: {

@@ -7,6 +7,7 @@ import {
   type ScreenshotExtraction,
 } from "./native";
 import { emptyReview, validateReview, type ReviewFields } from "./review";
+import { extractText } from "./ocr";
 
 interface Preview {
   url: string;
@@ -23,12 +24,15 @@ export function Inventory() {
   const [edited, setEdited] = useState<
     Partial<Record<keyof ReviewFields, boolean>>
   >({});
-  const [phase, setPhase] = useState<"idle" | "selecting" | "saving">("idle");
+  const [phase, setPhase] = useState<
+    "idle" | "selecting" | "extracting" | "saving"
+  >("idle");
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const operation = useRef<"selecting" | "saving" | null>(null);
   const previewUrl = useRef<string | null>(null);
   const mounted = useRef(false);
+  const ocrAbort = useRef<AbortController | null>(null);
   const loadVersion = useRef(0);
   const reviewHeading = useRef<HTMLHeadingElement>(null);
   const selectButton = useRef<HTMLButtonElement>(null);
@@ -58,6 +62,7 @@ export function Inventory() {
     void loadInventory();
     return () => {
       mounted.current = false;
+      ocrAbort.current?.abort();
       if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
       previewUrl.current = null;
     };
@@ -75,6 +80,8 @@ export function Inventory() {
     operation.current = "selecting";
     setPhase("selecting");
     releasePreview();
+    setFields(emptyReview);
+    setEdited({});
     setError("");
     setStatus("");
     try {
@@ -91,7 +98,17 @@ export function Inventory() {
           height: image.height,
           extraction: image.extraction,
         });
-        const extraction = image.extraction;
+        setPhase("extracting");
+        const controller = new AbortController();
+        ocrAbort.current = controller;
+        const extraction = await extractText(image, controller.signal);
+        if (!mounted.current || controller.signal.aborted) return;
+        setPreview({
+          url,
+          width: image.width,
+          height: image.height,
+          extraction,
+        });
         setFields({
           displayName: extraction.displayName.value ?? "",
           cp: extraction.cp.value ?? "",
@@ -104,6 +121,14 @@ export function Inventory() {
         setStatus("Screenshot selection cancelled. Nothing was saved.");
       }
     } catch (failure) {
+      if (ocrAbort.current?.signal.aborted) {
+        if (mounted.current) {
+          releasePreview();
+          setFields(emptyReview);
+          setStatus("Extraction cancelled. Nothing was saved.");
+        }
+        return;
+      }
       if (mounted.current)
         setError(
           nativeErrorMessage(
@@ -112,6 +137,7 @@ export function Inventory() {
           ),
         );
     } finally {
+      ocrAbort.current = null;
       operation.current = null;
       if (mounted.current) setPhase("idle");
     }
@@ -171,6 +197,8 @@ export function Inventory() {
   function evidence(key: keyof ReviewFields) {
     const field = preview?.extraction[key];
     if (!field) return null;
+    if (phase === "extracting" && (key === "displayName" || key === "cp"))
+      return <p id={`${key}-evidence`}>Reading locally…</p>;
     return (
       <p id={`${key}-evidence`}>
         {edited[key]
@@ -178,7 +206,7 @@ export function Inventory() {
             ? "Manually entered."
             : `Manually edited. Original suggestion: ${field.value}.`
           : field.state === "detected"
-            ? `Detected suggestion: ${field.value}. Tentative confidence · experimental appraisal bar geometry. Verify against the screenshot.`
+            ? `Detected suggestion: ${field.value}. Tentative confidence · ${field.method === "tesseract_lstm" ? `local OCR${field.engineConfidence === undefined ? "" : ` (engine score ${field.engineConfidence.toFixed(0)}/100)`}` : "appraisal bar geometry"}. Verify against the screenshot.`
             : field.state === "unavailable"
               ? "Unavailable: enter visible text manually."
               : "Unresolved: enter manually or leave unknown."}
@@ -192,10 +220,9 @@ export function Inventory() {
       <section aria-labelledby="import-title">
         <h2 id="import-title">Screenshot review</h2>
         <p>
-          Select one local PNG or JPEG. Experimental local detection can suggest
-          IVs from three clear appraisal bars. Review every suggestion and enter
-          the display name and visible CP manually. Text recognition is
-          unavailable.
+          Select one local PNG or JPEG. The app reads the display name, visible
+          CP and appraisal IVs locally, then fills the fields it can detect.
+          Review and correct every suggestion before saving.
         </p>
         <p>
           The screenshot stays local and is released after review. Only the
@@ -218,15 +245,24 @@ export function Inventory() {
               : "Select screenshot"}
         </button>
         <p role="status" aria-live="polite">
-          {phase === "saving" ? "Saving your confirmed record…" : status}
+          {phase === "extracting"
+            ? "Reading the screenshot locally…"
+            : phase === "saving"
+              ? "Saving your confirmed record…"
+              : status}
         </p>
+        {phase === "extracting" && (
+          <button type="button" onClick={() => ocrAbort.current?.abort()}>
+            Cancel extraction
+          </button>
+        )}
         {error && (
           <p role="alert" id="review-error">
             {error}
           </p>
         )}
         {preview && (
-          <div className="review-layout" aria-busy={phase === "saving"}>
+          <div className="review-layout" aria-busy={busy}>
             <figure>
               <img
                 src={preview.url}
@@ -242,13 +278,16 @@ export function Inventory() {
               </h3>
               <p>
                 Tentative confidence means a geometry rule matched, not a
-                measured probability of correctness. Other graphics can resemble
-                bars. Nothing is saved until you confirm.
+                measured probability of correctness. OCR scores are engine
+                estimates, not measured accuracy. Nothing is saved until you
+                confirm.
               </p>
               <ul aria-label="Extraction notices">
-                {preview.extraction.issues.map((issue) => (
-                  <li key={issue.code}>{issue.message}</li>
-                ))}
+                {preview.extraction.issues
+                  .filter((issue) => issue.code !== "text_unavailable")
+                  .map((issue) => (
+                    <li key={issue.code}>{issue.message}</li>
+                  ))}
               </ul>
               <fieldset disabled={busy}>
                 <legend>Supported fields</legend>
