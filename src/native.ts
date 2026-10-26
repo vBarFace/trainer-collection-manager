@@ -25,6 +25,21 @@ export interface ScreenshotPreview {
   png: number[];
   width: number;
   height: number;
+  extraction: ScreenshotExtraction;
+}
+export interface ExtractedField<T> {
+  value: T | null;
+  confidence: "none" | "tentative";
+  method: "unavailable" | "appraisal_geometry_v1";
+  state: "detected" | "unresolved" | "unavailable";
+}
+export interface ScreenshotExtraction {
+  displayName: ExtractedField<string>;
+  cp: ExtractedField<string>;
+  attack: ExtractedField<number>;
+  defense: ExtractedField<number>;
+  hp: ExtractedField<number>;
+  issues: { code: string; message: string }[];
 }
 export interface ImportInput {
   displayName: string;

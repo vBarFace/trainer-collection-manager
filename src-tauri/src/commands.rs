@@ -241,4 +241,45 @@ mod tests {
         assert_eq!(error.code, "storage");
         assert!(!error.message.contains("private"));
     }
+
+    #[test]
+    fn suggestions_are_not_persistence_and_only_confirmed_corrections_survive_reopen() {
+        let path = std::env::temp_dir().join(format!(
+            "tcm-extraction-{}-{}.sqlite3",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let repo = InventoryRepository::open(&path).unwrap();
+        let suggestions =
+            crate::extraction::extract(&crate::extraction::tests::fixture(1, [0, 14, 15]));
+        assert_eq!(suggestions.attack.value, Some(0));
+        // Extraction has no repository argument or write side effects.
+        assert!(snapshot(&repo).unwrap().records.is_empty());
+        drop(repo);
+        let repo = InventoryRepository::open(&path).unwrap();
+        assert!(snapshot(&repo).unwrap().records.is_empty());
+        let request = serde_json::json!({
+            "displayName": "Corrected review", "cp": null,
+            "ivs": {"attack":1,"defense":14,"hp":15}, "tagIds":[]
+        });
+        // Raw image/suggestion payloads cannot be smuggled into persistence.
+        for field in ["png", "extraction", "filename", "path"] {
+            let mut invalid = request.clone();
+            invalid[field] = serde_json::json!("not persisted");
+            assert!(serde_json::from_value::<ImportInput>(invalid).is_err());
+        }
+        confirm(&repo, serde_json::from_value(request).unwrap()).unwrap();
+        drop(repo);
+        let repo = InventoryRepository::open(&path).unwrap();
+        let snapshot = snapshot(&repo).unwrap();
+        assert_eq!(snapshot.records.len(), 1);
+        assert_eq!(snapshot.records[0].ivs.as_ref().unwrap().attack, 1);
+        assert!(snapshot.records[0].cp.is_none());
+        assert!(snapshot.records[0].tags.is_empty());
+        drop(repo);
+        std::fs::remove_file(path).unwrap();
+    }
 }

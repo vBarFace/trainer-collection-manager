@@ -1,5 +1,6 @@
 mod commands;
 mod database;
+mod extraction;
 pub mod inventory;
 mod screenshot;
 

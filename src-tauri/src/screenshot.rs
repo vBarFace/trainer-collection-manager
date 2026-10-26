@@ -17,6 +17,7 @@ pub struct Preview {
     pub png: Vec<u8>,
     pub width: u32,
     pub height: u32,
+    pub extraction: crate::extraction::Extraction,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -86,6 +87,8 @@ fn decode_preview(bytes: &[u8]) -> Result<Preview, Error> {
     dimensions(width, height)?;
     let decoded = reader(bytes, format).decode().map_err(image_error)?;
     dimensions(decoded.width(), decoded.height())?;
+    // Reuse validated full-resolution pixels, before preview downsampling.
+    let extraction = crate::extraction::extract(&decoded.to_rgba8());
     // A fresh pixel-only PNG discards EXIF, text, profiles, names and other
     // metadata. The smaller preview also bounds IPC and renderer memory.
     let pixels = if width > PREVIEW_SIDE || height > PREVIEW_SIDE {
@@ -102,6 +105,7 @@ fn decode_preview(bytes: &[u8]) -> Result<Preview, Error> {
         png: png.into_inner(),
         width,
         height,
+        extraction,
     })
 }
 
@@ -132,7 +136,7 @@ fn read_selected(path: &Path) -> Result<Preview, Error> {
 pub fn select(parent: &tauri::WebviewWindow) -> Result<Option<Preview>, Error> {
     rfd::FileDialog::new()
         .set_parent(parent)
-        .set_title("Select one screenshot for manual review")
+        .set_title("Select one screenshot for review")
         .add_filter("PNG or JPEG screenshot", &["png", "jpg", "jpeg"])
         .pick_file()
         .map(|path| read_selected(&path))
@@ -159,6 +163,23 @@ mod tests {
             assert_eq!(image::guess_format(&preview.png).unwrap(), ImageFormat::Png);
             assert_eq!(image::load_from_memory(&preview.png).unwrap().width(), 12);
         }
+    }
+
+    #[test]
+    fn extracts_before_preview_downsampling_and_jpeg_never_changes_known_ivs() {
+        let image = DynamicImage::ImageRgba8(crate::extraction::tests::fixture(8, [0, 14, 15]));
+        let png = decode_preview(&encoded(&image, ImageFormat::Png)).unwrap();
+        assert_eq!(png.extraction.attack.value, Some(0));
+        assert_eq!(png.extraction.defense.value, Some(14));
+        assert_eq!(png.extraction.hp.value, Some(15));
+        assert_eq!(image::load_from_memory(&png.png).unwrap().height(), 1600);
+        // JPEG support may conservatively resolve to unknown after compression.
+        let jpeg = decode_preview(&encoded(&image.to_rgb8().into(), ImageFormat::Jpeg)).unwrap();
+        assert!(jpeg.extraction.attack.value.is_none() || jpeg.extraction.attack.value == Some(0));
+        assert!(
+            jpeg.extraction.defense.value.is_none() || jpeg.extraction.defense.value == Some(14)
+        );
+        assert!(jpeg.extraction.hp.value.is_none() || jpeg.extraction.hp.value == Some(15));
     }
 
     #[test]

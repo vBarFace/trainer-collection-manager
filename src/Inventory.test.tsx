@@ -29,6 +29,44 @@ const image: ScreenshotPreview = {
   png: [137, 80, 78, 71],
   width: 1080,
   height: 1920,
+  extraction: {
+    displayName: {
+      value: null,
+      confidence: "none",
+      method: "unavailable",
+      state: "unavailable",
+    },
+    cp: {
+      value: null,
+      confidence: "none",
+      method: "unavailable",
+      state: "unavailable",
+    },
+    attack: {
+      value: null,
+      confidence: "none",
+      method: "appraisal_geometry_v1",
+      state: "unresolved",
+    },
+    defense: {
+      value: null,
+      confidence: "none",
+      method: "appraisal_geometry_v1",
+      state: "unresolved",
+    },
+    hp: {
+      value: null,
+      confidence: "none",
+      method: "appraisal_geometry_v1",
+      state: "unresolved",
+    },
+    issues: [
+      {
+        code: "bars_unresolved",
+        message: "Appraisal bars unresolved. Manual entry remains available.",
+      },
+    ],
+  },
 };
 const saved: InventoryRecord = {
   id: "00000000-0000-4000-8000-000000000000",
@@ -69,7 +107,7 @@ async function selectImage() {
     ).toBeEnabled(),
   );
   fireEvent.click(screen.getByRole("button", { name: "Select screenshot" }));
-  await screen.findByRole("heading", { name: "Review details manually" });
+  await screen.findByRole("heading", { name: "Review and correct details" });
 }
 function fillName() {
   fireEvent.change(screen.getByLabelText("Display name (required)"), {
@@ -340,5 +378,117 @@ describe("Inventory manual import", () => {
       screen.getByRole("button", { name: "Retry loading inventory" }),
     );
     await selectImage();
+  });
+});
+
+describe("local extraction review", () => {
+  const detected: ScreenshotPreview = {
+    ...image,
+    extraction: {
+      ...image.extraction,
+      attack: {
+        value: 0,
+        confidence: "tentative",
+        method: "appraisal_geometry_v1",
+        state: "detected",
+      },
+      defense: {
+        value: 14,
+        confidence: "tentative",
+        method: "appraisal_geometry_v1",
+        state: "detected",
+      },
+      hp: {
+        value: 15,
+        confidence: "tentative",
+        method: "appraisal_geometry_v1",
+        state: "detected",
+      },
+      issues: [],
+    },
+  };
+  it("requires confirmation, permits corrections, retains them on save failure and sends only reviewed fields", async () => {
+    vi.mocked(native.selectScreenshot).mockResolvedValue(detected);
+    vi.mocked(native.confirmImport).mockRejectedValueOnce({
+      code: "storage",
+      message: "Try again.",
+    });
+    render(<Inventory />);
+    await selectImage();
+    expect(screen.getByLabelText("Attack IV")).toHaveValue("0");
+    expect(screen.getByLabelText("HP IV")).toHaveValue("15");
+    expect(screen.getByText(/Detected suggestion: 0/)).toBeInTheDocument();
+    expect(screen.getByLabelText("CP (optional)")).toHaveValue("");
+    expect(native.confirmImport).not.toHaveBeenCalled();
+    fillName();
+    fireEvent.change(screen.getByLabelText("Attack IV"), {
+      target: { value: "1" },
+    });
+    expect(
+      screen.getByText("Manually edited. Original suggestion: 0."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and save" }));
+    await screen.findByText("Try again.");
+    expect(screen.getByLabelText("Attack IV")).toHaveValue("1");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and save" }));
+    await screen.findByText(/Saved Buddy/);
+    expect(native.confirmImport).toHaveBeenLastCalledWith({
+      displayName: "Buddy",
+      cp: null,
+      ivs: { attack: 1, defense: 14, hp: 15 },
+      tagIds: [],
+    });
+  });
+  it("clears old manual values and suggestions when replacing an image", async () => {
+    vi.mocked(native.selectScreenshot)
+      .mockResolvedValueOnce(detected)
+      .mockResolvedValueOnce(image);
+    render(<Inventory />);
+    await selectImage();
+    fillName();
+    fireEvent.change(screen.getByLabelText("CP (optional)"), {
+      target: { value: "123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Replace screenshot" }));
+    await screen.findByText(
+      "Appraisal bars unresolved. Manual entry remains available.",
+    );
+    for (const label of [
+      "Display name (required)",
+      "CP (optional)",
+      "Attack IV",
+      "Defense IV",
+      "HP IV",
+    ]) {
+      expect(screen.getByLabelText(label)).toHaveValue("");
+    }
+    expect(screen.queryByText(/Detected suggestion:/)).not.toBeInTheDocument();
+    expect(native.confirmImport).not.toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+  });
+  it("keeps manual fallback usable when extraction is unresolved", async () => {
+    render(<Inventory />);
+    await selectImage();
+    expect(
+      screen.getByRole("list", { name: "Extraction notices" }),
+    ).toHaveTextContent(/unresolved/);
+    fillName();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and save" }));
+    await screen.findByText(/Saved Buddy/);
+    expect(native.confirmImport).toHaveBeenCalledWith({
+      displayName: "Buddy",
+      cp: null,
+      ivs: null,
+      tagIds: [],
+    });
+  });
+  it("discards detected values on cancel without persisting", async () => {
+    vi.mocked(native.selectScreenshot).mockResolvedValue(detected);
+    render(<Inventory />);
+    await selectImage();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel review" }));
+    expect(screen.queryByText(/Detected suggestion:/)).not.toBeInTheDocument();
+    expect(native.confirmImport).not.toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
   });
 });
