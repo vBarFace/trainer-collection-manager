@@ -1,3 +1,34 @@
+# Task 004 validation
+
+Date: 2026-10-26. Scope: a bounded experimental local appraisal-bar extraction increment, typed temporary suggestions and editable review; **not general screenshot recognition**.
+
+## Results
+
+- `npm run check`: blocked at the repository-wide Prettier check by CRLF/LF differences in 28 untouched files in this checkout (`core.autocrlf=true`). Their committed contents pass Prettier, their working text differs only by line endings, and normalizing those endings in memory passes. The historical Task 003 count was 20; this checkout initially reported 39 files, before formatting only the files changed for Task 004. No checks/configuration were weakened and unrelated files were not reformatted.
+- Targeted Prettier checks: all changed/new supported source and documentation files pass.
+- `npm run lint`: passed without warnings.
+- `npm run typecheck`: passed.
+- `npm test`: 17 tests in two suites passed outside the sandbox. The sandbox attempt failed before loading either suite with the previously documented Vitest temporary-cache rename `EPERM`; the approved retry ran the actual tests. An initial implementation failure exposed IV descriptions accidentally included in labels; evidence is now outside each label, and the existing exact-label assertions pass.
+- `npm run rust:fmt`: passed.
+- `npm run rust:check`: passed. Existing incremental-cache hard-link warnings remain; Cargo copies files instead.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: 32 passed; binary/doc targets have zero tests. The final debug suite reported 8.65 seconds; this is a whole-suite observation, not extraction latency or a production performance benchmark.
+- `npm run tauri:build`: passed outside the sandbox, including TypeScript/Vite, optimized Windows executable and x64 NSIS installer. The sandbox compiled the executable but could not resolve the NSIS download host (11001); the approved run used the accessible packaging cache and completed. The existing `.app` bundle-identifier advisory remains. Installer output is ignored under `src-tauri/target/release/bundle/nsis/Trainer Collection Manager_0.1.0_x64-setup.exe`.
+- `git diff --check`: passed. No dependency, lockfile, capability, permission, migration or production persistence change.
+
+## Evidence and limits
+
+New original in-memory geometric fixtures exercise all 16 IV values (including 0 and 15) at 240×300, 480×600, 960×1200 and 1920×2400; missing/unreadable tracks, crop boundaries, reversed fill, ambiguous fourth tracks, nonquantized and contradictory endpoints, transparent pixels, busy candidate limits, and a shared white overlay that would otherwise incorrectly rescale all three IVs. Requiring both separators fixes that demonstrated ambiguity. An intermediate fourth-track test was updated to draw the now-required separators, so it still tests four valid candidates rather than an unsupported solid rectangle.
+
+The native PNG pipeline test verifies extraction before downsampling; a JPEG compression check requires either the known correct IVs or an unresolved group. This does not establish broad JPEG accuracy. Existing corrupt/unsupported images, resource limits, source immutability and metadata-stripping tests still pass. Existing grouped IV validation, exact CP, atomic rollback and reopen tests remain intact.
+
+Frontend tests cover editable suggestions including zero, original provenance after correction, explicit confirmation only, retained corrections after a failed save, successful retry, unresolved extraction with successful manual fallback, cancellation without persistence, screenshot replacement clearing stale fields, duplicate submission prevention and preview release. A native extraction-to-confirmation test proves that extraction itself leaves a reopened database empty, rejects extra image/path/filename/extraction fields in save input, and persists only confirmed corrected IVs with unknown CP and no tags across reopen.
+
+Name and CP recognition are **unavailable**. Tests assert their null/unavailable contract; they do not exercise OCR or claim recognition of clear/ambiguous/overlay-hidden text. Those text recognition requirements remain unsupported. No authorized labelled real screenshot corpus was available; no real screenshot recognition rate, calibrated confidence score, production latency or cross-platform runtime result is claimed. Synthetic rules may reject actual appraisal screenshots or match other graphics. Independent code review found the shared-overlay and label issues above; after correction, no additional actionable findings were reported by inspection.
+
+The new installer was built but not installed/launched for a native GUI smoke test. Automated UI, native decoding/serialization and temporary-database reopen tests are not represented as end-to-end desktop runtime verification. No private screenshots are committed, and validation did not import test records into the user's actual collection.
+
+The implemented bounded increment has no maintainer-approval blocker. Broader recognition requires authorized labelled examples and held-out evaluation; adding an OCR engine/model or changing Windows package identity requires a separate technical/distribution/license decision. See [decision 0003](../decisions/0003-bounded-local-extraction.md) and [limitations](local-extraction.md).
+
 # Task 003 validation
 
 Initial implementation results (before the data-only review follow-up below).

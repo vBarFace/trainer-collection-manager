@@ -17,6 +17,12 @@ No third-party screenshot or game asset is included. New direct native dependenc
 
 Licenses and required codec/picker features were reviewed against crate package manifests and source in the Cargo registry. Cargo.lock records exact resolved versions and checksums, including transitive dependencies. Upgrades must retain the restricted codec feature set and repeat limit/metadata regression checks. Remove these direct dependencies if screenshot review/typed IPC is removed.
 
+## Task 004 extraction
+
+No new dependencies, executables, models, datasets, fonts or game assets. Extraction uses the existing MIT OR Apache-2.0 `image` crate and original MIT Rust/TypeScript code. Test fixtures are original geometric drawings generated in memory; no user screenshots or third-party reference images are committed.
+
+Tesseract (Apache-2.0 engine plus separately selected language data) was assessed but not bundled; no unreviewed binaries/traineddata are downloaded. Windows OCR was assessed but not added because the current installer does not provide its required package identity. See [technical decision](../decisions/0003-bounded-local-extraction.md) for source references and future licensing/distribution review requirements.
+
 Primary API references: [image 0.25.10 limits](https://docs.rs/image/0.25.10/image/struct.Limits.html), [ImageReader](https://docs.rs/image/0.25.10/image/struct.ImageReader.html), [rfd 0.17.2 native file dialog](https://docs.rs/rfd/0.17.2/rfd/struct.FileDialog.html). Width/height checks and the output-buffer reservation are enforced; decoder internal allocations use a best-effort budget.
 
 Newly resolved transitive packages were also reviewed: `byteorder-lite` 0.1.0 (Unlicense OR MIT), `bytemuck` 1.25.2 (Zlib OR Apache-2.0 OR MIT), `moxcms` 0.8.1 and `pxfm` 0.1.30 (BSD-3-Clause OR Apache-2.0), and `zune-core` 0.5.3 / `zune-jpeg` 0.5.15 (MIT OR Apache-2.0 OR Zlib). Their declared licenses permit use and redistribution with the applicable attribution/license notices.
