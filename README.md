@@ -8,10 +8,10 @@ An open-source, offline-first Windows desktop foundation for Pokémon GO collect
 - Local SQLite initialization in the per-user application-data directory.
 - Ordered SQLite migrations for application settings and normalized Pokémon inventory/tags.
 - Native typed Rust inventory CRUD and tagging APIs, including optional appraisal IVs and the `SAVE/SPECIAL` standard tag, with validation and persistence tests.
-- Native PNG/JPEG selection, local preview and manual review with explicit confirmed inventory saving and a persistent list.
+- Native PNG/JPEG selection, local preview, automatic local name/CP OCR and appraisal-bar suggestions and editable review with explicit confirmed inventory saving and a persistent list.
 - Strict frontend linting, formatting, typechecking, unit-test and CI configuration.
 
-Inventory supports [manual screenshot review](docs/development/screenshot-review.md) and confirmed saving of display name, optional CP and optional grouped appraisal IVs. Confirmed records appear in **Awaiting evaluation**. Import review confirms data only; it does not ask for classification tags. Previously saved tags remain visible. Evaluation and automatic tagging are deferred. Recommendations, Teams, Bag and Settings remain placeholders. OCR, automatic extraction, AI, cloud, telemetry, game automation and external datasets are deferred.
+Inventory supports [screenshot review](docs/development/screenshot-review.md) and confirmed saving of display name, optional CP and optional grouped appraisal IVs. Confirmed records appear in **Awaiting evaluation**. Import review confirms data only; it does not ask for classification tags. Previously saved tags remain visible. Evaluation and automatic tagging are deferred. Recommendations, Teams, Bag and Settings remain placeholders. Name, visible CP and appraisal IVs are filled automatically when supported evidence is readable. OCR and bar suggestions remain editable and tentative, with manual fallback. One supplied real screenshot has been verified; general recognition accuracy has not been established. See [extraction limitations](docs/development/local-extraction.md). Conversational AI, cloud, telemetry, game automation and external datasets are deferred.
 
 ## Quick start (Windows)
 
@@ -26,7 +26,7 @@ See [development setup](docs/development/setup.md) for all commands and prerequi
 
 ## Privacy and data
 
-The application is designed to be useful without an account or network connection. Its SQLite database is created under the application data directory resolved by Tauri; it is excluded from Git. Screenshots are opened read-only, validated and previewed in memory. Original image bytes, metadata, paths and filenames are never stored in the application database or copied into application storage. Only explicitly confirmed structured records and tags are saved.
+The application is designed to be useful without an account or network connection. Its SQLite database is created under the application data directory resolved by Tauri; it is excluded from Git. Screenshots are opened read-only, validated and processed in memory. The OCR engine and English/Portuguese language resources are included at build time; runtime requires no download or internet connection. Original image bytes, metadata, paths and filenames are never stored in the application database or copied into application storage. Only explicitly confirmed structured records and tags are saved.
 
 ## Contributing
 

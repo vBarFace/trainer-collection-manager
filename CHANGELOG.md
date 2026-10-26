@@ -10,6 +10,10 @@ All notable changes are documented here.
 
 ### Added
 
+- Automatic offline screenshot name/CP OCR with bundled English/Portuguese Tesseract resources, temporary native crop preparation, real appraisal-bar palettes/rounded-track support, cancellation/timeout and manual fallback. Verified the supplied real example; no general accuracy rate is claimed.
+
+- Task 004: experimental offline appraisal-bar suggestions, typed field-level provenance and confidence, unresolved notices and editable review. Reset drafts on screenshot replacement. Text OCR remains unavailable; only user-confirmed structured data is saved.
+
 - Task 003: bounded local screenshot preview, manual data review, explicit atomic inventory import and persistent Inventory list. OCR remains deferred.
 
 - Initial Tauri 2 desktop foundation, local SQLite migration infrastructure, quality tooling and project governance documents.

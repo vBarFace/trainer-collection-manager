@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { native, nativeErrorMessage, type InventorySnapshot } from "./native";
+import {
+  native,
+  nativeErrorMessage,
+  type InventorySnapshot,
+  type ScreenshotExtraction,
+} from "./native";
 import { emptyReview, validateReview, type ReviewFields } from "./review";
+import { extractText } from "./ocr";
 
 interface Preview {
   url: string;
   width: number;
   height: number;
+  extraction: ScreenshotExtraction;
 }
 
 export function Inventory() {
@@ -14,12 +21,18 @@ export function Inventory() {
   const [loadError, setLoadError] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [fields, setFields] = useState<ReviewFields>(emptyReview);
-  const [phase, setPhase] = useState<"idle" | "selecting" | "saving">("idle");
+  const [edited, setEdited] = useState<
+    Partial<Record<keyof ReviewFields, boolean>>
+  >({});
+  const [phase, setPhase] = useState<
+    "idle" | "selecting" | "extracting" | "saving"
+  >("idle");
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const operation = useRef<"selecting" | "saving" | null>(null);
   const previewUrl = useRef<string | null>(null);
   const mounted = useRef(false);
+  const ocrAbort = useRef<AbortController | null>(null);
   const loadVersion = useRef(0);
   const reviewHeading = useRef<HTMLHeadingElement>(null);
   const selectButton = useRef<HTMLButtonElement>(null);
@@ -49,6 +62,7 @@ export function Inventory() {
     void loadInventory();
     return () => {
       mounted.current = false;
+      ocrAbort.current?.abort();
       if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
       previewUrl.current = null;
     };
@@ -66,6 +80,8 @@ export function Inventory() {
     operation.current = "selecting";
     setPhase("selecting");
     releasePreview();
+    setFields(emptyReview);
+    setEdited({});
     setError("");
     setStatus("");
     try {
@@ -76,11 +92,43 @@ export function Inventory() {
           new Blob([new Uint8Array(image.png)], { type: "image/png" }),
         );
         previewUrl.current = url;
-        setPreview({ url, width: image.width, height: image.height });
+        setPreview({
+          url,
+          width: image.width,
+          height: image.height,
+          extraction: image.extraction,
+        });
+        setPhase("extracting");
+        const controller = new AbortController();
+        ocrAbort.current = controller;
+        const extraction = await extractText(image, controller.signal);
+        if (!mounted.current || controller.signal.aborted) return;
+        setPreview({
+          url,
+          width: image.width,
+          height: image.height,
+          extraction,
+        });
+        setFields({
+          displayName: extraction.displayName.value ?? "",
+          cp: extraction.cp.value ?? "",
+          attack: extraction.attack.value?.toString() ?? "",
+          defense: extraction.defense.value?.toString() ?? "",
+          hp: extraction.hp.value?.toString() ?? "",
+        });
+        setEdited({});
       } else {
         setStatus("Screenshot selection cancelled. Nothing was saved.");
       }
     } catch (failure) {
+      if (ocrAbort.current?.signal.aborted) {
+        if (mounted.current) {
+          releasePreview();
+          setFields(emptyReview);
+          setStatus("Extraction cancelled. Nothing was saved.");
+        }
+        return;
+      }
       if (mounted.current)
         setError(
           nativeErrorMessage(
@@ -89,6 +137,7 @@ export function Inventory() {
           ),
         );
     } finally {
+      ocrAbort.current = null;
       operation.current = null;
       if (mounted.current) setPhase("idle");
     }
@@ -143,17 +192,37 @@ export function Inventory() {
 
   function changeField(key: keyof ReviewFields, value: string) {
     setFields((current) => ({ ...current, [key]: value }));
+    setEdited((current) => ({ ...current, [key]: true }));
+  }
+  function evidence(key: keyof ReviewFields) {
+    const field = preview?.extraction[key];
+    if (!field) return null;
+    if (phase === "extracting" && (key === "displayName" || key === "cp"))
+      return <p id={`${key}-evidence`}>Reading locally…</p>;
+    return (
+      <p id={`${key}-evidence`}>
+        {edited[key]
+          ? field.value === null
+            ? "Manually entered."
+            : `Manually edited. Original suggestion: ${field.value}.`
+          : field.state === "detected"
+            ? `Detected suggestion: ${field.value}. Tentative confidence · ${field.method === "tesseract_lstm" ? `local OCR${field.engineConfidence === undefined ? "" : ` (engine score ${field.engineConfidence.toFixed(0)}/100)`}` : "appraisal bar geometry"}. Verify against the screenshot.`
+            : field.state === "unavailable"
+              ? "Unavailable: enter visible text manually."
+              : "Unresolved: enter manually or leave unknown."}
+      </p>
+    );
   }
   const busy = phase !== "idle";
 
   return (
     <div className="inventory">
       <section aria-labelledby="import-title">
-        <h2 id="import-title">Manual screenshot review</h2>
+        <h2 id="import-title">Screenshot review</h2>
         <p>
-          Select one local PNG or JPEG, then enter and review its details
-          yourself. This workflow does not use OCR or extract any fields
-          automatically.
+          Select one local PNG or JPEG. The app reads the display name, visible
+          CP and appraisal IVs locally, then fills the fields it can detect.
+          Review and correct every suggestion before saving.
         </p>
         <p>
           The screenshot stays local and is released after review. Only the
@@ -176,15 +245,24 @@ export function Inventory() {
               : "Select screenshot"}
         </button>
         <p role="status" aria-live="polite">
-          {phase === "saving" ? "Saving your confirmed record…" : status}
+          {phase === "extracting"
+            ? "Reading the screenshot locally…"
+            : phase === "saving"
+              ? "Saving your confirmed record…"
+              : status}
         </p>
+        {phase === "extracting" && (
+          <button type="button" onClick={() => ocrAbort.current?.abort()}>
+            Cancel extraction
+          </button>
+        )}
         {error && (
           <p role="alert" id="review-error">
             {error}
           </p>
         )}
         {preview && (
-          <div className="review-layout" aria-busy={phase === "saving"}>
+          <div className="review-layout" aria-busy={busy}>
             <figure>
               <img
                 src={preview.url}
@@ -196,8 +274,21 @@ export function Inventory() {
             </figure>
             <form onSubmit={(event) => void confirmSave(event)} noValidate>
               <h3 ref={reviewHeading} tabIndex={-1}>
-                Review details manually
+                Review and correct details
               </h3>
+              <p>
+                Tentative confidence means a geometry rule matched, not a
+                measured probability of correctness. OCR scores are engine
+                estimates, not measured accuracy. Nothing is saved until you
+                confirm.
+              </p>
+              <ul aria-label="Extraction notices">
+                {preview.extraction.issues
+                  .filter((issue) => issue.code !== "text_unavailable")
+                  .map((issue) => (
+                    <li key={issue.code}>{issue.message}</li>
+                  ))}
+              </ul>
               <fieldset disabled={busy}>
                 <legend>Supported fields</legend>
                 <label htmlFor="display-name">Display name (required)</label>
@@ -208,9 +299,10 @@ export function Inventory() {
                   onChange={(event) =>
                     changeField("displayName", event.target.value)
                   }
-                  aria-describedby={error ? "review-error" : undefined}
+                  aria-describedby={`displayName-evidence${error ? " review-error" : ""}`}
                   required
                 />
+                {evidence("displayName")}
                 <label htmlFor="cp">CP (optional)</label>
                 <input
                   id="cp"
@@ -219,8 +311,9 @@ export function Inventory() {
                   autoComplete="off"
                   value={fields.cp}
                   onChange={(event) => changeField("cp", event.target.value)}
-                  aria-describedby="cp-help"
+                  aria-describedby="cp-help cp-evidence"
                 />
+                {evidence("cp")}
                 <p id="cp-help">
                   Leave empty if unknown. Whole number, 1–9223372036854775807.
                 </p>
@@ -231,10 +324,12 @@ export function Inventory() {
                     to 15. HP is the appraisal IV, not observed HP.
                   </p>
                   {(["attack", "defense", "hp"] as const).map((key) => (
-                    <label key={key} htmlFor={`iv-${key}`}>
-                      {key === "hp"
-                        ? "HP IV"
-                        : `${key === "attack" ? "Attack" : "Defense"} IV`}
+                    <div key={key}>
+                      <label htmlFor={`iv-${key}`}>
+                        {key === "hp"
+                          ? "HP IV"
+                          : `${key === "attack" ? "Attack" : "Defense"} IV`}
+                      </label>
                       <input
                         id={`iv-${key}`}
                         type="text"
@@ -243,9 +338,10 @@ export function Inventory() {
                         onChange={(event) =>
                           changeField(key, event.target.value)
                         }
-                        aria-describedby="ivs-help"
+                        aria-describedby={`ivs-help ${key}-evidence`}
                       />
-                    </label>
+                      {evidence(key)}
+                    </div>
                   ))}
                 </fieldset>
                 <p>

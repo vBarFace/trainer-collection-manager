@@ -6,7 +6,7 @@ Trainer Collection Manager is a free, open-source, offline-first desktop app for
 
 ## Foundation scope
 
-This release provides a Windows Tauri shell, private local inventory and manual screenshot review. Users select one local PNG/JPEG, review a temporary preview, manually enter supported data fields and explicitly confirm saving. Review confirms data only; classification tags belong to a later system evaluation. Inventory lists persisted records under **Awaiting evaluation**, including after restart, and preserves any existing tags. All current records are unevaluated; evaluation and automatic tagging are not implemented. OCR and automatic extraction, account integration, recommendations, teams, simulations, local LLM runtime, datasets, telemetry and cloud capabilities are deferred.
+This release provides a Windows Tauri shell, private local inventory and manual screenshot review. Users select one local PNG/JPEG, inspect a temporary preview and local name/CP/IV suggestions, enter/correct supported data fields, then explicitly confirm saving. Review confirms data only; classification tags belong to a later system evaluation. Inventory lists persisted records under **Awaiting evaluation**, including after restart, and preserves any existing tags. All current records are unevaluated; evaluation and automatic tagging are not implemented. Broad screenshot recognition, account integration, recommendations, teams, simulations, local LLM runtime, datasets, telemetry and cloud capabilities are deferred.
 
 ## Product principles
 
@@ -17,7 +17,7 @@ This release provides a Windows Tauri shell, private local inventory and manual 
 
 ## Intended import and evaluation flow
 
-Select a screenshot → extract data (future OCR) → review/correct the data → confirm saving → await evaluation → evaluate and propose classification tags/recommendations. Until extraction is implemented, supported data is entered manually. Review confirmation does not assert that the Pokémon has been evaluated. Existing user-assigned tags do not establish evaluation status.
+Select a screenshot → attempt local appraisal-bar extraction → review/correct the data → confirm saving → await evaluation → evaluate and propose classification tags/recommendations. Name, visible CP and IVs are suggested automatically for supported layouts; unreadable or hidden fields remain unresolved and can be entered manually. Experimental geometry matches are tentative suggestions, validated on one supplied real example, with no general accuracy measurement. Review confirmation does not assert that the Pokémon has been evaluated. Existing user-assigned tags do not establish evaluation status.
 
 ## Future constraints
 
