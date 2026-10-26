@@ -1,3 +1,23 @@
+# Task 007 adapter and compatibility validation
+
+Date: 2026-10-26. Base: `4a13d22` (Task 006 PR #8), verified against fetched `origin/main`. Branch: `feat/task-007-reference-adapter`. The connected repository had no open pull requests at inspection. No real dataset or permissions request was submitted. [Source evidence](reference-data-sources.md#task-007-evidence-review--2026-10-26) records the rights blocker; the production catalog remains byte-for-byte unchanged.
+
+## Results
+
+- `npm run check`: stops at existing checkout CRLF/LF formatting differences. The first run reported 54 files, including three scoped docs not yet formatted. After formatting scoped docs, 50 untouched files remain. A read-only audit verified all remaining files differ from HEAD only by line endings, all committed texts pass Prettier, and normalizing working text in memory passes. No unrelated text or formatting rule was changed. Targeted Prettier checks of all changed/new supported files pass.
+- `npm run lint` and `npm run typecheck`: passed without warnings.
+- `npm test`: 58 passed in five suites, outside the sandbox. The sandbox attempt failed before running tests with Vitest cache-rename `EPERM`; the approved retry passed.
+- `npm run reference:test`: 8 passed. Covers deterministic source/plan ordering, exact byte digests, schema drift, incomplete/invalid stats/types, rights/revision metadata, individual variants, explicit evolution knowledge, Mega rejection, compatible changes, historical identity tombstones, version/content mismatch and corrupt previous provenance.
+- `npm run reference:test-native`: 2 passed outside the sandbox, using the actual Rust loader and offline CLI. Includes complete generated candidate validation, duplicate/dangling/cyclic/invalid/missing fields, repeated byte-identical generation, exact source/plan/output SHA-256, malformed input, missing input/history, no output after parse failure and refusal to overwrite output. Initial sandbox execution failed at a temporary output rename (`EPERM`); the approved retry passed.
+- `npm run rust:fmt` and `npm run rust:check`: passed. Existing sandbox incremental hard-link warnings remain; Cargo copies files instead.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: 65 passed, 2 existing private-image diagnostics ignored; binary/doc targets have zero tests. Includes stable pins through renamed/reassigned aliases, additions, missing metadata, removed/restored forms/species, cross-provider switches, conflicting IDs and failed activations. Inventory assertions preserve queries/pins, confirmation timestamps, UUIDs, observations, tags and persisted appraisal state.
+- `npm run tauri:build`: passed outside the sandbox, producing the optimized Windows executable and x64 NSIS installer (11.46 MiB). The sandbox compiled the executable but could not resolve the NSIS packaging download host (`11001`); the approved retry packaged successfully. The existing `.app` bundle-identifier advisory remains. Build output is ignored and was not committed or installed. No new manual GUI smoke test is claimed.
+- `git diff --check`: passed. No dependency/lockfile, migration, capability, production catalog, frontend behavior or IPC contract change.
+
+The original fictional input's exact SHA-256 is `88f5e0696916cff6536c9077ca7d60125043d644e62471148d8c7d16abc80c33`; its plan is `83ca481113bd97412271306db7ff532e3d4b6fad45275758b5af67a4e9365b74`. Both CLI runs emitted catalog SHA-256 `cf7f3420641e16710cbc710a393a4f9b127e16136a0c0eec13f895cb0ab30342`. Source/plan byte digests depend on checkout line endings; normalized snapshot bytes do not. No real-data snapshot/digest is approved. No network is used by transformation or runtime; Cargo can need its normal development dependency cache.
+
+Independent review found and corrected an inbound Mega evolution edge and insufficient previous-provenance digest checks; focused regressions pass. Structural checks cannot establish license authority, game correctness, semantic form reuse under unchanged IDs or an honest historical ledger. Reviewed evidence, cumulative release provenance and explicit mapping review remain release requirements. In-session native continuity history is intentionally not a persistent player-data migration. **The bounded real-data acceptance criterion remains blocked**, pending dataset-specific rights/provenance and per-record factual review.
+
 # Task 006 reference-data validation
 
 Date: 2026-10-26. Base: `cca38c9` on current `origin/main`, which includes Task 005 (PR #6) and confirmed-IV corrections (PR #7). Branch: `feat/task-006-reference-data`. The roadmap's next increment agrees with this scope; no conflicting Task 006 definition was found.
