@@ -10,6 +10,8 @@ All notable changes are documented here.
 
 ### Added
 
+- Task 006: validated offline reference snapshots with schema/dataset versions and provenance; migration 5 stores explicitly confirmed species/form identity separately from player observations. Stable reference pins, conservative unresolved states, pure evaluation context and a minimal Inventory reference/correction panel prepare future data-backed scopes. No real game dataset is bundled pending verified redistribution rights; original fictional fixtures test the contract. Existing appraisal math and lifecycle are unchanged.
+
 - Confirmed saved-IV corrections from the appraisal panel, with prefilled grouped fields, an explicit unknown-group option, cancellation and retained drafts after save failure. A narrow native command updates only IVs, rejects conflicting saved values and uses existing appraisal invalidation; evaluation and tags are never applied automatically. No schema or ruleset change.
 
 - Task 005: migration 4 persists per-Pokémon appraisal metadata and an IV revision counter. The deterministic `appraisal-1` Rust engine reports confirmed IVs, total, descriptive percentage and a perfect-appraisal finding. Typed findings/recommendation foundations are separate from assigned tags; no strategic recommendations or automatic tag assignments are produced. IV changes and ruleset mismatches invalidate previous attempts.

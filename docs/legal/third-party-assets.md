@@ -4,7 +4,11 @@ No third-party game images, sprites, logos or game datasets are included. Generi
 
 The MIT license covers only original project code and documentation. Pokémon, Pokémon GO and related marks belong to their respective owners and are not licensed by this project. Before adding any external asset, dataset, library content or model, record its source, license, redistribution rights, attribution and update/removal plan.
 
-## Task 003 native dependencies
+## Task 006 reference foundation
+
+No third-party GO dataset or artwork is included. [Source research](../development/reference-data-sources.md) records candidate upstreams, licensing evidence and limitations. The production manifest is original and empty; fictional fixture records are original MIT test data, not assertions about real Pokémon. `serde_json` moves from development-only to a direct runtime dependency for snapshot parsing. The already resolved crate declares MIT OR Apache-2.0; no package or game asset is newly downloaded. Future data inclusion requires a separate dataset-specific rights/provenance review and retained notices.
+
+## Task 003 native dependencies (historical)
 
 No third-party screenshot or game asset is included. New direct native dependencies are:
 

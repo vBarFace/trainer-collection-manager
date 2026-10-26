@@ -9,6 +9,7 @@ import { IvCorrectionForm } from "./IvCorrectionForm";
 export function AppraisalPanel({
   record,
   busy,
+  disabled = false,
   error,
   onEvaluate,
   onReload,
@@ -17,6 +18,7 @@ export function AppraisalPanel({
 }: {
   record: InventoryRecord;
   busy: boolean;
+  disabled?: boolean;
   error: string;
   onEvaluate: () => void;
   onReload: () => void;
@@ -70,7 +72,7 @@ export function AppraisalPanel({
       <button
         ref={correctionButton}
         type="button"
-        disabled={busy || savingIvs || editing}
+        disabled={disabled || busy || savingIvs || editing}
         onClick={() => {
           setCorrectionStatus("");
           setEditing(true);
@@ -79,32 +81,39 @@ export function AppraisalPanel({
         Correct saved IVs
       </button>
       {editing && (
-        <IvCorrectionForm
-          ivs={record.ivs}
-          busy={savingIvs}
-          onSave={onSaveIvs}
-          onSaved={() => {
-            setEditing(false);
-            setCorrectionStatus(
-              "IV correction saved. Re-evaluate separately if the appraisal is stale.",
-            );
-          }}
-          onCancel={() => {
-            setEditing(false);
-            setCorrectionStatus("IV correction cancelled. Nothing was saved.");
-          }}
-          onReload={() => {
-            setEditing(false);
-            setCorrectionStatus("");
-            onReload();
-          }}
-        />
+        <fieldset
+          disabled={disabled}
+          style={{ border: 0, padding: 0, margin: 0 }}
+        >
+          <IvCorrectionForm
+            ivs={record.ivs}
+            busy={savingIvs}
+            onSave={onSaveIvs}
+            onSaved={() => {
+              setEditing(false);
+              setCorrectionStatus(
+                "IV correction saved. Re-evaluate separately if the appraisal is stale.",
+              );
+            }}
+            onCancel={() => {
+              setEditing(false);
+              setCorrectionStatus(
+                "IV correction cancelled. Nothing was saved.",
+              );
+            }}
+            onReload={() => {
+              setEditing(false);
+              setCorrectionStatus("");
+              onReload();
+            }}
+          />
+        </fieldset>
       )}
       {correctionStatus && <p role="status">{correctionStatus}</p>}
       <button
         type="button"
         onClick={onEvaluate}
-        disabled={busy || savingIvs || editing}
+        disabled={disabled || busy || savingIvs || editing}
       >
         {busy
           ? "Evaluating appraisal…"
@@ -121,7 +130,7 @@ export function AppraisalPanel({
           <button
             type="button"
             onClick={onReload}
-            disabled={savingIvs || editing}
+            disabled={disabled || savingIvs || editing}
           >
             Reload inventory
           </button>

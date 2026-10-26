@@ -1,8 +1,56 @@
-//! Offline appraisal only. No species, CP, meta or user-preference assumptions.
+//! Deterministic appraisal and reference context; no data access or strategic rankings.
 use crate::inventory::{AppraisalIvs, Error, Result};
 use serde::Serialize;
 
 pub const RULESET_VERSION: &str = "appraisal-1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReferenceField {
+    Identity,
+    Types,
+    BaseStats,
+    Evolutions,
+}
+
+/// Input context for future separately versioned scopes. Presence is not a ranking.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReferenceContext {
+    pub resolution: crate::reference::Resolution,
+    pub missing_data: Vec<ReferenceField>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Assessment {
+    pub appraisal: AppraisalResult,
+    pub reference: ReferenceContext,
+}
+
+pub fn assess(
+    ivs: Option<AppraisalIvs>,
+    reference: &crate::reference::Resolution,
+) -> Result<Assessment> {
+    let mut missing_data = vec![];
+    if reference.state != crate::reference::ResolutionState::Resolved {
+        missing_data.push(ReferenceField::Identity);
+    }
+    let form = reference.form.as_ref();
+    if form.is_none_or(|f| f.types.is_none()) {
+        missing_data.push(ReferenceField::Types);
+    }
+    if form.is_none_or(|f| f.base_stats.is_none()) {
+        missing_data.push(ReferenceField::BaseStats);
+    }
+    if form.is_none_or(|f| f.evolutions.is_none()) {
+        missing_data.push(ReferenceField::Evolutions);
+    }
+    Ok(Assessment {
+        appraisal: appraise(ivs)?,
+        reference: ReferenceContext {
+            resolution: reference.clone(),
+            missing_data,
+        },
+    })
+}
 pub const LIMITATIONS: &[&str] = &[
     "Appraisal percentage describes the sum of confirmed IVs out of 45. It is not a PvP ranking, PvE strength score, overall quality score or transfer criterion.",
     "PvP, PvE, gym, Rocket, evolution, power-up and transfer analysis have not been performed. Species, moves, level, game data and user goals are not assessed.",

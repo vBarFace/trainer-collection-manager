@@ -1,3 +1,32 @@
+# Task 006 reference-data validation
+
+Date: 2026-10-26. Base: `cca38c9` on current `origin/main`, which includes Task 005 (PR #6) and confirmed-IV corrections (PR #7). Branch: `feat/task-006-reference-data`. The roadmap's next increment agrees with this scope; no conflicting Task 006 definition was found.
+
+## Results
+
+- `npm run check`: stops at repository-wide Prettier CRLF/LF differences. After formatting the scoped files, 40 untouched files remain. A read-only check verified each differs from HEAD only by line endings and its committed content passes Prettier. No unrelated file or quality configuration was changed.
+- Targeted Prettier checks: all changed/new supported files pass.
+- `npm run lint`, `npm run typecheck`: passed.
+- `npm test`: 58 tests in five suites passed outside the sandbox. The initial sandbox run failed before running tests because Vitest could not rename a temporary cache file (`EPERM`); the approved retry passed.
+- `npm run rust:fmt`, `npm run rust:check`: passed. Existing incremental-cache hard-link warnings remain; Cargo copies files instead.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: 62 passed, 2 existing private-image diagnostics ignored; binary/doc targets have zero tests. The first incremental run caught one old schema-count assertion (4 instead of 5), corrected for the new migration.
+- `npm run tauri:build`: passed, including Vite production output, optimized Windows executable and x64 NSIS installer (11.46 MiB). The initial sandbox attempt compiled the executable but could not resolve the NSIS download host; the approved retry completed packaging. The existing `.app` identifier advisory remains.
+- `git diff --check`: passed.
+
+## Coverage and review
+
+Original fictional fixtures cover valid single/dual types, aliases/IDs, missing stats/evolutions, explicit null versus verified-empty lists, missing form, ambiguous names, unknown IDs, strict JSON/schema/provenance rejection, duplicate IDs/Dex numbers, dangling/cyclic evolution links and version handling. Failed activation retains the active dataset. A -> B -> reused A is rejected in-session; idempotent current-version activation is accepted.
+
+Repository tests cover confirmed association, stable UUID/name/CP/IV/timestamp/tag/appraisal preservation, renamed aliases, unchanged confirmations retaining stable pins, conflict/missing-record handling, clear/delete cascade and unsuccessful catalog updates. A v4 upgrade/reopen test preserves the complete existing record and assignments; unresolved confirmed identity survives restart. Existing v1/v2/v3 migration and lifecycle tests also pass. Migration 5 conflict/rollback is covered. Narrow JSON input tests reject omitted nullable groups and unrelated fields. UI tests exercise metadata/provenance, unknown states, manual correction, clearing/cancellation, retained drafts, reload on conflicts, focus and shared action locking.
+
+Independent review found and resolved two edge cases: unchanged confirmations after alias removal must preserve pins; previously active version identifiers must not accept different content after switching catalogs. Both have regression coverage.
+
+## Offline evidence and limits
+
+The native loader resolves compiled/local bytes and does not fetch source/provenance URLs. Tests load fictional source URLs under reserved `.invalid` domains successfully in the sandbox; the reference module contains no HTTP client or network call. New UI actions use local Tauri IPC only. Production embeds an empty manifest; fictional records are compiled only into tests. No runtime network dependency, dataset download, screenshot, personal inventory or artwork was added. No new instrumented full desktop network trace or manual GUI smoke test was run for Task 006; prior OCR runtime validation is historical evidence below.
+
+The foundation validates structure and identity continuity, not game-data accuracy or license authenticity. Real GO metadata remains unavailable pending dataset-specific redistribution evidence. In-memory activation/version history is not durable; production restart reloads the bundled snapshot. Cross-release version immutability and reviewed upstream correctness require the future distribution procedure. No strategic formula, competitive ranking or recommendation is enabled. See [reference data](reference-data.md), [source research](reference-data-sources.md) and [decision 0006](../decisions/0006-versioned-local-reference-data.md).
+
 # Saved-IV correction validation
 
 Date: 2026-10-26. Scope: explicit correction of saved appraisal IVs, building on Task 005 commit `0b7b99b` on branch `feat/confirmed-iv-corrections`.

@@ -4,6 +4,7 @@ pub mod evaluation;
 mod extraction;
 pub mod inventory;
 mod ocr_regions;
+pub mod reference;
 mod screenshot;
 
 use std::sync::{
@@ -85,6 +86,24 @@ async fn correct_pokemon_ivs(
 }
 
 #[tauri::command]
+async fn correct_pokemon_identity(
+    state: State<'_, NativeInventory>,
+    id: String,
+    input: commands::CorrectIdentityInput,
+) -> Result<commands::RecordView, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        commands::correct_identity(&repository, &id, input)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
 async fn select_screenshot(
     window: tauri::WebviewWindow,
 ) -> Result<Option<screenshot::Preview>, screenshot::Error> {
@@ -129,6 +148,7 @@ pub fn run() {
             confirm_inventory_import,
             evaluate_pokemon,
             correct_pokemon_ivs,
+            correct_pokemon_identity,
             select_screenshot
         ])
         .run(tauri::generate_context!())

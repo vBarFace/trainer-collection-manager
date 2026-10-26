@@ -24,6 +24,7 @@ impl From<inventory::Error> for CommandError {
         match error {
             inventory::Error::InvalidInput(message) => Self { code: "invalid_input", message },
             inventory::Error::Conflict => Self { code: "conflict", message: "The saved IVs changed while you were editing. Reload the inventory before correcting them again." },
+            inventory::Error::IdentityConflict => Self { code: "conflict", message: "The confirmed species or form changed while you were editing. Reload the inventory before correcting it again." },
             inventory::Error::NotFound("Tag") => Self { code: "missing_tag", message: "A selected tag no longer exists. Cancel and reload the inventory to review tags." },
             inventory::Error::NotFound(_) => Self { code: "missing_pokemon", message: "This Pokémon no longer exists. Reload the inventory." },
             _ => Self::storage(),
@@ -56,6 +57,15 @@ pub struct CorrectIvsInput {
     expected_ivs: Option<Ivs>,
     #[serde(deserialize_with = "Option::<Ivs>::deserialize")]
     ivs: Option<Ivs>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CorrectIdentityInput {
+    #[serde(deserialize_with = "Option::<crate::reference::Identity>::deserialize")]
+    expected_identity: Option<crate::reference::Identity>,
+    #[serde(deserialize_with = "Option::<crate::reference::Identity>::deserialize")]
+    identity: Option<crate::reference::Identity>,
 }
 
 impl From<Ivs> for AppraisalIvs {
@@ -117,6 +127,7 @@ pub struct RecordView {
     ivs: Option<Ivs>,
     tags: Vec<TagView>,
     evaluation: crate::evaluation::Evaluation,
+    reference: crate::reference::Resolution,
 }
 impl From<(Pokemon, Vec<Tag>)> for RecordView {
     fn from((pokemon, tags): (Pokemon, Vec<Tag>)) -> Self {
@@ -131,6 +142,7 @@ impl From<(Pokemon, Vec<Tag>)> for RecordView {
             }),
             tags: tags.into_iter().map(Into::into).collect(),
             evaluation: pokemon.evaluation,
+            reference: pokemon.reference,
         }
     }
 }
@@ -175,6 +187,17 @@ pub fn evaluate(repository: &InventoryRepository, id: &str) -> Result<RecordView
     Ok(repository.evaluate(&id)?.into())
 }
 
+pub fn correct_identity(
+    repository: &InventoryRepository,
+    id: &str,
+    input: CorrectIdentityInput,
+) -> Result<RecordView, CommandError> {
+    let id = inventory::PokemonId::parse(id)?;
+    Ok(repository
+        .correct_identity(&id, input.expected_identity, input.identity)?
+        .into())
+}
+
 pub fn correct_ivs(
     repository: &InventoryRepository,
     id: &str,
@@ -193,6 +216,33 @@ pub fn correct_ivs(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn identity_contract_requires_explicit_fields_and_rejects_unrelated_data() {
+        for value in [
+            serde_json::json!({}),
+            serde_json::json!({"expectedIdentity":null}),
+            serde_json::json!({"identity":null}),
+            serde_json::json!({"expectedIdentity":null,"identity":{"species":"Testling"}}),
+            serde_json::json!({"expectedIdentity":null,"identity":{"species":"Testling","form":null,"shiny":true}}),
+            serde_json::json!({"expectedIdentity":null,"identity":null,"displayName":"overwrite"}),
+            serde_json::json!({"expectedIdentity":null,"identity":null,"dataset":"unreviewed"}),
+        ] {
+            assert!(serde_json::from_value::<CorrectIdentityInput>(value).is_err());
+        }
+        assert!(serde_json::from_value::<CorrectIdentityInput>(serde_json::json!({"expectedIdentity":null,"identity":{"species":"Explicit","form":null}})).is_ok());
+        for species in ["", " Leading", "Trailing ", "Line\nbreak"] {
+            assert!(crate::reference::Identity {
+                species: species.into(),
+                form: None
+            }
+            .validate()
+            .is_err());
+        }
+        assert_eq!(
+            CommandError::from(inventory::Error::IdentityConflict).code,
+            "conflict"
+        );
+    }
     #[test]
     fn cp_preserves_sqlite_integer_precision() {
         for cp in [

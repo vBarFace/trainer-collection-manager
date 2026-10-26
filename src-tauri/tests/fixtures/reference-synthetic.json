@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "dataset": {
+    "datasetId": "synthetic-test",
+    "version": "test-1",
+    "sourceUrl": "https://reference.invalid/original-test-fixtures",
+    "upstreamRevision": "original-test-1",
+    "license": "MIT",
+    "notice": "Original fictional test data. No values describe real Pokémon.",
+    "retrievedAt": "2026-10-26",
+    "rightsEvidenceUrl": "https://reference.invalid/mit"
+  },
+  "species": [
+    {
+      "id": "testling",
+      "dexNumber": 60000,
+      "name": "Testling",
+      "aliases": ["Essai", "Shared"]
+    },
+    {
+      "id": "testwing",
+      "dexNumber": 60001,
+      "name": "Testwing",
+      "aliases": ["Shared"]
+    }
+  ],
+  "forms": [
+    {
+      "id": "testling-normal",
+      "speciesId": "testling",
+      "name": "Normal",
+      "aliases": ["Base", "Shared form"],
+      "types": ["fire"],
+      "baseStats": { "attack": 101, "defense": 102, "stamina": 103 },
+      "evolutions": [
+        {
+          "targetFormId": "testwing-normal",
+          "requirements": ["25 fictional test candy"]
+        }
+      ]
+    },
+    {
+      "id": "testling-alternate",
+      "speciesId": "testling",
+      "name": "Alternate",
+      "aliases": ["Shared form"],
+      "types": null,
+      "baseStats": null,
+      "evolutions": null
+    },
+    {
+      "id": "testwing-normal",
+      "speciesId": "testwing",
+      "name": "Normal",
+      "aliases": [],
+      "types": ["fire", "flying"],
+      "baseStats": null,
+      "evolutions": []
+    }
+  ]
+}

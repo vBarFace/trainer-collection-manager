@@ -24,6 +24,7 @@ vi.mock("./native", async (importOriginal) => {
       confirmImport: vi.fn(),
       evaluate: vi.fn(),
       correctIvs: vi.fn(),
+      correctIdentity: vi.fn(),
     },
   };
 });
@@ -80,6 +81,22 @@ const saved: InventoryRecord = {
   cp: "9223372036854775807",
   ivs: { attack: 0, defense: 14, hp: 15 },
   tags: [special, custom],
+  reference: {
+    state: "not_set",
+    identity: null,
+    dataset: {
+      datasetId: "empty",
+      version: "1",
+      sourceUrl: "https://example.invalid",
+      upstreamRevision: "original",
+      retrievedAt: "2026-10-26",
+      rightsEvidenceUrl: "https://example.invalid/license",
+      license: "MIT",
+      notice: "No game dataset bundled.",
+    },
+    species: null,
+    form: null,
+  },
   evaluation: {
     scope: "appraisal",
     state: "pending",
@@ -942,6 +959,98 @@ describe("confirmed saved-IV corrections", () => {
     await act(async () => pending.resolve(corrected));
     expect(native.evaluate).not.toHaveBeenCalled();
     expect(native.confirmImport).not.toHaveBeenCalled();
+  });
+});
+
+describe("confirmed reference identity", () => {
+  it("saves identity separately and blocks other record actions during confirmation", async () => {
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [saved],
+      tags: [special, custom],
+    });
+    const pending = deferred<InventoryRecord>();
+    vi.mocked(native.correctIdentity).mockReturnValueOnce(pending.promise);
+    render(<Inventory />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Review appraisal for Buddy" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Correct species and form" }),
+    );
+    expect(screen.getByLabelText("Species")).toHaveValue("");
+    fireEvent.change(screen.getByLabelText("Species"), {
+      target: { value: "Testling" },
+    });
+    fireEvent.change(screen.getByLabelText("Form"), {
+      target: { value: "Plain" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm identity correction" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Review appraisal for Buddy" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Evaluate appraisal" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Correct saved IVs" }),
+    ).toBeDisabled();
+    expect(native.correctIdentity).toHaveBeenCalledExactlyOnceWith(
+      saved.id,
+      null,
+      { species: "Testling", form: "Plain" },
+    );
+    await act(async () =>
+      pending.resolve({
+        ...saved,
+        reference: {
+          ...saved.reference,
+          state: "unavailable",
+          identity: { species: "Testling", form: "Plain" },
+        },
+      }),
+    );
+    await screen.findByText("Species and form confirmation saved locally.");
+    expect(screen.getByText(/Confirmed species: Testling/)).toBeVisible();
+    expect(screen.getByText("CP: 9223372036854775807")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Evaluate appraisal" }),
+    ).toBeEnabled();
+    expect(native.evaluate).not.toHaveBeenCalled();
+    expect(native.correctIvs).not.toHaveBeenCalled();
+    expect(native.confirmImport).not.toHaveBeenCalled();
+  });
+
+  it("discards an unsaved identity draft on record switching", async () => {
+    const second = {
+      ...saved,
+      id: "00000000-0000-4000-8000-000000000001",
+      displayName: "Second",
+    };
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [saved, second],
+      tags: [],
+    });
+    render(<Inventory />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Review appraisal for Buddy" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Correct species and form" }),
+    );
+    fireEvent.change(screen.getByLabelText("Species"), {
+      target: { value: "Draft" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review appraisal for Second" }),
+    );
+    expect(screen.queryByLabelText("Species")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Correct species and form" }),
+    );
+    expect(screen.getByLabelText("Species")).toHaveValue("");
+    expect(native.correctIdentity).not.toHaveBeenCalled();
   });
 });
 
