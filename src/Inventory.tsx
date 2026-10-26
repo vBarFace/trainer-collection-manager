@@ -4,6 +4,7 @@ import {
   native,
   nativeErrorMessage,
   evaluationLabels,
+  type AppraisalIvs,
   type InventorySnapshot,
   type ScreenshotExtraction,
 } from "./native";
@@ -34,7 +35,8 @@ export function Inventory() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [evaluating, setEvaluating] = useState<string | null>(null);
   const [evaluationError, setEvaluationError] = useState("");
-  const evaluationOperation = useRef(false);
+  const [savingIvs, setSavingIvs] = useState(false);
+  const recordOperation = useRef(false);
   const operation = useRef<"selecting" | "saving" | null>(null);
   const previewUrl = useRef<string | null>(null);
   const mounted = useRef(false);
@@ -206,8 +208,8 @@ export function Inventory() {
     setEdited((current) => ({ ...current, [key]: true }));
   }
   async function evaluateSelected() {
-    if (!selectedId || evaluationOperation.current) return;
-    evaluationOperation.current = true;
+    if (!selectedId || recordOperation.current) return;
+    recordOperation.current = true;
     setEvaluating(selectedId);
     setEvaluationError("");
     ++loadVersion.current;
@@ -233,8 +235,36 @@ export function Inventory() {
           ),
         );
     } finally {
-      evaluationOperation.current = false;
+      recordOperation.current = false;
       if (mounted.current) setEvaluating(null);
+    }
+  }
+  async function saveSelectedIvs(
+    expected: AppraisalIvs | null,
+    corrected: AppraisalIvs | null,
+  ) {
+    if (!selectedId || recordOperation.current)
+      throw new Error("Inventory action already in progress");
+    recordOperation.current = true;
+    setSavingIvs(true);
+    setEvaluationError("");
+    ++loadVersion.current;
+    try {
+      const record = await native.correctIvs(selectedId, expected, corrected);
+      if (mounted.current)
+        setSnapshot((current) =>
+          current
+            ? {
+                ...current,
+                records: current.records.map((existing) =>
+                  existing.id === record.id ? record : existing,
+                ),
+              }
+            : current,
+        );
+    } finally {
+      recordOperation.current = false;
+      if (mounted.current) setSavingIvs(false);
     }
   }
   function evidence(key: keyof ReviewFields) {
@@ -443,7 +473,7 @@ export function Inventory() {
                   aria-controls={
                     selectedId === record.id ? "appraisal-panel" : undefined
                   }
-                  disabled={evaluating !== null}
+                  disabled={evaluating !== null || savingIvs}
                   onClick={() => {
                     setSelectedId(record.id);
                     setEvaluationError("");
@@ -459,6 +489,7 @@ export function Inventory() {
           snapshot?.records.find((record) => record.id === selectedId) && (
             <div id="appraisal-panel">
               <AppraisalPanel
+                key={selectedId}
                 record={
                   snapshot.records.find((record) => record.id === selectedId)!
                 }
@@ -466,6 +497,8 @@ export function Inventory() {
                 error={evaluationError}
                 onEvaluate={() => void evaluateSelected()}
                 onReload={() => void loadInventory()}
+                savingIvs={savingIvs}
+                onSaveIvs={saveSelectedIvs}
               />
             </div>
           )}

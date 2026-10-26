@@ -9,7 +9,17 @@ Task 005 introduces an offline, deterministic appraisal workflow. It evaluates c
 3. Request an appraisal evaluation. The UI shows progress and offers retry on failure.
 4. Read the resulting observed facts, findings, missing data and limitations. Re-evaluate after an IV or ruleset change.
 
-The four states are **Pending**, **Evaluated**, **Needs data** and **Stale**. They apply to appraisal only. Evaluation metadata survives reopening the app; tags do not determine state. There is no full saved-record editing UI in this increment. The existing native update API invalidates appraisal when IVs change.
+The four states are **Pending**, **Evaluated**, **Needs data** and **Stale**. They apply to appraisal only. Evaluation metadata survives reopening the app; tags do not determine state. Saved appraisal IVs can be corrected as described below; full saved-record editing remains deferred.
+
+## Correcting saved IVs
+
+Select a record, then choose **Correct saved IVs**. Review the prefilled attack/defense/HP group and enter all three whole numbers from 0 to 15. To clear known values, choose **Mark all IVs unknown** or leave all three empty. Both are draft changes until **Confirm IV correction** is submitted. Partial groups are rejected. **Cancel IV correction** and switching to another record discard the unsaved draft.
+
+Saving changes only IVs, preserving the record's UUID, name, CP, creation timestamp and tags. Actual changes update the record timestamp and make an existing appraisal attempt Stale through the existing migration-4 trigger. Unchanged values are a no-op, preserving timestamps and state. A record without an appraisal attempt remains Pending. Re-evaluate explicitly after correction; saving never runs appraisal or assigns tags.
+
+The form disables duplicate submission, record selection, evaluation and cancellation while saving. Ordinary failures retain the draft for retry. If saved IVs changed while the draft was open, the native command rejects the save; discard the draft and reload, or cancel. A deleted record likewise requires reload. Drafts stay in memory and are not recovered after leaving the screen or closing the app. No screenshot is required.
+
+`correct_pokemon_ivs` accepts a validated Pokémon UUID and `{ expectedIvs, ivs }`, with both groups explicitly supplied as `null` or complete integer groups. Rust validates both groups and compares current IV values with `expectedIvs` in an immediate write transaction before changing only IV columns. This is a value comparison, not a revision-token contract: an intervening change/revert that restores the expected group is accepted. No new migration, dependency or appraisal ruleset is needed.
 
 ## Ruleset `appraisal-1`
 

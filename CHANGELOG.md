@@ -10,6 +10,8 @@ All notable changes are documented here.
 
 ### Added
 
+- Confirmed saved-IV corrections from the appraisal panel, with prefilled grouped fields, an explicit unknown-group option, cancellation and retained drafts after save failure. A narrow native command updates only IVs, rejects conflicting saved values and uses existing appraisal invalidation; evaluation and tags are never applied automatically. No schema or ruleset change.
+
 - Task 005: migration 4 persists per-Pokémon appraisal metadata and an IV revision counter. The deterministic `appraisal-1` Rust engine reports confirmed IVs, total, descriptive percentage and a perfect-appraisal finding. Typed findings/recommendation foundations are separate from assigned tags; no strategic recommendations or automatic tag assignments are produced. IV changes and ruleset mismatches invalidate previous attempts.
 
 - Automatic offline screenshot name/CP OCR with bundled English/Portuguese Tesseract resources, temporary native crop preparation, real appraisal-bar palettes/rounded-track support, cancellation/timeout and manual fallback. Verified the supplied real example; no general accuracy rate is claimed.
