@@ -1,0 +1,43 @@
+[
+  {
+    "dex": 61001,
+    "speciesName": "Emberwit",
+    "speciesId": "emberwit",
+    "baseStats": { "atk": 123, "def": 144, "hp": 155 },
+    "types": ["fire", "none"],
+    "tags": [],
+    "family": { "evolutions": ["ignored-family-membership"] }
+  },
+  {
+    "dex": 61001,
+    "speciesName": "Emberwit (Coastal)",
+    "speciesId": "emberwit_coastal",
+    "baseStats": null,
+    "types": ["water", "flying"],
+    "tags": ["regional"]
+  },
+  {
+    "dex": 61001,
+    "speciesName": "Emberwit (Mega)",
+    "speciesId": "emberwit_mega",
+    "baseStats": { "atk": 211, "def": 188, "hp": 155 },
+    "types": ["fire", "fairy"],
+    "tags": ["mega"]
+  },
+  {
+    "dex": 61002,
+    "speciesName": "Cindervane",
+    "speciesId": "cindervane",
+    "baseStats": null,
+    "types": null,
+    "tags": []
+  },
+  {
+    "dex": 61001,
+    "speciesName": "Emberwit (Shadow)",
+    "speciesId": "emberwit_shadow",
+    "baseStats": { "atk": 123, "def": 144, "hp": 155 },
+    "types": ["fire", "none"],
+    "tags": ["shadow"]
+  }
+]

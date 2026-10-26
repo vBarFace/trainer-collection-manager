@@ -32,4 +32,6 @@ jobs:
       - run: npm ci
       - run: npm run rust:fmt
       - run: npm run rust:check
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: npm run reference:test-native
       - run: npm run tauri:build -- --no-bundle

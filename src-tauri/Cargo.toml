@@ -4,6 +4,15 @@ version = "0.1.0"
 description = "Offline-first Pokémon GO collection manager"
 authors = ["Trainer Collection Manager contributors"]
 edition = "2021"
+default-run = "trainer-collection-manager"
+
+[features]
+reference-tools = []
+
+[[bin]]
+name = "validate-reference"
+path = "src/bin/validate-reference.rs"
+required-features = ["reference-tools"]
 
 [build-dependencies]
 tauri-build = { version = "2.4.1", features = [] }

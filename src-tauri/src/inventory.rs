@@ -679,6 +679,86 @@ mod tests {
     }
 
     #[test]
+    fn reference_removal_and_alias_reassignment_never_rebind_inventory() {
+        use crate::reference::tests::{document, identity, FIXTURE};
+        let mut repo = repository();
+        repo.activate_reference(FIXTURE).unwrap();
+        let pokemon = repo.create(&input("Player nickname")).unwrap();
+        repo.assign_tag(&pokemon.id, repo.tags().unwrap()[0].id)
+            .unwrap();
+        repo.evaluate(&pokemon.id).unwrap();
+        let query = identity("Essai", Some("Base"));
+        let (before, tags) = repo
+            .correct_identity(&pokemon.id, None, Some(query.clone()))
+            .unwrap();
+        let saved_pin = |repo: &InventoryRepository| {
+            repo.connection.query_row(
+                "SELECT species_query, form_query, dataset_id, species_id, form_id, confirmed_at FROM pokemon_reference_identity WHERE pokemon_id = ?1",
+                [pokemon.id.as_str()],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?, row.get::<_, String>(3)?, row.get::<_, String>(4)?, row.get::<_, String>(5)?)),
+            ).unwrap()
+        };
+        let pin_before = saved_pin(&repo);
+
+        let mut next = document();
+        next["dataset"]["version"] = "removed-form".into();
+        next["species"][0]["aliases"] = serde_json::json!([]);
+        next["forms"][0]["id"] = "testling-new-form".into();
+        repo.activate_reference(&serde_json::to_vec(&next).unwrap())
+            .unwrap();
+        assert_eq!(
+            repo.get(&pokemon.id).unwrap().reference.state,
+            ResolutionState::UnknownForm
+        );
+
+        next["dataset"]["version"] = "removed-species".into();
+        next["species"].as_array_mut().unwrap().remove(0);
+        next["species"][0]["aliases"] = serde_json::json!(["Essai"]);
+        next["forms"].as_array_mut().unwrap().drain(0..2);
+        next["forms"][0]["aliases"] = serde_json::json!(["Base"]);
+        repo.activate_reference(&serde_json::to_vec(&next).unwrap())
+            .unwrap();
+        let unresolved = repo
+            .correct_identity(&pokemon.id, Some(query.clone()), Some(query.clone()))
+            .unwrap()
+            .0;
+        assert_eq!(unresolved.reference.state, ResolutionState::UnknownSpecies);
+        assert_eq!(unresolved.reference.identity, Some(query.clone()));
+        assert_eq!(saved_pin(&repo), pin_before);
+        assert_eq!(repo.tags_for(&pokemon.id).unwrap(), tags);
+        let mut observations = unresolved.clone();
+        observations.reference = before.reference.clone();
+        assert_eq!(observations, before);
+
+        // Returning the original identities restores resolution, without a write
+        // to the saved confirmation or to the player's observations/appraisal.
+        let mut restored = document();
+        restored["dataset"]["version"] = "restored".into();
+        repo.activate_reference(&serde_json::to_vec(&restored).unwrap())
+            .unwrap();
+        let restored = repo.get(&pokemon.id).unwrap();
+        assert_eq!(restored.reference.state, ResolutionState::Resolved);
+        assert_eq!(restored.reference.form.unwrap().id, "testling-normal");
+        assert_eq!(saved_pin(&repo), pin_before);
+
+        let active = repo.get(&pokemon.id).unwrap();
+        let mut reused_version = document();
+        reused_version["dataset"]["version"] = "restored".into();
+        reused_version["species"][0]["name"] = "Different content".into();
+        let mut reused_species = document();
+        reused_species["dataset"]["version"] = "conflicting-identity".into();
+        reused_species["species"][0]["dexNumber"] = 60002.into();
+        for invalid in [reused_version, reused_species] {
+            assert!(repo
+                .activate_reference(&serde_json::to_vec(&invalid).unwrap())
+                .is_err());
+            assert_eq!(repo.get(&pokemon.id).unwrap(), active);
+            assert_eq!(saved_pin(&repo), pin_before);
+            assert_eq!(repo.tags_for(&pokemon.id).unwrap(), tags);
+        }
+    }
+
+    #[test]
     fn version_four_upgrade_and_reopen_preserve_inventory_and_unresolved_identity() {
         use crate::reference::tests::identity;
         let path = std::env::temp_dir().join(format!(
