@@ -1,4 +1,32 @@
-# Task 004 validation
+# Automatic OCR follow-up validation
+
+Date: 2026-10-26. Supersedes the initial bounded milestone's name/CP deferral. Scope: bundled offline OCR, native crop preparation and real appraisal-bar support, with explicit editable confirmation.
+
+- `npm run lint`, `npm run typecheck`: passed.
+- `npm test`: 27 tests in four suites passed outside the sandbox, whose known Vitest temporary-cache rename restriction prevents loading tests. Coverage includes actual OCR-result admission, low/invalid scores, ambiguous/hidden CP, editable name/CP, exact confirmed payloads, cancellation during initialization, timeout, failures, unmount and late results.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: 40 passed, 2 ignored private-reference diagnostics; binary/doc targets contain zero tests. Native additions cover real grey/orange/pink rounded/JPEG bars, all IV boundaries, contradictory rows, clipped HP anchors, metadata-free text crops, mixed-size CP normalization and overlays touching the final CP glyph.
+- `npm run rust:fmt`, `npm run rust:check`: passed. Existing incremental-cache hard-link warnings remain.
+- `npm run check`: stops at the verified pre-existing CRLF/LF formatting differences in 25 untouched files. The prior follow-up had 28; the three now-changed configuration files were formatted within scope. All changed/new formatter-supported files pass targeted checks. No quality check was weakened; generated third-party OCR assets are excluded alongside other generated/vendor assets.
+- `npm run tauri:build`: passed outside the sandbox, producing a Windows x64 NSIS installer of 11,973,903 bytes. About 21.9 MB of uncompressed reviewed worker/core/language assets plus complete license notices are embedded. Existing `.app` bundle-identifier advisory remains.
+- `git diff --check`: passed. Rust dependencies, migrations, inventory persistence, save fields, command ACL and native filesystem permissions remain unchanged. Only the existing screenshot response gains temporary OCR crops. CSP adds same-origin workers and WebAssembly compilation support.
+
+## Real reference and worker verification
+
+The user supplied and authorized local testing of one real portrait appraisal JPEG. Native IV extraction returned 15/2/2. Actual bundled Tesseract recognition on native-generated crops returned display name Abra (raw engine score 96) and CP 468 (score 73). These are uncalibrated engine scores, not measured accuracy percentages. Initial CP recognition failed admission; normalizing the small CP-prefix glyphs geometrically improved recognition without relaxing the score threshold or substituting characters.
+
+The real browser worker was exercised in a headless Chrome against the application's actual TypeScript worker adapter and shipping Tauri CSP. Every external request was blocked; it returned the same five fields, made zero external requests and created zero IndexedDB databases. Observed OCR-only elapsed time was 248 ms in that run; this single environment/example is not a production-latency guarantee or accuracy benchmark. Loaded resources were the local worker, SIMD-LSTM core and English/Portuguese compressed language files.
+
+The browser diagnostic initially hit the sandbox's local-network restriction (ERR_NETWORK_ACCESS_DENIED); the approved outside-sandbox run passed. A development native link attempt overlapped another test executable and hit LNK1104; rerunning sequentially passed. The private source was only read; no screenshot was committed, bundled or imported. One temporary derived CP crop used for visual debugging was removed. Normal tests require no private images.
+
+Independent reviews found and helped correct clipped-green-run acceptance and the risk of an overlay erasing a final CP digit into a smaller plausible number. Both have regressions. Complete component notices were reviewed and bundled, including the worker's extracted notices, Tesseract/Leptonica and statically linked codecs. The worker is owned before initialization and terminated on every completion/failure/cancel/unmount/timeout path; language caching is disabled.
+
+## Compiled Windows GUI smoke test
+
+The newly built release executable was launched and inspected through Computer Use. Its native modal picker selected the authorized real JPEG; the actual Tauri/WebView2 review automatically populated Abra, CP 468, attack 15, defense 2 and HP 2, including both raw OCR engine scores. This confirms the bundled worker/resources and CSP work under `http://tauri.localhost/`, beyond the separate Chrome worker test. **Cancel review** removed the preview and displayed “Review cancelled. Nothing was saved.” The inventory remained empty. No confirmation/save was submitted; desktop GUI save/restart remains covered by automated contracts/reopen tests rather than claimed as manually exercised. The application was left open and ready for use, with no pending review.
+
+General accuracy still needs a representative authorized labelled corpus and held-out evaluation. Unsupported layouts, dark themes, incomplete health bars, custom symbols and occlusion may remain unresolved or produce erroneous suggestions. Confirmation remains necessary; this increment does not evaluate or classify Pokemon. See [limitations](local-extraction.md) and [decision 0004](../decisions/0004-offline-hybrid-extraction.md).
+
+# Task 004 initial bounded validation (historical)
 
 Date: 2026-10-26. Scope: a bounded experimental local appraisal-bar extraction increment, typed temporary suggestions and editable review; **not general screenshot recognition**.
 
