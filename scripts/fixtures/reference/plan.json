@@ -1,0 +1,84 @@
+{
+  "adapterVersion": "pvpoke-1",
+  "dataset": {
+    "datasetId": "synthetic-adapter",
+    "version": "fiction-1",
+    "sourceUrl": "https://example.org/original-fictional-source",
+    "upstreamRevision": "original-fiction-1",
+    "license": "MIT (original fictional fixtures only)",
+    "notice": "Original fictional species and invented values; no real game facts.",
+    "retrievedAt": "2026-10-26",
+    "rightsEvidenceUrl": "https://github.com/vBarFace/trainer-collection-manager/blob/main/LICENSE"
+  },
+  "rights": {
+    "status": "fictional",
+    "review": "Original fictional fixtures authored for Task 007. Not authentic Pokémon GO records.",
+    "evidenceUrl": "https://github.com/vBarFace/trainer-collection-manager/blob/main/LICENSE"
+  },
+  "species": [
+    {
+      "id": "emberwit",
+      "dexNumber": 61001,
+      "name": "Emberwit",
+      "aliases": ["Shared fiction", "Sparkling wit"],
+      "evidenceUrl": "https://example.org/original-fictional-source"
+    },
+    {
+      "id": "cindervane",
+      "dexNumber": 61002,
+      "name": "Cindervane",
+      "aliases": ["Shared fiction"],
+      "evidenceUrl": "https://example.org/original-fictional-source"
+    }
+  ],
+  "forms": [
+    {
+      "upstreamId": "emberwit",
+      "id": "emberwit-standard",
+      "speciesId": "emberwit",
+      "name": "Standard",
+      "aliases": [],
+      "kind": "standard",
+      "evidenceUrl": "https://example.org/original-fictional-source",
+      "evolutions": {
+        "evidenceUrl": "https://example.org/original-fictional-evolutions",
+        "edges": [
+          { "targetFormId": "cindervane-standard", "requirements": null }
+        ]
+      }
+    },
+    {
+      "upstreamId": "emberwit_coastal",
+      "id": "emberwit-coastal",
+      "speciesId": "emberwit",
+      "name": "Coastal",
+      "aliases": [],
+      "kind": "regional",
+      "evidenceUrl": "https://example.org/original-fictional-source",
+      "evolutions": null
+    },
+    {
+      "upstreamId": "emberwit_mega",
+      "id": "emberwit-mega",
+      "speciesId": "emberwit",
+      "name": "Mega",
+      "aliases": [],
+      "kind": "mega",
+      "evidenceUrl": "https://example.org/original-fictional-source",
+      "evolutions": null
+    },
+    {
+      "upstreamId": "cindervane",
+      "id": "cindervane-standard",
+      "speciesId": "cindervane",
+      "name": "Standard",
+      "aliases": [],
+      "kind": "standard",
+      "evidenceUrl": "https://example.org/original-fictional-source",
+      "evolutions": {
+        "evidenceUrl": "https://example.org/original-fictional-evolutions",
+        "edges": []
+      }
+    }
+  ]
+}

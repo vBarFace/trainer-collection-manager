@@ -14,7 +14,8 @@ npm ci
 
 ```powershell
 npm run tauri:dev      # start the Windows app
-npm run check          # Prettier, ESLint, TypeScript, frontend tests
+npm run check          # Prettier, ESLint, TypeScript, frontend + adapter tests
+npm run reference:test-native # offline adapter/native-validator integration
 npm run rust:fmt       # check Rust formatting
 npm run rust:check     # native type/build check
 cargo test --manifest-path src-tauri/Cargo.toml

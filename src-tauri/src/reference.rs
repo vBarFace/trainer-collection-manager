@@ -1,6 +1,6 @@
 //! Validated offline snapshots. This module never reads player data or uses a network.
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -122,6 +122,9 @@ pub struct Catalog {
     species: Vec<Species>,
     forms: Vec<Form>,
     seen_versions: HashSet<(String, String)>,
+    species_identities: HashMap<(String, String), u16>,
+    dex_identities: HashMap<(String, u16), String>,
+    form_identities: HashMap<(String, String), String>,
 }
 
 #[derive(Deserialize)]
@@ -186,6 +189,9 @@ impl Catalog {
             species: document.species,
             forms: document.forms,
             seen_versions: HashSet::new(),
+            species_identities: HashMap::new(),
+            dex_identities: HashMap::new(),
+            form_identities: HashMap::new(),
         };
         catalog.validate()?;
         let mut catalog = catalog;
@@ -193,6 +199,7 @@ impl Catalog {
             catalog.dataset.dataset_id.clone(),
             catalog.dataset.version.clone(),
         ));
+        catalog.remember_identities();
         Ok(catalog)
     }
 
@@ -221,10 +228,58 @@ impl Catalog {
         if self.seen_versions.contains(&key) {
             return Err("Previously active reference version cannot be reactivated");
         }
+        // Keep identity history even when a snapshot temporarily omits records.
+        // Renames and metadata corrections are allowed; retargeting IDs requires
+        // a separately reviewed mapping rather than rebinding saved inventory.
+        let namespace = &next.dataset.dataset_id;
+        for species in &next.species {
+            if self
+                .species_identities
+                .get(&(namespace.clone(), species.id.clone()))
+                .is_some_and(|dex| *dex != species.dex_number)
+                || self
+                    .dex_identities
+                    .get(&(namespace.clone(), species.dex_number))
+                    .is_some_and(|id| *id != species.id)
+            {
+                return Err(
+                    "Reference species identifier changed its National Pokedex association",
+                );
+            }
+        }
+        for form in &next.forms {
+            if self
+                .form_identities
+                .get(&(namespace.clone(), form.id.clone()))
+                .is_some_and(|species_id| *species_id != form.species_id)
+            {
+                return Err("Reference form identifier changed its species association");
+            }
+        }
         next.seen_versions = self.seen_versions.clone();
         next.seen_versions.insert(key);
+        next.species_identities = self.species_identities.clone();
+        next.dex_identities = self.dex_identities.clone();
+        next.form_identities = self.form_identities.clone();
+        next.remember_identities();
         *self = next;
         Ok(())
+    }
+
+    fn remember_identities(&mut self) {
+        let namespace = &self.dataset.dataset_id;
+        for species in &self.species {
+            self.species_identities
+                .insert((namespace.clone(), species.id.clone()), species.dex_number);
+            self.dex_identities
+                .insert((namespace.clone(), species.dex_number), species.id.clone());
+        }
+        for form in &self.forms {
+            self.form_identities.insert(
+                (namespace.clone(), form.id.clone()),
+                form.species_id.clone(),
+            );
+        }
     }
 
     fn validate(&self) -> Result<()> {
@@ -594,6 +649,111 @@ pub(crate) mod tests {
             active.resolve(Some(&query), Some(&pin)).state,
             ResolutionState::Unavailable
         );
+    }
+
+    #[test]
+    fn identity_conflicts_are_rejected_even_after_removal_or_provider_switch() {
+        let mut active = Catalog::load(FIXTURE).unwrap();
+        let mut candidates = vec![];
+        let mut changed_dex = document();
+        changed_dex["species"][0]["dexNumber"] = 60002.into();
+        candidates.push(changed_dex);
+        let mut changed_id = document();
+        changed_id["species"][0]["id"] = "replacement".into();
+        for form in changed_id["forms"].as_array_mut().unwrap() {
+            if form["speciesId"] == "testling" {
+                form["speciesId"] = "replacement".into();
+            }
+        }
+        candidates.push(changed_id);
+        let mut moved_form = document();
+        moved_form["forms"][1]["speciesId"] = "testwing".into();
+        candidates.push(moved_form);
+
+        for phase in 0..3 {
+            for candidate in &candidates {
+                let mut candidate = candidate.clone();
+                candidate["dataset"]["version"] = format!("conflicting-{phase}").into();
+                // Every candidate is structurally valid in isolation. Only
+                // comparison with previously accepted identities rejects it.
+                let bytes = serde_json::to_vec(&candidate).unwrap();
+                Catalog::load(&bytes).unwrap();
+                let before = active.clone();
+                assert!(active.activate(&bytes).is_err());
+                assert_eq!(active, before);
+            }
+            let mut next = document();
+            if phase == 0 {
+                next["dataset"]["version"] = "temporarily-empty".into();
+                next["species"] = serde_json::json!([]);
+                next["forms"] = serde_json::json!([]);
+            } else {
+                next["dataset"]["datasetId"] = "another-provider".into();
+                next["dataset"]["version"] = format!("provider-{phase}").into();
+                // Same normalized IDs are allowed in an independent namespace.
+                next["species"][0]["dexNumber"] = 60002.into();
+            }
+            active
+                .activate(&serde_json::to_vec(&next).unwrap())
+                .unwrap();
+        }
+        let mut restored = document();
+        restored["dataset"]["version"] = "restored-identities".into();
+        active
+            .activate(&serde_json::to_vec(&restored).unwrap())
+            .unwrap();
+        assert_eq!(
+            active
+                .resolve(Some(&identity("Essai", Some("Base"))), None)
+                .state,
+            ResolutionState::Resolved
+        );
+    }
+
+    #[test]
+    fn compatible_additions_renames_and_missing_metadata_keep_pinned_ids() {
+        let mut active = Catalog::load(FIXTURE).unwrap();
+        let query = identity("Essai", Some("Base"));
+        let pin = Pin {
+            dataset_id: "synthetic-test".into(),
+            species_id: "testling".into(),
+            form_id: "testling-normal".into(),
+        };
+        let mut next = document();
+        next["dataset"]["version"] = "compatible-2".into();
+        next["species"][0]["name"] = "Renamed fictional species".into();
+        next["species"][0]["aliases"] = serde_json::json!([]);
+        next["forms"][0]["name"] = "Renamed fictional form".into();
+        next["forms"][0]["aliases"] = serde_json::json!([]);
+        for field in ["types", "baseStats", "evolutions"] {
+            next["forms"][0][field] = serde_json::Value::Null;
+        }
+        next["species"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "id": "testbud", "dexNumber": 60002, "name": "Testbud", "aliases": ["Essai"]
+            }));
+        next["forms"].as_array_mut().unwrap().push(serde_json::json!({
+            "id": "testbud-normal", "speciesId": "testbud", "name": "Normal", "aliases": ["Base"],
+            "types": null, "baseStats": null, "evolutions": []
+        }));
+        active
+            .activate(&serde_json::to_vec(&next).unwrap())
+            .unwrap();
+        assert_eq!(
+            active.resolve(Some(&query), None).species.unwrap().id,
+            "testbud"
+        );
+        let resolved = active.resolve(Some(&query), Some(&pin));
+        assert_eq!(resolved.state, ResolutionState::Resolved);
+        assert_eq!(resolved.identity, Some(query));
+        assert_eq!(resolved.species.unwrap().id, "testling");
+        let form = resolved.form.unwrap();
+        assert_eq!(form.id, "testling-normal");
+        assert_eq!(form.types, None);
+        assert_eq!(form.base_stats, None);
+        assert_eq!(form.evolutions, None);
     }
 
     #[test]
