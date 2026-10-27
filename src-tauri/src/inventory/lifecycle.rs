@@ -92,6 +92,14 @@ pub struct ReobservationConfirmation<'a> {
     pub same_individual_confirmed: bool,
 }
 
+pub struct PowerUpConfirmation<'a> {
+    pub request_id: &'a str,
+    pub expected_revision: i64,
+    // None preserves the existing observation; it never clears known CP.
+    pub cp: Option<i64>,
+    pub performed_in_game_confirmed: bool,
+}
+
 impl InventoryRepository {
     pub fn evolution_options(&self, id: &PokemonId) -> Result<EvolutionOptions> {
         let pokemon = self.get(id)?;
@@ -280,6 +288,52 @@ impl InventoryRepository {
             cp_source: confirmation.cp.as_ref().map(|patch| patch.source),
             ivs_source: confirmation.ivs.as_ref().map(|patch| patch.source),
             observed_identity: confirmation.observed_identity,
+            same_individual_confirmed: true,
+            dataset_id: before.reference.dataset.dataset_id,
+            dataset_version: before.reference.dataset.version,
+        })?;
+        let tags = self.tags_for(id)?;
+        transaction.commit()?;
+        Ok((after, tags))
+    }
+
+    pub fn confirm_power_up(
+        &self,
+        id: &PokemonId,
+        confirmation: PowerUpConfirmation<'_>,
+    ) -> Result<(Pokemon, Vec<Tag>)> {
+        if !confirmation.performed_in_game_confirmed {
+            return Err(Error::InvalidInput(
+                "Confirm that you performed this Power Up in Pokémon GO",
+            ));
+        }
+        if confirmation.cp.is_some_and(|cp| cp <= 0) {
+            return Err(Error::InvalidInput("Updated CP must be positive"));
+        }
+        let transaction = rusqlite::Transaction::new_unchecked(
+            &self.connection,
+            rusqlite::TransactionBehavior::Immediate,
+        )?;
+        let before =
+            self.check_confirmation(id, confirmation.request_id, confirmation.expected_revision)?;
+        let cp = confirmation.cp.or(before.cp);
+        if cp != before.cp {
+            self.connection.execute(
+                "UPDATE pokemon SET cp = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
+                params![id.as_str(), cp],
+            )?;
+        }
+        let after = self.get(id)?;
+        self.append_event(&LifecycleEvent {
+            request_id: confirmation.request_id.into(),
+            pokemon_id: id.as_str().into(),
+            kind: "power_up".into(),
+            confirmed_at: String::new(),
+            before: (&before).into(),
+            after: (&after).into(),
+            cp_source: confirmation.cp.map(|_| ObservationSource::Manual),
+            ivs_source: None,
+            observed_identity: None,
             same_individual_confirmed: true,
             dataset_id: before.reference.dataset.dataset_id,
             dataset_version: before.reference.dataset.version,

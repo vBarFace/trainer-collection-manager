@@ -78,3 +78,22 @@ it("keeps lifecycle confirmation and targeted observation IPC separate from new 
   await native.history(id);
   expect(invoke).toHaveBeenLastCalledWith("pokemon_history", { id });
 });
+
+it("transports confirmed Power Ups with exact decimal strings and explicit unknown CP", async () => {
+  const id = "00000000-0000-4000-8000-000000000000";
+  const input = {
+    requestId: "00000000-0000-4000-8000-000000000001",
+    expectedStrategicObservationRevision: "9007199254740993",
+    cp: "9223372036854775807",
+    performedInGameConfirmed: true,
+  };
+  const returned = { id, cp: input.cp };
+  vi.mocked(invoke).mockResolvedValue(returned);
+  expect(await native.confirmPowerUp(id, input)).toBe(returned);
+  expect(invoke).toHaveBeenLastCalledWith("confirm_power_up", { id, input });
+  await native.confirmPowerUp(id, { ...input, cp: null });
+  expect(invoke).toHaveBeenLastCalledWith("confirm_power_up", {
+    id,
+    input: { ...input, cp: null },
+  });
+});

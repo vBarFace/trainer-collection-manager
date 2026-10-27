@@ -30,6 +30,8 @@ Task 006 adds migration 5 for separately confirmed reference identity and stable
 
 `src/LifecyclePanel.tsx` adds selected-UUID evolution, targeted screenshot review and confirmed-history display. `src-tauri/src/inventory/lifecycle.rs` owns transactional catalog validation, expected-observation checks, patch validation and confirmed audit insertion. New commands are explicitly listed in the existing main-window command permission; no generic storage or filesystem access is granted. Migration 7 adds one event table, reusing the established repository and strategic observation triggers. See [lifecycle contracts](../development/lifecycle.md).
 
+S2.3 adds `src/PowerUpPanel.tsx` to the same detail/action lock and `confirm_power_up` to the existing native command boundary. Preview and cancellation remain transient. Confirmation reuses request UUID replay protection, observation revisions and atomic history, updating only explicitly supplied CP. Migration 8 preserves existing events while extending the table's checked action kinds. No resource management, screenshot pipeline or game mechanics calculation is added.
+
 ## Proposed strategic boundary (Task 008)
 
 This section is a design proposal, not an implemented module or IPC API. Task 007's offline adapter, native validation, SHA-256 provenance and cumulative identity/version ledger are merged. Production still loads `tcm-empty` / `empty-1`; no strategic calculation is available. Schema 1 contains nullable types/base stats and descriptive evolution requirements, with no executable eligibility rules, move mechanics, level multipliers or investment costs. Do not parse those strings into eligibility or assume missing data means zero cost.

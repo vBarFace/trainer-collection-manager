@@ -193,6 +193,26 @@ pub(crate) fn apply_migrations(connection: &mut Connection) -> rusqlite::Result<
                 BEGIN SELECT RAISE(ABORT, 'Confirmed lifecycle events are immutable'); END;",
         )
     })?;
+    apply_migration(&transaction, 8, |transaction| {
+        // Rebuild only the history table to extend its checked action kinds.
+        // Explicit rowids preserve same-second history ordering across upgrades.
+        transaction.execute_batch(
+            "CREATE TABLE pokemon_lifecycle_events_v8 (
+                request_id TEXT PRIMARY KEY NOT NULL,
+                pokemon_id TEXT NOT NULL REFERENCES pokemon(id) ON DELETE CASCADE,
+                kind TEXT NOT NULL CHECK (kind IN ('evolution', 'reobservation', 'power_up')),
+                event_json TEXT NOT NULL CHECK (json_valid(event_json)),
+                confirmed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) STRICT;
+            INSERT INTO pokemon_lifecycle_events_v8 (rowid, request_id, pokemon_id, kind, event_json, confirmed_at)
+                SELECT rowid, request_id, pokemon_id, kind, event_json, confirmed_at FROM pokemon_lifecycle_events;
+            DROP TABLE pokemon_lifecycle_events;
+            ALTER TABLE pokemon_lifecycle_events_v8 RENAME TO pokemon_lifecycle_events;
+            CREATE INDEX pokemon_lifecycle_by_individual ON pokemon_lifecycle_events(pokemon_id);
+            CREATE TRIGGER pokemon_lifecycle_event_immutable BEFORE UPDATE ON pokemon_lifecycle_events
+                BEGIN SELECT RAISE(ABORT, 'Confirmed lifecycle events are immutable'); END;",
+        )
+    })?;
     transaction.commit()
 }
 
@@ -284,7 +304,7 @@ mod tests {
                 .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            7
+            8
         );
         assert_eq!(
             connection
@@ -339,7 +359,7 @@ mod tests {
                 row.get(0)
             })
             .expect("migration version should be recorded");
-        assert_eq!(version, 7);
+        assert_eq!(version, 8);
         drop(connection);
 
         fs::remove_dir_all(temporary_directory).expect("temporary database should be removable");
@@ -383,12 +403,91 @@ mod tests {
 mod lifecycle_migration_tests {
     use super::*;
 
+    fn version_seven() -> Connection {
+        let mut connection = Connection::open_in_memory().unwrap();
+        configure_connection(&connection).unwrap();
+        apply_migrations(&mut connection).unwrap();
+        connection.execute_batch(r#"DROP TABLE pokemon_lifecycle_events; DELETE FROM schema_migrations WHERE version = 8;
+            CREATE TABLE pokemon_lifecycle_events (
+                request_id TEXT PRIMARY KEY NOT NULL,
+                pokemon_id TEXT NOT NULL REFERENCES pokemon(id) ON DELETE CASCADE,
+                kind TEXT NOT NULL CHECK (kind IN ('evolution', 'reobservation')),
+                event_json TEXT NOT NULL CHECK (json_valid(event_json)),
+                confirmed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) STRICT;
+            CREATE INDEX pokemon_lifecycle_by_individual ON pokemon_lifecycle_events(pokemon_id);
+            CREATE TRIGGER pokemon_lifecycle_event_immutable BEFORE UPDATE ON pokemon_lifecycle_events
+                BEGIN SELECT RAISE(ABORT, 'Confirmed lifecycle events are immutable'); END;
+            INSERT INTO pokemon(id, display_name, cp) VALUES ('11111111-1111-4111-8111-111111111111', 'Legacy', 123);
+            INSERT INTO pokemon_lifecycle_events(rowid, request_id, pokemon_id, kind, event_json, confirmed_at) VALUES
+                (4, 'old-evolution', '11111111-1111-4111-8111-111111111111', 'evolution', '{"before":null}', '2026-10-26 12:34:56'),
+                (9, 'old-observation', '11111111-1111-4111-8111-111111111111', 'reobservation', '{"after":123}', '2026-10-26 12:34:56');"#).unwrap();
+        connection
+    }
+
+    fn events(connection: &Connection) -> Vec<(i64, String, String, String, String, String)> {
+        connection.prepare("SELECT rowid, request_id, pokemon_id, kind, event_json, confirmed_at FROM pokemon_lifecycle_events ORDER BY rowid DESC").unwrap().query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?))).unwrap().collect::<rusqlite::Result<_>>().unwrap()
+    }
+
+    #[test]
+    fn power_up_migration_preserves_history_order_constraints_and_cascade() {
+        let mut connection = version_seven();
+        let before = events(&connection);
+        apply_migrations(&mut connection).unwrap();
+        apply_migrations(&mut connection).unwrap();
+        assert_eq!(events(&connection), before);
+        assert_eq!(
+            connection
+                .query_row("SELECT cp FROM pokemon", [], |row| row.get::<_, i64>(0))
+                .unwrap(),
+            123
+        );
+        assert!(connection
+            .execute("UPDATE pokemon_lifecycle_events SET kind = 'power_up'", [])
+            .is_err());
+        assert!(connection.execute("INSERT INTO pokemon_lifecycle_events(request_id, pokemon_id, kind, event_json) VALUES ('invalid', '11111111-1111-4111-8111-111111111111', 'invalid', '{}')", []).is_err());
+        assert!(connection.execute("INSERT INTO pokemon_lifecycle_events(request_id, pokemon_id, kind, event_json) VALUES ('missing', 'missing', 'power_up', '{}')", []).is_err());
+        connection.execute("INSERT INTO pokemon_lifecycle_events(request_id, pokemon_id, kind, event_json) VALUES ('new-power-up', '11111111-1111-4111-8111-111111111111', 'power_up', '{}')", []).unwrap();
+        connection.execute("DELETE FROM pokemon", []).unwrap();
+        assert!(events(&connection).is_empty());
+    }
+
+    #[test]
+    fn failed_power_up_migration_retains_legacy_history_and_version() {
+        let mut connection = version_seven();
+        let before = events(&connection);
+        // An index name collision happens after the old table is dropped.
+        connection.execute_batch("DROP INDEX pokemon_lifecycle_by_individual; CREATE INDEX pokemon_lifecycle_by_individual ON pokemon(display_name);").unwrap();
+        assert!(apply_migrations(&mut connection).is_err());
+        assert_eq!(events(&connection), before);
+        assert_eq!(
+            connection
+                .query_row("SELECT max(version) FROM schema_migrations", [], |row| row
+                    .get::<_, i64>(
+                    0
+                ))
+                .unwrap(),
+            7
+        );
+        assert!(connection
+            .execute("UPDATE pokemon_lifecycle_events SET kind = 'power_up'", [])
+            .is_err());
+        assert!(connection
+            .prepare("SELECT request_id FROM pokemon_lifecycle_events_v8")
+            .is_err());
+        connection
+            .execute_batch("DROP INDEX pokemon_lifecycle_by_individual;")
+            .unwrap();
+        apply_migrations(&mut connection).unwrap();
+        assert_eq!(events(&connection), before);
+    }
+
     #[test]
     fn version_six_upgrade_preserves_inventory_and_is_idempotent() {
         let mut connection = Connection::open_in_memory().unwrap();
         configure_connection(&connection).unwrap();
         apply_migrations(&mut connection).unwrap();
-        connection.execute_batch("DROP TABLE pokemon_lifecycle_events; DELETE FROM schema_migrations WHERE version = 7;
+        connection.execute_batch("DROP TABLE pokemon_lifecycle_events; DELETE FROM schema_migrations WHERE version >= 7;
             INSERT INTO pokemon(id,display_name,cp,iv_attack,iv_defense,iv_hp,strategic_observation_revision,created_at,updated_at)
             VALUES ('11111111-1111-4111-8111-111111111111','Legacy',123,1,2,3,17,'old creation','old update');").unwrap();
         apply_migrations(&mut connection).unwrap();
@@ -419,7 +518,7 @@ mod lifecycle_migration_tests {
                     0
                 ))
                 .unwrap(),
-            7
+            8
         );
     }
 
@@ -428,7 +527,7 @@ mod lifecycle_migration_tests {
         let mut connection = Connection::open_in_memory().unwrap();
         configure_connection(&connection).unwrap();
         apply_migrations(&mut connection).unwrap();
-        connection.execute_batch("DROP TABLE pokemon_lifecycle_events; DELETE FROM schema_migrations WHERE version = 7;
+        connection.execute_batch("DROP TABLE pokemon_lifecycle_events; DELETE FROM schema_migrations WHERE version >= 7;
             CREATE INDEX pokemon_lifecycle_by_individual ON pokemon(display_name);").unwrap();
         assert!(apply_migrations(&mut connection).is_err());
         assert!(connection

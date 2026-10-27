@@ -169,6 +169,12 @@ export interface ReobservationInput {
   observedIdentity: ReferenceIdentity | null;
   sameIndividualConfirmed: boolean;
 }
+export interface PowerUpInput {
+  requestId: string;
+  expectedStrategicObservationRevision: string;
+  cp: string | null;
+  performedInGameConfirmed: boolean;
+}
 export interface HistoryEvent {
   requestId: string;
   pokemonId: string;
@@ -176,7 +182,7 @@ export interface HistoryEvent {
   sameIndividualConfirmed: boolean;
   datasetId: string;
   datasetVersion: string;
-  kind: "evolution" | "reobservation";
+  kind: "evolution" | "reobservation" | "power_up";
   confirmedAt: string;
   before: {
     identity: ReferenceIdentity | null;
@@ -191,6 +197,8 @@ export interface HistoryEvent {
 }
 
 export const native = {
+  confirmPowerUp: (id: string, input: PowerUpInput) =>
+    invoke<InventoryRecord>("confirm_power_up", { id, input }),
   evolutionOptions: (id: string) =>
     invoke<EvolutionOptions>("evolution_options", { id }),
   confirmEvolution: (id: string, input: EvolutionInput) =>
