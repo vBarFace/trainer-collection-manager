@@ -54,12 +54,13 @@ fn appraisal_revision(repo: &InventoryRepository, id: &PokemonId) -> i64 {
 fn downgrade_to_v5(connection: &Connection) {
     connection
         .execute_batch(
-            "DROP TRIGGER pokemon_strategic_observation_changed;
+            "DROP TABLE pokemon_lifecycle_events;
+             DROP TRIGGER pokemon_strategic_observation_changed;
              DROP TRIGGER pokemon_identity_observation_added;
              DROP TRIGGER pokemon_identity_observation_changed;
              DROP TRIGGER pokemon_identity_observation_removed;
              ALTER TABLE pokemon DROP COLUMN strategic_observation_revision;
-             DELETE FROM schema_migrations WHERE version = 6;",
+             DELETE FROM schema_migrations WHERE version >= 6;",
         )
         .unwrap();
 }

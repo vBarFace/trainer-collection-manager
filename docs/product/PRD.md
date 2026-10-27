@@ -23,11 +23,19 @@ Select a screenshot → attempt local name/CP/IV extraction → review/correct t
 
 Ordinary screenshot import adds newly acquired individuals after review and confirmation. It creates a new stable UUID and never associates, merges, replaces or updates an existing individual by species, CP, IVs or similarity. Existing validation and atomic saving remain in force.
 
-Managing an existing individual starts by selecting its known UUID and choosing an explicit supported action. Current actions correct CP, appraisal IVs or species/form data; they update that same individual only after confirmation. A data correction does not establish that an evolution or Power Up happened.
+Managing an existing individual starts by selecting its known UUID and choosing an explicit supported action. Current actions correct CP, appraisal IVs or species/form data, confirm supported evolution, or re-observe CP/IVs from a targeted screenshot; they update that same individual only after confirmation. A data correction does not establish that an evolution or Power Up happened.
 
-Future lifecycle actions follow: select individual → choose action → perform it manually in Pokémon GO → explicitly confirm the result → update the same UUID and record the confirmed lifecycle change. An optional action-specific screenshot must supply observations for that selected UUID, rather than enter ordinary import. Preserve lifecycle history when those actions are implemented; S2.1 introduces no lifecycle-history storage or screenshot-update flow.
+Confirmed lifecycle actions follow: select individual → choose action → perform it manually in Pokémon GO → explicitly confirm the result → update the same UUID and record the confirmed lifecycle change. An optional action-specific screenshot must supply observations for that selected UUID, rather than enter ordinary import. S2.2 implements confirmed evolution and targeted re-observation history; Power Up remains deferred.
 
-For example, a future confirmed Charmander → Charmeleon evolution must use validated reference evolution relationships, retain the individual's UUID, update the confirmed species/form, preserve IVs where mechanics permit, and replace affected CP/moves with newly confirmed values or explicit unknowns. Never retain obsolete pre-evolution values as confirmed post-evolution observations. An available evolution does not prove it occurred, and the app never performs in-game actions.
+For example, a confirmed Charmander → Charmeleon evolution must use validated reference evolution relationships, retain the individual's UUID, update the confirmed species/form, preserve IVs where mechanics permit, and replace affected CP/moves with newly confirmed values or explicit unknowns. Never retain obsolete pre-evolution values as confirmed post-evolution observations. An available evolution does not prove it occurred, and the app never performs in-game actions.
+
+## Confirmed evolution and targeted re-observation (S2.2)
+
+A saved individual exposes **Evolve** and **Update from Screenshot**. Evolution lists direct, different-species relationships for a resolved form in the validated local catalog. The user selects the actual target and confirms the evolution occurred in Pokémon GO. Confirmation preserves the UUID, nickname, IVs, tags and appraisal; it clears observed CP. Missing or ambiguous reference data blocks evolution. The production catalog remains empty pending dataset rights; tests use hand-authored relationships.
+
+Targeted screenshot review uses the existing picker, local extraction and temporary-memory cleanup. The user verifies the selected individual and exact saved species/form, reviews tentative evidence and before/after values, and explicitly selects CP and/or complete IV updates. Missing or unselected fields keep saved values, including unknown CP after evolution. A species/form mismatch blocks all changes until resolved separately. Display labels may be nicknames and never establish species. The existing UUID is updated without creating an individual.
+
+Both confirmations atomically append confirmed before/after history, reject stale observation revisions and repeated request UUIDs, and retain recoverable drafts. Cancellation saves nothing. Evolution also checks catalog identity/version. No game automation, spending or strategic recommendation is introduced. See [implementation contract](../development/lifecycle.md).
 
 ## Saved CP correction (S2.1)
 

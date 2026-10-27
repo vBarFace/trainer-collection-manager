@@ -172,6 +172,36 @@ impl Identity {
 }
 
 impl Catalog {
+    /// Only reviewed directed evolution edges between different species are
+    /// actionable. Same-species form changes are outside this lifecycle scope.
+    pub fn evolution_targets(&self, resolved: &Resolution) -> Vec<(Species, Form)> {
+        if resolved.state != ResolutionState::Resolved {
+            return vec![];
+        }
+        let Some(source) = resolved.form.as_ref() else {
+            return vec![];
+        };
+        source
+            .evolutions
+            .iter()
+            .flatten()
+            .filter_map(|edge| {
+                let form = self
+                    .forms
+                    .iter()
+                    .find(|form| form.id == edge.target_form_id)?;
+                if form.species_id == source.species_id {
+                    return None;
+                }
+                let species = self
+                    .species
+                    .iter()
+                    .find(|species| species.id == form.species_id)?;
+                Some((species.clone(), form.clone()))
+            })
+            .collect()
+    }
+
     pub fn bundled() -> Result<Self> {
         Self::load(include_bytes!("../reference/catalog.json"))
     }

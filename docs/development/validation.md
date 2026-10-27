@@ -1,3 +1,39 @@
+# S2.2 confirmed evolution and existing Pokémon re-observation validation
+
+Date: 2026-10-27. Base: `8fffce8bb9cb0a135d24a0094de5a430dbf5b970`. Started with a clean checkout on `main`, then created `feat/s2-2-evolution-reobservation`. No commit, push, remote PR or gameplay action was performed.
+
+## Delivered behavior and decisions
+
+Selected individuals now expose explicit evolution target selection/confirmation, targeted screenshot review and confirmed history. Evolution validates the direct different-species edge and catalog version under an immediate transaction, retains the UUID/IVs/tags/nickname/appraisal and clears CP. Targeted review captures UUID/revision before selection, reuses the existing picker/extractor/OCR, shows tentative evidence and saved/proposed values, and applies only explicitly selected complete CP/IV patches. Missing fields keep their current values. Species/form mismatches block persistence; display labels never establish species. The new workflow never calls import or inserts an individual. Existing ordinary import continues creating new UUIDs.
+
+Migration 7 adds one confirmed event table, index and update guard; migrations 1–6 are unchanged. Each event records request/individual IDs, before/after identity and pins, CP/IV values, source, reviewed identity, catalog context and UTC confirmation timestamp. All writes and event insertion commit or roll back together. Request UUID uniqueness rejects duplicate confirmation including no-op updates. Strategic observation revisions remain independent of appraisal and advance for actual observations only. Evolution has a guarded fallback increment for changed species pins with unchanged query text. No event-management framework, dependency or game dataset was added.
+
+The native schema has no species-dependent moves, observed HP or level. Those fields were neither fabricated nor silently declared valid. Source images remain read-only and unretained; temporary OCR workers/previews are released. Historical fields without stored provenance are not retroactively relabelled. History covers these two workflows and follows the existing individual-delete cascade.
+
+## Changed files and migration
+
+- Renderer: new `src/LifecyclePanel.tsx` and `src/LifecyclePanel.test.tsx`; updated `src/Inventory.tsx`, `src/native.ts`, `src/native.test.ts`.
+- Native domain/tests: new `src-tauri/src/inventory/lifecycle.rs` and `src-tauri/src/inventory/lifecycle/tests.rs`; updated `src-tauri/src/inventory.rs`, `src-tauri/src/inventory/strategic_tests.rs`, `src-tauri/src/reference.rs`.
+- Persistence/IPC/ACL: migration 7 and its tests in `src-tauri/src/database.rs`; `src-tauri/src/commands.rs`, `src-tauri/src/lib.rs`, `src-tauri/build.rs`, `src-tauri/permissions/inventory-review.toml`.
+- Documentation: `README.md`, architecture overview/data model, PRD, roadmap, screenshot review, new `docs/development/lifecycle.md`, this validation log and local `docs/development/s2-2-pr.md`.
+- Dependencies, lockfiles, production catalog and broad capabilities remain unchanged.
+
+## Executed validation
+
+- `npm test`: **100 passed across 8 suites**, including 17 lifecycle UI cases and exact IPC coverage. Includes confirmation/cancellation, branch selection, catalog unavailable, tentative opt-in, manual provenance, missing fields after evolution, species mismatch, pre-extraction revision capture, same-entry Inventory replacement, duplicate/lost-reply reload recovery, cleanup and stale history response rejection. Existing import and S2.1 tests pass. The sandbox first failed before execution on Vitest cache-rename `EPERM`; approved outside-sandbox runs passed, including the final full suite.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: **113 passed, 2 existing private-image diagnostics ignored**, with zero-test binary/doc targets also passing. Fifteen added native tests cover sequential named Charmander/Charmeleon/Charizard relationship fixtures, branching/invalid targets, read-only cancellation, preserved data, no duplicate inventory, missing patch semantics, exact identity review, stale/repeated confirmation, rollback on history insertion failure and revision overflow, catalog drift, equal-label species pins, persistence and migration failure/idempotence. Test relationship fixtures use artificial dex identifiers and no imported statistics or assets.
+- `npm run lint`, `npm run typecheck`, `npm run rust:fmt`, `npm run rust:check`: passed. Existing Cargo incremental hard-link warnings fell back to copying.
+- `npm run reference:test`: **8 passed**. `npm run reference:test-native`: **2 passed** on the approved outside-sandbox retry. Initial sandbox execution passed candidate validation but blocked a CLI temporary-file rename with `EPERM`.
+- `npm run tauri:build`: passed on the approved outside-sandbox retry, producing the optimized Windows executable and **11.50 MiB x64 NSIS installer**. The sandbox compiled successfully but packaging could not resolve the NSIS download host (`11001`). The existing `.app` bundle-identifier advisory remains. The installer was not installed, and build output remains ignored. No native GUI smoke test was performed; UI/native behavior is verified by their automated suites.
+- `npm run check`: stops at aggregate formatting. A read-only audit found **64 untouched files** differing from HEAD only by CRLF/LF endings; every normalized working file passed Prettier. Formatting this updated validation log removes one, leaving **63 unrelated pre-existing failures**. Changed supported files pass targeted Prettier, and `git diff --check` passes. Remaining aggregate stages were executed separately above.
+- Independent read-only review identified and resolved two defects: equal-label/pin-only evolution did not initially invalidate old screenshot drafts, and repeated confirmations needed explicit reload recovery. Regression tests pass. Migration diff review confirms versions 1–6 were not edited.
+
+## Limitations and S2.3
+
+Production still bundles the empty reference catalog pending verified dataset rights. The evolution workflow therefore cannot validate real Pokémon targets in this release; no target is guessed. Release-reviewed schema-1 evolution edges and the existing adapter define normal permanent evolution; Mega targets are excluded by that adapter and same-species changes by the native action API. Trading, fusion and temporary transformations remain outside the supported contract. Screenshot identity is explicitly user-verified, not automatically proven, and recognition retains existing layout/confidence limitations.
+
+Recommended S2.3: one selected player goal/context per individual with explicit unknown state, native persistence and its own narrowly scoped confirmation/revision contract. Tie later move/level/resource support to that goal; do not add strategic scoring or spending in the same slice.
+
 # S2.1 saved CP and strategic observation revision validation
 
 Date: 2026-10-27. Base commit: `3d89e3989ca187936aa3956c19d5f1dfe5bf5337`. Started from clean `main`, inspected the implemented S1 contracts/migrations, and created `feat/s2-1-saved-cp-correction` before editing. No commits, pushes, PRs, issues or remote changes were made.

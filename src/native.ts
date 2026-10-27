@@ -147,7 +147,57 @@ export interface ImportInput {
   tagIds: string[];
 }
 
+export interface EvolutionOptions {
+  expectedStrategicObservationRevision: string;
+  datasetId: string;
+  datasetVersion: string;
+  targets: { formId: string; species: string; form: string }[];
+  unavailableReason: string | null;
+}
+export interface EvolutionInput {
+  requestId: string;
+  expectedStrategicObservationRevision: string;
+  datasetId: string;
+  datasetVersion: string;
+  targetFormId: string;
+}
+export interface ReobservationInput {
+  requestId: string;
+  expectedStrategicObservationRevision: string;
+  cp: { value: string; source: "screenshot" | "manual" } | null;
+  ivs: { value: AppraisalIvs; source: "screenshot" | "manual" } | null;
+  observedIdentity: ReferenceIdentity | null;
+  sameIndividualConfirmed: boolean;
+}
+export interface HistoryEvent {
+  requestId: string;
+  pokemonId: string;
+  observedIdentity: ReferenceIdentity | null;
+  sameIndividualConfirmed: boolean;
+  datasetId: string;
+  datasetVersion: string;
+  kind: "evolution" | "reobservation";
+  confirmedAt: string;
+  before: {
+    identity: ReferenceIdentity | null;
+    speciesId: string | null;
+    formId: string | null;
+    cp: string | null;
+    ivs: AppraisalIvs | null;
+  };
+  after: HistoryEvent["before"];
+  cpSource: "screenshot" | "manual" | null;
+  ivsSource: "screenshot" | "manual" | null;
+}
+
 export const native = {
+  evolutionOptions: (id: string) =>
+    invoke<EvolutionOptions>("evolution_options", { id }),
+  confirmEvolution: (id: string, input: EvolutionInput) =>
+    invoke<InventoryRecord>("confirm_evolution", { id, input }),
+  reobserve: (id: string, input: ReobservationInput) =>
+    invoke<InventoryRecord>("reobserve_pokemon", { id, input }),
+  history: (id: string) => invoke<HistoryEvent[]>("pokemon_history", { id }),
   snapshot: () => invoke<InventorySnapshot>("inventory_snapshot"),
   evaluate: (id: string) => invoke<InventoryRecord>("evaluate_pokemon", { id }),
   correctCp: (

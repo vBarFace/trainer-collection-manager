@@ -8,7 +8,7 @@ Import confirmation does not run evaluation. Users separately select a saved rec
 
 The saved list loads from the native repository on entry to Inventory, including after application restart. A failed save retains review values and provenance for correction/retry. A newly selected image resets the entire draft and provenance so values from different screenshots cannot mix. The UI locks submission synchronously while saving; after success it uses the returned committed record without a second fallible read. Matching names/CP/IVs create independent UUIDs. Broad editing, deletion, custom-tag management and filtering remain deferred.
 
-Ordinary import never matches screenshots to existing Pokémon by species, CP, IVs or similarity and never silently updates/merges existing individuals. Saved CP, IV and identity correction starts from the selected UUID and requires explicit confirmation. Future action-specific screenshots must update that selected UUID within its action flow, preserve confirmed lifecycle history, and remain separate from new-individual import. No screenshot-update flow, evolution or Power Up action is implemented in S2.1.
+Ordinary import never matches screenshots to existing Pokémon by species, CP, IVs or similarity and never silently updates/merges existing individuals. Saved CP, IV and identity correction starts from the selected UUID and requires explicit confirmation. S2.2 adds **Update from Screenshot** for that selected UUID, with opt-in CP/IV patches and confirmed history. It never calls the import command or changes species. See the [lifecycle workflow](lifecycle.md) for identity review, provenance, cleanup and conflicts. Power Up remains future work.
 
 ## Correcting saved CP
 

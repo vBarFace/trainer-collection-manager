@@ -149,6 +149,76 @@ async fn select_screenshot(
     })?
 }
 
+#[tauri::command]
+async fn evolution_options(
+    state: State<'_, NativeInventory>,
+    id: String,
+) -> Result<inventory::EvolutionOptions, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        commands::evolution_options(&repository, &id)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn confirm_evolution(
+    state: State<'_, NativeInventory>,
+    id: String,
+    input: commands::EvolutionInput,
+) -> Result<commands::RecordView, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        commands::confirm_evolution(&repository, &id, input)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn reobserve_pokemon(
+    state: State<'_, NativeInventory>,
+    id: String,
+    input: commands::ReobserveInput,
+) -> Result<commands::RecordView, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        commands::reobserve(&repository, &id, input)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn pokemon_history(
+    state: State<'_, NativeInventory>,
+    id: String,
+) -> Result<Vec<inventory::LifecycleEvent>, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        commands::history(&repository, &id)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
@@ -169,7 +239,11 @@ pub fn run() {
             correct_pokemon_ivs,
             correct_pokemon_cp,
             correct_pokemon_identity,
-            select_screenshot
+            select_screenshot,
+            evolution_options,
+            confirm_evolution,
+            reobserve_pokemon,
+            pokemon_history
         ])
         .run(tauri::generate_context!())
         .expect("error while running Trainer Collection Manager");
