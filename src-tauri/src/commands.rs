@@ -25,6 +25,7 @@ impl From<inventory::Error> for CommandError {
             inventory::Error::InvalidInput(message) => Self { code: "invalid_input", message },
             inventory::Error::Conflict => Self { code: "conflict", message: "The saved IVs changed while you were editing. Reload the inventory before correcting them again." },
             inventory::Error::IdentityConflict => Self { code: "conflict", message: "The confirmed species or form changed while you were editing. Reload the inventory before correcting it again." },
+            inventory::Error::ObservationConflict => Self { code: "conflict", message: "The Pokémon has changed since this form was opened. Reload its information before trying again." },
             inventory::Error::NotFound("Tag") => Self { code: "missing_tag", message: "A selected tag no longer exists. Cancel and reload the inventory to review tags." },
             inventory::Error::NotFound(_) => Self { code: "missing_pokemon", message: "This Pokémon no longer exists. Reload the inventory." },
             _ => Self::storage(),
@@ -47,6 +48,16 @@ pub struct ImportInput {
     cp: Option<String>,
     ivs: Option<Ivs>,
     tag_ids: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CorrectCpInput {
+    #[serde(deserialize_with = "Option::<String>::deserialize")]
+    expected_cp: Option<String>,
+    expected_strategic_observation_revision: String,
+    #[serde(deserialize_with = "Option::<String>::deserialize")]
+    cp: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -124,6 +135,7 @@ pub struct RecordView {
     id: String,
     display_name: String,
     cp: Option<String>,
+    strategic_observation_revision: String,
     ivs: Option<Ivs>,
     tags: Vec<TagView>,
     evaluation: crate::evaluation::Evaluation,
@@ -135,6 +147,7 @@ impl From<(Pokemon, Vec<Tag>)> for RecordView {
             id: pokemon.id.as_str().into(),
             display_name: pokemon.display_name,
             cp: pokemon.cp.map(|cp| cp.to_string()),
+            strategic_observation_revision: pokemon.strategic_observation_revision.to_string(),
             ivs: pokemon.ivs.map(|v| Ivs {
                 attack: v.attack,
                 defense: v.defense,
@@ -198,6 +211,43 @@ pub fn correct_identity(
         .into())
 }
 
+pub fn correct_cp(
+    repository: &InventoryRepository,
+    id: &str,
+    input: CorrectCpInput,
+) -> Result<RecordView, CommandError> {
+    let id = inventory::PokemonId::parse(id)?;
+    // Saved correction requires canonical strings; keep import parsing unchanged.
+    for cp in [input.expected_cp.as_deref(), input.cp.as_deref()]
+        .into_iter()
+        .flatten()
+    {
+        if cp.starts_with('0') {
+            return Err(CommandError {
+                code: "invalid_input",
+                message: "CP must be a canonical positive decimal string or unknown.",
+            });
+        }
+    }
+    let value = &input.expected_strategic_observation_revision;
+    let revision = value
+        .parse::<i64>()
+        .ok()
+        .filter(|revision| *revision >= 0 && revision.to_string() == *value)
+        .ok_or(CommandError {
+            code: "invalid_input",
+            message: "Expected a canonical nonnegative strategic observation revision.",
+        })?;
+    Ok(repository
+        .correct_cp(
+            &id,
+            parse_cp(input.expected_cp.as_deref())?,
+            revision,
+            parse_cp(input.cp.as_deref())?,
+        )?
+        .into())
+}
+
 pub fn correct_ivs(
     repository: &InventoryRepository,
     id: &str,
@@ -216,6 +266,165 @@ pub fn correct_ivs(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cp_correction_requires_explicit_strict_fields() {
+        let valid = serde_json::json!({"expectedCp":null,"expectedStrategicObservationRevision":"0","cp":null});
+        assert!(serde_json::from_value::<CorrectCpInput>(valid.clone()).is_ok());
+        for field in ["expectedCp", "expectedStrategicObservationRevision", "cp"] {
+            let mut missing = valid.clone();
+            missing.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<CorrectCpInput>(missing).is_err());
+        }
+        for field in [
+            "ivs",
+            "identity",
+            "tagIds",
+            "displayName",
+            "id",
+            "path",
+            "evaluation",
+            "strategicObservationRevision",
+        ] {
+            let mut extra = valid.clone();
+            extra[field] = serde_json::json!(null);
+            assert!(serde_json::from_value::<CorrectCpInput>(extra).is_err());
+        }
+        for field in ["cp", "expectedCp", "expectedStrategicObservationRevision"] {
+            for value in [
+                serde_json::json!(1),
+                serde_json::json!(1.5),
+                serde_json::json!({}),
+                serde_json::json!(false),
+            ] {
+                let mut wrong_type = valid.clone();
+                wrong_type[field] = value;
+                assert!(serde_json::from_value::<CorrectCpInput>(wrong_type).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn cp_command_preserves_precision_and_rejects_invalid_or_stale_requests_atomically() {
+        let path = std::env::temp_dir().join(format!(
+            "tcm-cp-command-{}-{}.sqlite3",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let repo = InventoryRepository::open(&path).unwrap();
+        let original = confirm(&repo, serde_json::from_value(serde_json::json!({"displayName":"Saved","cp":"9007199254740993","ivs":null,"tagIds":["9"]})).unwrap()).unwrap();
+        let request = serde_json::json!({"expectedCp":"9007199254740993","expectedStrategicObservationRevision":"0","cp":"9223372036854775807"});
+        for field in ["cp", "expectedCp"] {
+            for invalid in [
+                "",
+                "0",
+                "00",
+                "01",
+                "-1",
+                "+1",
+                "1.5",
+                "1e2",
+                " 1",
+                "1 ",
+                "9223372036854775808",
+                "999999999999999999999999",
+            ] {
+                let mut value = request.clone();
+                value[field] = invalid.into();
+                assert_eq!(
+                    correct_cp(&repo, &original.id, serde_json::from_value(value).unwrap())
+                        .unwrap_err()
+                        .code,
+                    "invalid_input"
+                );
+            }
+        }
+        for invalid in [
+            "",
+            "-1",
+            "+0",
+            "00",
+            "01",
+            "1.5",
+            "1e2",
+            " 0",
+            "9223372036854775808",
+        ] {
+            let mut value = request.clone();
+            value["expectedStrategicObservationRevision"] = invalid.into();
+            assert_eq!(
+                correct_cp(&repo, &original.id, serde_json::from_value(value).unwrap())
+                    .unwrap_err()
+                    .code,
+                "invalid_input"
+            );
+        }
+        assert_eq!(
+            serde_json::to_value(snapshot(&repo).unwrap()).unwrap()["records"][0],
+            serde_json::to_value(&original).unwrap()
+        );
+        assert_eq!(
+            correct_cp(
+                &repo,
+                "bad-id",
+                serde_json::from_value(request.clone()).unwrap()
+            )
+            .unwrap_err()
+            .code,
+            "invalid_input"
+        );
+        let changed = correct_cp(
+            &repo,
+            &original.id,
+            serde_json::from_value(request.clone()).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(changed.cp.as_deref(), Some("9223372036854775807"));
+        assert_eq!(changed.strategic_observation_revision, "1");
+        assert_eq!(
+            correct_cp(
+                &repo,
+                &original.id,
+                serde_json::from_value(request).unwrap()
+            )
+            .unwrap_err()
+            .code,
+            "conflict"
+        );
+        let cleared = correct_cp(&repo, &original.id, serde_json::from_value(serde_json::json!({"expectedCp":"9223372036854775807","expectedStrategicObservationRevision":"1","cp":null})).unwrap()).unwrap();
+        assert_eq!(cleared.cp, None);
+        assert_eq!(cleared.strategic_observation_revision, "2");
+        let unchanged = correct_cp(&repo, &original.id, serde_json::from_value(serde_json::json!({"expectedCp":null,"expectedStrategicObservationRevision":"2","cp":null})).unwrap()).unwrap();
+        assert_eq!(
+            serde_json::to_value(&unchanged).unwrap(),
+            serde_json::to_value(&cleared).unwrap()
+        );
+        rusqlite::Connection::open(&path)
+            .unwrap()
+            .execute(
+                "UPDATE pokemon SET strategic_observation_revision = ?2 WHERE id = ?1",
+                rusqlite::params![original.id, i64::MAX],
+            )
+            .unwrap();
+        let at_limit = correct_cp(&repo, &original.id, serde_json::from_value(serde_json::json!({"expectedCp":null,"expectedStrategicObservationRevision":"9223372036854775807","cp":null})).unwrap()).unwrap();
+        assert_eq!(
+            at_limit.strategic_observation_revision,
+            "9223372036854775807"
+        );
+        assert_eq!(correct_cp(&repo, &original.id, serde_json::from_value(serde_json::json!({"expectedCp":null,"expectedStrategicObservationRevision":"9223372036854775807","cp":"1"})).unwrap()).unwrap_err().code, "storage");
+        assert_eq!(
+            serde_json::to_value(snapshot(&repo).unwrap()).unwrap()["records"][0],
+            serde_json::to_value(&at_limit).unwrap()
+        );
+        repo.delete(&inventory::PokemonId::parse(&original.id).unwrap())
+            .unwrap();
+        assert_eq!(correct_cp(&repo, &original.id, serde_json::from_value(serde_json::json!({"expectedCp":null,"expectedStrategicObservationRevision":"2","cp":"1"})).unwrap()).unwrap_err().code, "missing_pokemon");
+        drop(repo);
+        std::fs::remove_file(path).unwrap();
+    }
+
     #[test]
     fn identity_contract_requires_explicit_fields_and_rejects_unrelated_data() {
         for value in [

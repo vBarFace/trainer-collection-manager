@@ -14,6 +14,7 @@ export interface InventoryRecord {
   id: string;
   displayName: string;
   cp: string | null;
+  strategicObservationRevision: string;
   ivs: AppraisalIvs | null;
   tags: Tag[];
   evaluation: Evaluation;
@@ -149,6 +150,16 @@ export interface ImportInput {
 export const native = {
   snapshot: () => invoke<InventorySnapshot>("inventory_snapshot"),
   evaluate: (id: string) => invoke<InventoryRecord>("evaluate_pokemon", { id }),
+  correctCp: (
+    id: string,
+    expectedCp: string | null,
+    expectedStrategicObservationRevision: string,
+    cp: string | null,
+  ) =>
+    invoke<InventoryRecord>("correct_pokemon_cp", {
+      id,
+      input: { expectedCp, expectedStrategicObservationRevision, cp },
+    }),
   correctIdentity: (
     id: string,
     expectedIdentity: ReferenceIdentity | null,

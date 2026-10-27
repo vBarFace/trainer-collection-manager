@@ -5,6 +5,9 @@ use crate::reference::{Catalog, Identity, Pin, Resolution, ResolutionState};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::{fmt, path::Path};
 
+#[cfg(test)]
+mod strategic_tests;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PokemonId(String);
 
@@ -62,6 +65,7 @@ pub struct Pokemon {
     pub id: PokemonId,
     pub display_name: String,
     pub cp: Option<i64>,
+    pub strategic_observation_revision: i64,
     pub ivs: Option<AppraisalIvs>,
     pub created_at: String,
     pub updated_at: String,
@@ -96,6 +100,7 @@ pub enum Error {
     InvalidInput(&'static str),
     Conflict,
     IdentityConflict,
+    ObservationConflict,
     NotFound(&'static str),
     DuplicateTag,
     StandardTagImmutable,
@@ -111,6 +116,7 @@ impl fmt::Display for Error {
                 f,
                 "The confirmed identity changed; reload before correcting it"
             ),
+            Self::ObservationConflict => write!(f, "The Pokémon has changed since this form was opened. Reload its information before trying again."),
             Self::NotFound(entity) => write!(f, "{entity} not found"),
             Self::DuplicateTag => write!(f, "A tag with this name already exists"),
             Self::StandardTagImmutable => write!(f, "Standard tags cannot be changed"),
@@ -224,6 +230,7 @@ fn read_pokemon(row: &rusqlite::Row<'_>, catalog: &Catalog) -> rusqlite::Result<
         id: PokemonId(row.get(0)?),
         display_name: row.get(1)?,
         cp: row.get(2)?,
+        strategic_observation_revision: row.get(17)?,
         created_at: row.get(3)?,
         updated_at: row.get(4)?,
         ivs,
@@ -242,7 +249,8 @@ fn read_pokemon(row: &rusqlite::Row<'_>, catalog: &Catalog) -> rusqlite::Result<
 const POKEMON_SELECT: &str = "SELECT p.id, p.display_name, p.cp, p.created_at, p.updated_at,
     p.iv_attack, p.iv_defense, p.iv_hp, p.appraisal_revision,
     a.input_revision, a.ruleset_version, a.evaluated_at,
-    r.species_query, r.form_query, r.dataset_id, r.species_id, r.form_id
+    r.species_query, r.form_query, r.dataset_id, r.species_id, r.form_id,
+    p.strategic_observation_revision
     FROM pokemon p LEFT JOIN pokemon_appraisals a ON a.pokemon_id = p.id
     LEFT JOIN pokemon_reference_identity r ON r.pokemon_id = p.id";
 
@@ -371,6 +379,42 @@ impl InventoryRepository {
             return Err(Error::NotFound("Pokemon"));
         }
         self.get(id)
+    }
+
+    /// Correct observed CP for a known UUID without implying any lifecycle action.
+    /// Compare both values and revision under the writer lock, including no-ops.
+    pub fn correct_cp(
+        &self,
+        id: &PokemonId,
+        expected: Option<i64>,
+        expected_revision: i64,
+        corrected: Option<i64>,
+    ) -> Result<(Pokemon, Vec<Tag>)> {
+        if expected.is_some_and(|cp| cp <= 0)
+            || corrected.is_some_and(|cp| cp <= 0)
+            || expected_revision < 0
+        {
+            return Err(Error::InvalidInput(
+                "CP must be positive or unknown; revision must be nonnegative",
+            ));
+        }
+        let transaction = rusqlite::Transaction::new_unchecked(
+            &self.connection,
+            rusqlite::TransactionBehavior::Immediate,
+        )?;
+        let existing = self.get(id)?;
+        if existing.cp != expected || existing.strategic_observation_revision != expected_revision {
+            return Err(Error::ObservationConflict);
+        }
+        if existing.cp != corrected {
+            self.connection.execute(
+                "UPDATE pokemon SET cp = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
+                params![id.as_str(), corrected],
+            )?;
+        }
+        let result = (self.get(id)?, self.tags_for(id)?);
+        transaction.commit()?;
+        Ok(result)
     }
 
     /// Correct only confirmed IVs. Compare the displayed group while holding the
@@ -774,8 +818,15 @@ mod tests {
         repo.assign_tag(&record.id, repo.tags().unwrap()[0].id)
             .unwrap();
         let before = repo.evaluate(&record.id).unwrap();
-        // Reconstruct exactly the v4 schema; v5 only adds this separate table.
-        repo.connection.execute_batch("DROP TABLE pokemon_reference_identity; DELETE FROM schema_migrations WHERE version = 5;").unwrap();
+        // Reconstruct v4, removing later observation infrastructure as well.
+        repo.connection
+            .execute_batch(
+                "DROP TABLE pokemon_reference_identity;
+            DROP TRIGGER pokemon_strategic_observation_changed;
+            ALTER TABLE pokemon DROP COLUMN strategic_observation_revision;
+            DELETE FROM schema_migrations WHERE version >= 5;",
+            )
+            .unwrap();
         drop(repo);
         let repo = InventoryRepository::open(&path).unwrap();
         assert_eq!(repo.get(&record.id).unwrap(), before.0);
@@ -1448,7 +1499,7 @@ mod tests {
                 .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            5
+            6
         );
     }
 

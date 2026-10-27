@@ -6,7 +6,7 @@ Trainer Collection Manager is a free, open-source, offline-first desktop app for
 
 ## Foundation scope
 
-This release provides a Windows Tauri shell, private local inventory, screenshot review, confirmed saved-IV corrections and deterministic appraisal evaluation. Users select one local PNG/JPEG, inspect a temporary preview and local name/CP/IV suggestions, enter/correct supported data fields, then explicitly confirm saving. Review confirms data only and creates a pending record. Users can select a saved Pokémon, correct its appraisal IV group and request an appraisal evaluation or re-evaluation separately. Inventory preserves existing records, UUIDs and assigned tags, and presents Pending, Evaluated, Needs data or Stale appraisal states after restart. Broad screenshot recognition, strategic recommendations, automatic tagging, account integration, teams, simulations, local LLM runtime, datasets, telemetry and cloud capabilities are deferred.
+This release provides a Windows Tauri shell, private local inventory, screenshot review, confirmed saved CP/IV/identity corrections and deterministic appraisal evaluation. Users select one local PNG/JPEG, inspect a temporary preview and local name/CP/IV suggestions, enter/correct supported data fields, then explicitly confirm saving. Review confirms data only and creates a pending record with a new UUID. Users can select a saved Pokémon, correct supported observations and request an appraisal evaluation or re-evaluation separately. Inventory preserves existing records, UUIDs and assigned tags, and presents Pending, Evaluated, Needs data or Stale appraisal states after restart. Broad screenshot recognition, strategic recommendations, automatic tagging, account integration, teams, simulations, local LLM runtime, datasets, telemetry and cloud capabilities are deferred.
 
 ## Product principles
 
@@ -18,6 +18,24 @@ This release provides a Windows Tauri shell, private local inventory, screenshot
 ## Intended import and evaluation flow
 
 Select a screenshot → attempt local name/CP/IV extraction → review/correct the data → confirm saving → select the pending record → request appraisal evaluation → review facts, findings and limitations. Name, visible CP and IVs are suggested automatically for supported layouts; unreadable or hidden fields remain unresolved and can be entered manually. Experimental geometry matches are tentative suggestions, validated on one supplied real example, with no general accuracy measurement. Review confirmation does not assert that the Pokémon has been evaluated. Existing user-assigned tags do not establish evaluation status.
+
+### New import and existing-individual management
+
+Ordinary screenshot import adds newly acquired individuals after review and confirmation. It creates a new stable UUID and never associates, merges, replaces or updates an existing individual by species, CP, IVs or similarity. Existing validation and atomic saving remain in force.
+
+Managing an existing individual starts by selecting its known UUID and choosing an explicit supported action. Current actions correct CP, appraisal IVs or species/form data; they update that same individual only after confirmation. A data correction does not establish that an evolution or Power Up happened.
+
+Future lifecycle actions follow: select individual → choose action → perform it manually in Pokémon GO → explicitly confirm the result → update the same UUID and record the confirmed lifecycle change. An optional action-specific screenshot must supply observations for that selected UUID, rather than enter ordinary import. Preserve lifecycle history when those actions are implemented; S2.1 introduces no lifecycle-history storage or screenshot-update flow.
+
+For example, a future confirmed Charmander → Charmeleon evolution must use validated reference evolution relationships, retain the individual's UUID, update the confirmed species/form, preserve IVs where mechanics permit, and replace affected CP/moves with newly confirmed values or explicit unknowns. Never retain obsolete pre-evolution values as confirmed post-evolution observations. An available evolution does not prove it occurred, and the app never performs in-game actions.
+
+## Saved CP correction (S2.1)
+
+- Select a saved Pokémon and choose **Correct saved CP**. The draft loads its saved CP. Enter a positive whole number or leave the field empty to mark CP unknown, then explicitly confirm. **Cancel CP correction** discards the draft without persistence; selecting another individual also discards it.
+- Correction can set, replace, clear or restore CP. Rust validates the full SQLite positive integer range without a game-specific maximum; decimal strings preserve large values exactly. Saving never infers level, Power Up count, resources spent, moves, evolution or strategic usefulness.
+- An actual correction preserves UUID, name, IVs, identity, tags, creation time and appraisal results/lifecycle. It updates the modification timestamp and an internal persisted strategic observation revision. CP correction does not run or invalidate appraisal.
+- Submission locks while saving. Recoverable failures retain the draft. If CP or any tracked confirmed observation changed since the form opened, saving fails safely and requires an authoritative inventory reload before another attempt. A change followed by a revert still conflicts. Missing/deleted records also require reload. Successful saves display the native-confirmed value.
+- Strategic observation revision is independent of appraisal revision and advances on actual CP, IV or confirmed species/form text changes, including clearing/adding unknown observations. No-ops, reads, appraisal runs, labels, tags and dataset/provenance refreshes do not advance it. It detects same-second changes and persists after restart. It supports future invalidation only; no strategic assessment or recommendation is calculated.
 
 ## Appraisal evaluation
 
@@ -40,7 +58,7 @@ Task 006 separates manually confirmed species/form identity from display names a
 
 ## Utility classification and progression roadmaps — proposed
 
-Task 008 specifies future behavior only. No strategic evaluation, trained recommendation model, roadmap storage or progress UI is implemented. The existing appraisal and reference workflows above remain the implemented baseline. See [decision 0007](../decisions/0007-individual-progression-roadmaps.md) and the dependency-ordered [delivery backlog](../development/roadmap.md#proposed-delivery-backlog).
+Task 008 specifies future behavior; S1 implements isolated fictional contracts and S2.1 adds saved CP correction and persisted observation revision only. No strategic evaluation, trained recommendation model, roadmap storage or progress UI is implemented. The appraisal and correction workflows above remain the implemented baseline. See [decision 0007](../decisions/0007-individual-progression-roadmaps.md) and the dependency-ordered [delivery backlog](../development/roadmap.md#proposed-delivery-backlog).
 
 ### Roles, actions and readiness
 

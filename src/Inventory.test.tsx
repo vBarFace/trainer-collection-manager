@@ -25,6 +25,7 @@ vi.mock("./native", async (importOriginal) => {
       evaluate: vi.fn(),
       correctIvs: vi.fn(),
       correctIdentity: vi.fn(),
+      correctCp: vi.fn(),
     },
   };
 });
@@ -79,6 +80,7 @@ const saved: InventoryRecord = {
   id: "00000000-0000-4000-8000-000000000000",
   displayName: "Buddy",
   cp: "9223372036854775807",
+  strategicObservationRevision: "0",
   ivs: { attack: 0, defense: 14, hp: 15 },
   tags: [special, custom],
   reference: {
@@ -107,6 +109,269 @@ const saved: InventoryRecord = {
   },
 };
 const imported: InventoryRecord = { ...saved, tags: [] };
+
+describe("saved CP correction", () => {
+  async function openCp() {
+    render(<Inventory />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Review appraisal for Buddy" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Correct saved CP" }));
+    expect(screen.getByLabelText("Corrected CP")).toHaveFocus();
+  }
+  function fillCp(value: string) {
+    fireEvent.change(screen.getByLabelText("Corrected CP"), {
+      target: { value },
+    });
+  }
+  function confirmCp() {
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm CP correction" }),
+    );
+  }
+  beforeEach(() => {
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [saved],
+      tags: [special, custom],
+    });
+  });
+
+  it("loads saved CP, cancels and restores focus without persisting", async () => {
+    await openCp();
+    expect(screen.getByLabelText("Corrected CP")).toHaveValue(saved.cp);
+    fillCp("9007199254740993");
+    expect(native.correctCp).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Cancel CP correction" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Correct saved CP" }),
+    ).toHaveFocus();
+    expect(
+      screen.getByText("CP correction cancelled. Nothing was saved."),
+    ).toBeInTheDocument();
+    expect(native.correctCp).not.toHaveBeenCalled();
+  });
+
+  it("submits exact strings, blocks duplicate saves and uses the native-confirmed record", async () => {
+    const pending = deferred<InventoryRecord>();
+    vi.mocked(native.correctCp).mockReturnValueOnce(pending.promise);
+    await openCp();
+    fillCp("9007199254740993");
+    confirmCp();
+    fireEvent.submit(screen.getByRole("form", { name: "Correct saved CP" }));
+    expect(native.correctCp).toHaveBeenCalledExactlyOnceWith(
+      saved.id,
+      saved.cp,
+      "0",
+      "9007199254740993",
+    );
+    expect(
+      screen.getByRole("button", { name: "Saving CP correction…" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Cancel CP correction" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Correct saved IVs" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Correct species and form" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Review appraisal for Buddy" }),
+    ).toBeDisabled();
+    await act(async () =>
+      pending.resolve({
+        ...saved,
+        cp: "9007199254740993",
+        strategicObservationRevision: "1",
+      }),
+    );
+    await screen.findByText("CP correction saved locally.");
+    expect(screen.getByText("CP: 9007199254740993")).toBeInTheDocument();
+    expect(
+      screen.getByText("Confirmed CP: 9007199254740993"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Correct saved CP" }),
+    ).toHaveFocus();
+    expect(native.evaluate).not.toHaveBeenCalled();
+    expect(native.correctIvs).not.toHaveBeenCalled();
+    expect(native.correctIdentity).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Correct saved CP" }));
+    vi.mocked(native.correctCp).mockResolvedValueOnce({
+      ...saved,
+      cp: "9007199254740993",
+      strategicObservationRevision: "1",
+    });
+    confirmCp();
+    expect(native.correctCp).toHaveBeenLastCalledWith(
+      saved.id,
+      "9007199254740993",
+      "1",
+      "9007199254740993",
+    );
+    await screen.findByText("CP correction saved locally.");
+  });
+
+  it("confirms explicit unknown and restores known CP after remounting from saved data", async () => {
+    const unknown = { ...saved, cp: null, strategicObservationRevision: "1" };
+    vi.mocked(native.correctCp).mockResolvedValueOnce(unknown);
+    await openCp();
+    fireEvent.click(screen.getByRole("button", { name: "Mark CP unknown" }));
+    expect(native.correctCp).not.toHaveBeenCalled();
+    confirmCp();
+    await screen.findByText("CP correction saved locally.");
+    expect(native.correctCp).toHaveBeenCalledExactlyOnceWith(
+      saved.id,
+      saved.cp,
+      "0",
+      null,
+    );
+    expect(screen.getByText("CP: Unknown")).toBeInTheDocument();
+    cleanup();
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [unknown],
+      tags: [special, custom],
+    });
+    vi.mocked(native.correctCp).mockResolvedValue({
+      ...saved,
+      cp: "1",
+      strategicObservationRevision: "2",
+    });
+    await openCp();
+    expect(screen.getByLabelText("Corrected CP")).toHaveValue("");
+    fillCp("1");
+    confirmCp();
+    await screen.findByText("CP correction saved locally.");
+    expect(native.correctCp).toHaveBeenLastCalledWith(saved.id, null, "1", "1");
+    expect(screen.getByText("CP: 1")).toBeInTheDocument();
+  });
+
+  it("rejects malformed and overflowing drafts and retains a failed valid draft for retry", async () => {
+    await openCp();
+    for (const value of [
+      "0",
+      "-1",
+      "1.5",
+      "1e3",
+      " 1",
+      "01",
+      "9223372036854775808",
+    ]) {
+      fillCp(value);
+      confirmCp();
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "CP must be a whole number",
+      );
+      expect(native.correctCp).not.toHaveBeenCalled();
+    }
+    vi.mocked(native.correctCp).mockRejectedValueOnce(
+      "private SQL or file details",
+    );
+    fillCp("9007199254740993");
+    confirmCp();
+    await screen.findByText(
+      "Unable to save CP corrections. Your draft is retained; try again.",
+    );
+    expect(screen.getByLabelText("Corrected CP")).toHaveValue(
+      "9007199254740993",
+    );
+    expect(screen.queryByText(/private SQL/)).not.toBeInTheDocument();
+    vi.mocked(native.correctCp).mockResolvedValue({
+      ...saved,
+      cp: "9007199254740993",
+      strategicObservationRevision: "1",
+    });
+    confirmCp();
+    await screen.findByText("CP correction saved locally.");
+    expect(native.correctCp).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["conflict", "missing_pokemon"])(
+    "requires authoritative reload after %s and preserves the draft if reload fails",
+    async (code) => {
+      vi.mocked(native.correctCp).mockRejectedValue({
+        code,
+        message: "Conflict",
+      });
+      await openCp();
+      fillCp("123");
+      confirmCp();
+      await screen.findByText(
+        "The Pokémon has changed since this form was opened. Reload its information before trying again.",
+      );
+      expect(
+        screen.getByRole("button", { name: "Confirm CP correction" }),
+      ).toBeDisabled();
+      fireEvent.submit(screen.getByRole("form", { name: "Correct saved CP" }));
+      expect(native.correctCp).toHaveBeenCalledTimes(1);
+      vi.mocked(native.snapshot).mockRejectedValueOnce("private path");
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Discard CP corrections and reload inventory",
+        }),
+      );
+      await screen.findByText("Unable to reload. Try reloading again.");
+      expect(screen.getByLabelText("Corrected CP")).toHaveValue("123");
+      expect(
+        screen.getByRole("button", { name: "Confirm CP correction" }),
+      ).toBeDisabled();
+      // The saved value has reverted, but the native revision has advanced.
+      vi.mocked(native.snapshot).mockResolvedValue({
+        records: [{ ...saved, strategicObservationRevision: "2" }],
+        tags: [special, custom],
+      });
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Discard CP corrections and reload inventory",
+        }),
+      );
+      await screen.findByText(
+        "Inventory reloaded. Open a new CP correction to continue.",
+      );
+      vi.mocked(native.correctCp).mockResolvedValue({
+        ...saved,
+        cp: "124",
+        strategicObservationRevision: "3",
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Correct saved CP" }));
+      expect(screen.getByLabelText("Corrected CP")).toHaveValue(saved.cp);
+      fillCp("124");
+      confirmCp();
+      await screen.findByText("CP correction saved locally.");
+      expect(native.correctCp).toHaveBeenLastCalledWith(
+        saved.id,
+        saved.cp,
+        "2",
+        "124",
+      );
+    },
+  );
+
+  it("discards an unsaved CP draft when selecting another UUID", async () => {
+    const second = {
+      ...saved,
+      id: "00000000-0000-4000-8000-000000000001",
+      displayName: "Other",
+      cp: null,
+    };
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [saved, second],
+      tags: [],
+    });
+    await openCp();
+    fillCp("123");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review appraisal for Other" }),
+    );
+    expect(screen.queryByLabelText("Corrected CP")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Correct saved CP" }));
+    expect(screen.getByLabelText("Corrected CP")).toHaveValue("");
+    expect(native.correctCp).not.toHaveBeenCalled();
+  });
+});
 let createObjectURL: ReturnType<typeof vi.fn>;
 let revokeObjectURL: ReturnType<typeof vi.fn>;
 

@@ -23,13 +23,8 @@ export function validateReview(fields: ReviewFields): ImportInput | string {
     /\p{Cc}/u.test(fields.displayName)
   )
     return "Enter a display name of 1–100 characters, without surrounding whitespace or control characters.";
-  if (
-    fields.cp !== "" &&
-    (!/^[1-9][0-9]*$/.test(fields.cp) ||
-      fields.cp.length > 19 ||
-      BigInt(fields.cp) > 9223372036854775807n)
-  )
-    return "CP must be a whole number from 1 to 9223372036854775807, or empty if unknown.";
+  const cpError = validateCp(fields.cp);
+  if (cpError) return cpError;
   const ivs = validateIvs(fields);
   if (typeof ivs === "string") return ivs;
   return {
@@ -38,6 +33,17 @@ export function validateReview(fields: ReviewFields): ImportInput | string {
     ivs,
     tagIds: [],
   };
+}
+
+export function validateCp(value: string): string | null {
+  if (
+    value !== "" &&
+    (!/^[1-9][0-9]*$/.test(value) ||
+      value.length > 19 ||
+      BigInt(value) > 9223372036854775807n)
+  )
+    return "CP must be a whole number from 1 to 9223372036854775807, or empty if unknown.";
+  return null;
 }
 
 export function validateIvs(
