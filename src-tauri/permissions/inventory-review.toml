@@ -1,4 +1,4 @@
 [[permission]]
 identifier = "inventory-review"
-description = "Read local structured inventory, confirm a reviewed record, correct saved CP, appraisal IVs or reference identity and evaluate appraisal. Select one bounded image via a native picker. No paths or arbitrary queries are accepted."
-commands.allow = ["inventory_snapshot", "select_screenshot", "confirm_inventory_import", "evaluate_pokemon", "correct_pokemon_ivs", "correct_pokemon_identity", "correct_pokemon_cp"]
+description = "Review evolution targets/history, confirm evolution or targeted screenshot observations. Read local structured inventory, confirm a reviewed record, correct saved CP, appraisal IVs or reference identity and evaluate appraisal. Select one bounded image via a native picker. No paths or arbitrary queries are accepted."
+commands.allow = ["inventory_snapshot", "select_screenshot", "confirm_inventory_import", "evaluate_pokemon", "correct_pokemon_ivs", "correct_pokemon_identity", "correct_pokemon_cp", "evolution_options", "confirm_evolution", "reobserve_pokemon", "pokemon_history"]

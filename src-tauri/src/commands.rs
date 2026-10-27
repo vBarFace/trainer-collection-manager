@@ -26,6 +26,7 @@ impl From<inventory::Error> for CommandError {
             inventory::Error::Conflict => Self { code: "conflict", message: "The saved IVs changed while you were editing. Reload the inventory before correcting them again." },
             inventory::Error::IdentityConflict => Self { code: "conflict", message: "The confirmed species or form changed while you were editing. Reload the inventory before correcting it again." },
             inventory::Error::ObservationConflict => Self { code: "conflict", message: "The Pokémon has changed since this form was opened. Reload its information before trying again." },
+            inventory::Error::AlreadyConfirmed => Self { code: "already_confirmed", message: "This confirmation was already saved. Reload the Pokémon to see the confirmed result." },
             inventory::Error::NotFound("Tag") => Self { code: "missing_tag", message: "A selected tag no longer exists. Cancel and reload the inventory to review tags." },
             inventory::Error::NotFound(_) => Self { code: "missing_pokemon", message: "This Pokémon no longer exists. Reload the inventory." },
             _ => Self::storage(),
@@ -744,6 +745,234 @@ mod tests {
         assert!(snapshot.records[0].cp.is_none());
         assert!(snapshot.records[0].tags.is_empty());
         drop(repo);
+        std::fs::remove_file(path).unwrap();
+    }
+}
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct EvolutionInput {
+    request_id: String,
+    expected_strategic_observation_revision: String,
+    dataset_id: String,
+    dataset_version: String,
+    target_form_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReobserveInput {
+    request_id: String,
+    expected_strategic_observation_revision: String,
+    #[serde(deserialize_with = "Option::<inventory::ObservationPatch<String>>::deserialize")]
+    cp: Option<inventory::ObservationPatch<String>>,
+    #[serde(deserialize_with = "Option::<inventory::ObservationPatch<AppraisalIvs>>::deserialize")]
+    ivs: Option<inventory::ObservationPatch<AppraisalIvs>>,
+    #[serde(deserialize_with = "Option::<crate::reference::Identity>::deserialize")]
+    observed_identity: Option<crate::reference::Identity>,
+    same_individual_confirmed: bool,
+}
+
+fn parse_observation_revision(value: &str) -> Result<i64, CommandError> {
+    value
+        .parse::<i64>()
+        .ok()
+        .filter(|revision| *revision >= 0 && revision.to_string() == value)
+        .ok_or(CommandError {
+            code: "invalid_input",
+            message: "Expected a canonical nonnegative strategic observation revision.",
+        })
+}
+
+pub fn evolution_options(
+    repository: &InventoryRepository,
+    id: &str,
+) -> Result<inventory::EvolutionOptions, CommandError> {
+    Ok(repository.evolution_options(&inventory::PokemonId::parse(id)?)?)
+}
+
+pub fn confirm_evolution(
+    repository: &InventoryRepository,
+    id: &str,
+    input: EvolutionInput,
+) -> Result<RecordView, CommandError> {
+    Ok(repository
+        .confirm_evolution(
+            &inventory::PokemonId::parse(id)?,
+            inventory::EvolutionConfirmation {
+                request_id: &input.request_id,
+                expected_revision: parse_observation_revision(
+                    &input.expected_strategic_observation_revision,
+                )?,
+                dataset_id: &input.dataset_id,
+                dataset_version: &input.dataset_version,
+                target_form_id: &input.target_form_id,
+            },
+        )?
+        .into())
+}
+
+pub fn reobserve(
+    repository: &InventoryRepository,
+    id: &str,
+    input: ReobserveInput,
+) -> Result<RecordView, CommandError> {
+    let cp = input
+        .cp
+        .map(|patch| {
+            if patch.value.starts_with('0') {
+                return Err(CommandError {
+                    code: "invalid_input",
+                    message: "Observed CP must be a canonical positive decimal string.",
+                });
+            }
+            Ok(inventory::ObservationPatch {
+                value: parse_cp(Some(&patch.value))?.unwrap(),
+                source: patch.source,
+            })
+        })
+        .transpose()?;
+    Ok(repository
+        .reobserve(
+            &inventory::PokemonId::parse(id)?,
+            inventory::ReobservationConfirmation {
+                request_id: &input.request_id,
+                expected_revision: parse_observation_revision(
+                    &input.expected_strategic_observation_revision,
+                )?,
+                cp,
+                ivs: input.ivs,
+                observed_identity: input.observed_identity,
+                same_individual_confirmed: input.same_individual_confirmed,
+            },
+        )?
+        .into())
+}
+
+pub fn history(
+    repository: &InventoryRepository,
+    id: &str,
+) -> Result<Vec<inventory::LifecycleEvent>, CommandError> {
+    Ok(repository.history(&inventory::PokemonId::parse(id)?)?)
+}
+
+#[cfg(test)]
+mod lifecycle_contract_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn reobservation() -> serde_json::Value {
+        json!({"requestId":"11111111-1111-4111-8111-111111111111", "expectedStrategicObservationRevision":"0", "cp":{"value":"9007199254740993","source":"screenshot"},"ivs":null,"observedIdentity":null,"sameIndividualConfirmed":true})
+    }
+
+    #[test]
+    fn reobservation_requires_explicit_patches_identity_and_confirmation() {
+        let valid = reobservation();
+        assert!(serde_json::from_value::<ReobserveInput>(valid.clone()).is_ok());
+        for field in [
+            "requestId",
+            "expectedStrategicObservationRevision",
+            "cp",
+            "ivs",
+            "observedIdentity",
+            "sameIndividualConfirmed",
+        ] {
+            let mut value = valid.clone();
+            value.as_object_mut().unwrap().remove(field);
+            assert!(
+                serde_json::from_value::<ReobserveInput>(value).is_err(),
+                "{field}"
+            );
+        }
+        for (field, value) in [
+            ("cp", json!({"value":100,"source":"screenshot"})),
+            ("cp", json!({"value":null,"source":"screenshot"})),
+            ("cp", json!({"value":"100","source":"derived"})),
+            ("ivs", json!({"value":{"attack":15},"source":"manual"})),
+            ("path", json!("private.png")),
+            ("displayName", json!("overwrite")),
+            ("identity", json!({"species":"overwrite","form":null})),
+        ] {
+            let mut input = valid.clone();
+            input[field] = value;
+            assert!(
+                serde_json::from_value::<ReobserveInput>(input).is_err(),
+                "{field}"
+            );
+        }
+    }
+
+    #[test]
+    fn evolution_contract_requires_explicit_target_and_catalog_version() {
+        let valid = json!({"requestId":"11111111-1111-4111-8111-111111111111", "expectedStrategicObservationRevision":"0","datasetId":"test","datasetVersion":"test-1","targetFormId":"test-normal"});
+        assert!(serde_json::from_value::<EvolutionInput>(valid.clone()).is_ok());
+        for field in [
+            "requestId",
+            "expectedStrategicObservationRevision",
+            "datasetId",
+            "datasetVersion",
+            "targetFormId",
+        ] {
+            let mut input = valid.clone();
+            input.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<EvolutionInput>(input).is_err());
+        }
+        for revision in ["", "00", "-1", "+1", "1.0", " 1", "9223372036854775808"] {
+            assert!(parse_observation_revision(revision).is_err());
+        }
+        assert_eq!(
+            parse_observation_revision("9223372036854775807").unwrap(),
+            i64::MAX
+        );
+    }
+
+    #[test]
+    fn screenshot_command_preserves_precision_reports_duplicate_and_never_creates() {
+        let path = std::env::temp_dir().join(format!(
+            "tcm-reobserve-{}-{}.sqlite3",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let repository = InventoryRepository::open(&path).unwrap();
+        let pokemon = repository
+            .create(&PokemonInput {
+                display_name: "Saved".into(),
+                cp: None,
+                ivs: None,
+            })
+            .unwrap();
+        let request = reobservation();
+        let record = reobserve(
+            &repository,
+            pokemon.id.as_str(),
+            serde_json::from_value(request.clone()).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(record.cp.as_deref(), Some("9007199254740993"));
+        assert_eq!(repository.list().unwrap().len(), 1);
+        assert_eq!(
+            reobserve(
+                &repository,
+                pokemon.id.as_str(),
+                serde_json::from_value(request).unwrap()
+            )
+            .unwrap_err()
+            .code,
+            "already_confirmed"
+        );
+        assert_eq!(repository.history(&pokemon.id).unwrap().len(), 1);
+        drop(repository);
+        let repository = InventoryRepository::open(&path).unwrap();
+        let event = repository.history(&pokemon.id).unwrap().remove(0);
+        assert_eq!(event.after.cp.as_deref(), Some("9007199254740993"));
+        assert!(matches!(
+            event.cp_source,
+            Some(inventory::ObservationSource::Screenshot)
+        ));
+        assert_eq!(repository.list().unwrap().len(), 1);
+        drop(repository);
         std::fs::remove_file(path).unwrap();
     }
 }

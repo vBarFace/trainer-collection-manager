@@ -8,6 +8,10 @@ fn main() {
             "correct_pokemon_cp",
             "correct_pokemon_identity",
             "select_screenshot",
+            "evolution_options",
+            "confirm_evolution",
+            "reobserve_pokemon",
+            "pokemon_history",
         ]),
     ))
     .expect("Unable to build application permissions");

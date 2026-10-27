@@ -5,6 +5,7 @@ import {
   nativeErrorMessage,
   evaluationLabels,
   type AppraisalIvs,
+  type InventoryRecord,
   type ReferenceIdentity,
   type InventorySnapshot,
   type ScreenshotExtraction,
@@ -14,6 +15,11 @@ import { extractText } from "./ocr";
 import { AppraisalPanel } from "./AppraisalPanel";
 import { ReferencePanel } from "./ReferencePanel";
 import { CpCorrectionPanel } from "./CpCorrectionPanel";
+import {
+  EvolutionPanel,
+  ReobservationPanel,
+  HistoryPanel,
+} from "./LifecyclePanel";
 
 interface Preview {
   url: string;
@@ -41,6 +47,9 @@ export function Inventory() {
   const [savingIvs, setSavingIvs] = useState(false);
   const [savingIdentity, setSavingIdentity] = useState(false);
   const [savingCp, setSavingCp] = useState(false);
+  const [lifecycleAction, setLifecycleAction] = useState<
+    "evolution" | "screenshot" | null
+  >(null);
   const recordOperation = useRef(false);
   const operation = useRef<"selecting" | "saving" | null>(null);
   const previewUrl = useRef<string | null>(null);
@@ -332,6 +341,28 @@ export function Inventory() {
       if (mounted.current) setSavingIdentity(false);
     }
   }
+  async function commitLifecycle(action: () => Promise<InventoryRecord>) {
+    if (recordOperation.current)
+      throw new Error("Inventory action already in progress");
+    recordOperation.current = true;
+    ++loadVersion.current;
+    try {
+      const record = await action();
+      if (mounted.current)
+        setSnapshot((current) =>
+          current
+            ? {
+                ...current,
+                records: current.records.map((existing) =>
+                  existing.id === record.id ? record : existing,
+                ),
+              }
+            : current,
+        );
+    } finally {
+      recordOperation.current = false;
+    }
+  }
   function evidence(key: keyof ReviewFields) {
     const field = preview?.extraction[key];
     if (!field) return null;
@@ -375,7 +406,7 @@ export function Inventory() {
           ref={selectButton}
           type="button"
           onClick={() => void selectScreenshot()}
-          disabled={busy || !snapshot}
+          disabled={busy || !snapshot || lifecycleAction !== null}
         >
           {phase === "selecting"
             ? "Selecting screenshot…"
@@ -519,6 +550,9 @@ export function Inventory() {
                 <h3>{record.displayName}</h3>
                 <p>Evaluation: {evaluationLabels[record.evaluation.state]}</p>
                 <p>Appraisal only · Strategic analysis not performed</p>
+                <p>
+                  Species: {record.reference.identity?.species ?? "Unknown"}
+                </p>
                 <p>CP: {record.cp ?? "Unknown"}</p>
                 <p>
                   Appraisal IVs:{" "}
@@ -539,6 +573,7 @@ export function Inventory() {
                     selectedId === record.id ? "appraisal-panel" : undefined
                   }
                   disabled={
+                    lifecycleAction !== null ||
                     evaluating !== null ||
                     savingIvs ||
                     savingIdentity ||
@@ -564,7 +599,9 @@ export function Inventory() {
                   snapshot.records.find((record) => record.id === selectedId)!
                 }
                 busy={evaluating !== null}
-                disabled={savingIdentity || savingCp}
+                disabled={
+                  savingIdentity || savingCp || lifecycleAction !== null
+                }
                 error={evaluationError}
                 onEvaluate={() => void evaluateSelected()}
                 onReload={() => void loadInventory()}
@@ -576,10 +613,61 @@ export function Inventory() {
                 record={
                   snapshot.records.find((record) => record.id === selectedId)!
                 }
-                busy={evaluating !== null || savingIvs || savingIdentity}
+                busy={
+                  evaluating !== null ||
+                  savingIvs ||
+                  savingIdentity ||
+                  lifecycleAction !== null
+                }
                 saving={savingCp}
                 onSave={saveSelectedCp}
                 onReload={() => loadInventory(true)}
+              />
+              <EvolutionPanel
+                key={"evolution-" + selectedId}
+                record={
+                  snapshot.records.find((record) => record.id === selectedId)!
+                }
+                busy={
+                  busy ||
+                  preview !== null ||
+                  evaluating !== null ||
+                  savingIvs ||
+                  savingIdentity ||
+                  savingCp ||
+                  lifecycleAction === "screenshot"
+                }
+                onCommit={commitLifecycle}
+                onActiveChange={(active) =>
+                  setLifecycleAction(active ? "evolution" : null)
+                }
+                onReload={() => loadInventory(true)}
+              />
+              <ReobservationPanel
+                key={"screenshot-" + selectedId}
+                record={
+                  snapshot.records.find((record) => record.id === selectedId)!
+                }
+                busy={
+                  busy ||
+                  preview !== null ||
+                  evaluating !== null ||
+                  savingIvs ||
+                  savingIdentity ||
+                  savingCp ||
+                  lifecycleAction === "evolution"
+                }
+                onCommit={commitLifecycle}
+                onActiveChange={(active) =>
+                  setLifecycleAction(active ? "screenshot" : null)
+                }
+                onReload={() => loadInventory(true)}
+              />
+              <HistoryPanel
+                key={"history-" + selectedId}
+                record={
+                  snapshot.records.find((record) => record.id === selectedId)!
+                }
               />
               <ReferencePanel
                 key={`reference-${selectedId}`}
@@ -587,7 +675,12 @@ export function Inventory() {
                   snapshot.records.find((record) => record.id === selectedId)!
                     .reference
                 }
-                busy={evaluating !== null || savingIvs || savingCp}
+                busy={
+                  evaluating !== null ||
+                  savingIvs ||
+                  savingCp ||
+                  lifecycleAction !== null
+                }
                 saving={savingIdentity}
                 onSave={saveSelectedIdentity}
                 onReload={() => void loadInventory()}

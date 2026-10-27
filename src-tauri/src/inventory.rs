@@ -5,6 +5,9 @@ use crate::reference::{Catalog, Identity, Pin, Resolution, ResolutionState};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::{fmt, path::Path};
 
+mod lifecycle;
+pub use lifecycle::*;
+
 #[cfg(test)]
 mod strategic_tests;
 
@@ -53,7 +56,8 @@ impl TagId {
 }
 
 /// Appraisal values, distinct from species base stats and observed HP.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppraisalIvs {
     pub attack: u8,
     pub defense: u8,
@@ -101,6 +105,7 @@ pub enum Error {
     Conflict,
     IdentityConflict,
     ObservationConflict,
+    AlreadyConfirmed,
     NotFound(&'static str),
     DuplicateTag,
     StandardTagImmutable,
@@ -117,6 +122,7 @@ impl fmt::Display for Error {
                 "The confirmed identity changed; reload before correcting it"
             ),
             Self::ObservationConflict => write!(f, "The Pokémon has changed since this form was opened. Reload its information before trying again."),
+            Self::AlreadyConfirmed => write!(f, "This confirmation was already saved. Reload the Pokémon to see the confirmed result."),
             Self::NotFound(entity) => write!(f, "{entity} not found"),
             Self::DuplicateTag => write!(f, "A tag with this name already exists"),
             Self::StandardTagImmutable => write!(f, "Standard tags cannot be changed"),
@@ -821,7 +827,8 @@ mod tests {
         // Reconstruct v4, removing later observation infrastructure as well.
         repo.connection
             .execute_batch(
-                "DROP TABLE pokemon_reference_identity;
+                "DROP TABLE pokemon_lifecycle_events;
+            DROP TABLE pokemon_reference_identity;
             DROP TRIGGER pokemon_strategic_observation_changed;
             ALTER TABLE pokemon DROP COLUMN strategic_observation_revision;
             DELETE FROM schema_migrations WHERE version >= 5;",
@@ -1499,7 +1506,7 @@ mod tests {
                 .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            6
+            7
         );
     }
 

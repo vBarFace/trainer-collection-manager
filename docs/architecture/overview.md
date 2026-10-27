@@ -26,6 +26,10 @@ The follow-up `correct_pokemon_ivs` command accepts only a UUID and explicit exp
 
 Task 006 adds migration 5 for separately confirmed reference identity and stable dataset/species/form pins. `correct_pokemon_identity` compares expected identity before writing that association only. Catalog updates preserve player observations; reference metadata is derived at read time. Pure `evaluation::assess` accepts reference context alongside IVs, while the existing appraisal rules and lifecycle remain unchanged. See [reference data](../development/reference-data.md) and [decision 0006](../decisions/0006-versioned-local-reference-data.md).
 
+## Confirmed individual lifecycle (S2.2)
+
+`src/LifecyclePanel.tsx` adds selected-UUID evolution, targeted screenshot review and confirmed-history display. `src-tauri/src/inventory/lifecycle.rs` owns transactional catalog validation, expected-observation checks, patch validation and confirmed audit insertion. New commands are explicitly listed in the existing main-window command permission; no generic storage or filesystem access is granted. Migration 7 adds one event table, reusing the established repository and strategic observation triggers. See [lifecycle contracts](../development/lifecycle.md).
+
 ## Proposed strategic boundary (Task 008)
 
 This section is a design proposal, not an implemented module or IPC API. Task 007's offline adapter, native validation, SHA-256 provenance and cumulative identity/version ledger are merged. Production still loads `tcm-empty` / `empty-1`; no strategic calculation is available. Schema 1 contains nullable types/base stats and descriptive evolution requirements, with no executable eligibility rules, move mechanics, level multipliers or investment costs. Do not parse those strings into eligibility or assume missing data means zero cost.
