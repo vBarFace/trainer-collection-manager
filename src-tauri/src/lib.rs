@@ -6,6 +6,7 @@ pub mod inventory;
 mod ocr_regions;
 pub mod reference;
 mod screenshot;
+pub mod utility;
 
 use std::sync::{
     atomic::{AtomicBool, Ordering},

@@ -4,6 +4,24 @@ No third-party game images, sprites, logos or game datasets are included. Generi
 
 The MIT license covers only original project code and documentation. Pokémon, Pokémon GO and related marks belong to their respective owners and are not licensed by this project. Before adding any external asset, dataset, library content or model, record its source, license, redistribution rights, attribution and update/removal plan.
 
+## Proposed strategic data and training review (Task 008)
+
+No new data, model, dependency or third-party material is included by this documentation task. Task 007's dataset-specific rights gate remains unresolved; this section defines future evidence requirements, not a new legal assessment or permission to collect data. Preserve existing source research and adapter provenance as the reference-data source of truth.
+
+Evaluate each intended use separately for each exact source, field subset and revision:
+
+| Intended use                  | Evidence to record before that use                                                                                                                                                                                     |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Collection/access             | Authorized API terms or applicable scraping/TDM basis, access restrictions, source authority, permitted scope and collection method. Public access alone is insufficient evidence.                                     |
+| Retention/internal processing | Allowed stored fields, duration, purpose, attribution, privacy/consent limits and removal/update obligations, including derived labels.                                                                                |
+| Model training/evaluation     | Permission or documented applicable basis for that purpose, derivative-feature/label constraints, contribution consent and applicable opt-outs. Access/retention approval does not automatically approve training.     |
+| Dataset redistribution        | Authority over the exact included facts/labels/derived records, downstream license, redistribution/derivative permissions and required notices; software licensing alone does not establish underlying dataset rights. |
+| Model redistribution          | Separate review of training provenance and applicable restrictions on weights/features/outputs, model license/notices and update/removal plan. Do not assume weights are unrestricted because raw data is omitted.     |
+
+Potential inputs include legitimate APIs, permitted scraping/TDM, original structured observations and consented contributions. None automatically establishes recommendation-label quality. Keep source URL, revision, retrieval date, exact-byte digests, transformations, label rubric and rights evidence with future dataset/model cards. Evaluate uncertain uses before proceeding; fictional fixtures can validate contracts while real-data use remains blocked.
+
+Inventory saving, local recommendation use and training contribution are distinct choices. Default screenshot retention remains off. Future training contributions require a separate explicit opt-in explaining the exact structured fields, purpose, destination, retention, allowed redistribution and withdrawal/removal limits, especially for already redistributed artifacts. Prefer minimal de-identified structured contributions; do not include screenshot bytes, paths, account identifiers or personal notes by default. No collection/upload capability is authorized or added here.
+
 ## Task 006 reference foundation
 
 No third-party GO dataset or artwork is included. [Source research](../development/reference-data-sources.md) records candidate upstreams, licensing evidence and limitations. The production manifest is original and empty; fictional fixture records are original MIT test data, not assertions about real Pokémon. `serde_json` moves from development-only to a direct runtime dependency for snapshot parsing. The already resolved crate declares MIT OR Apache-2.0; no package or game asset is newly downloaded. Future data inclusion requires a separate dataset-specific rights/provenance review and retained notices.

@@ -1,3 +1,54 @@
+# S1 fictional utility contract validation
+
+Date: 2026-10-27. Base commit: `0a365d145d7cc9c530e28b4314db46285ea4b8d7`. Started on `docs/task-008-utility-roadmaps` with the eight uncommitted Task 008 documents shown below already present. Created `feat/s1-fictional-utility-contracts` without discarding, staging or committing them. S1 adds separate contract/test/fixture files and this validation entry; the roadmap gains implementation status and the next bounded S2 task. No remote mutation or fresh external game-data collection was performed.
+
+## Delivered scope and evidence
+
+`src-tauri/src/utility.rs` contains `utility-1` types, explicit string precision/null semantics, bounded pure loading/validation and path/index errors. `src-tauri/src/lib.rs` adds only the public module declaration. `src/utility-contracts.ts` mirrors the wire fields without extending live native/inventory DTOs or IPC. Native tests in `src-tauri/src/utility/tests.rs` and renderer tests in `src/utility-contracts.test.ts` consume the same nine original fictional cases in `tests/fixtures/utility/acceptance.json`. Fixture notes and the [implemented wire contract](utility-contracts.md) document bounds and limitations.
+
+SHA-256 comparisons against the starting working tree confirm Task 008's PRD, architecture overview, data model, evaluation plan, licensing document and ADR 0007 remain byte-for-byte unchanged. The original Task 008 validation section is also byte-for-byte intact beneath this new entry. Only its roadmap and validation file receive S1 updates. These preserved uncommitted documents remain visible in the overall diff against main and are not new S1 changes.
+
+Cases cover evolution-first, use now with optional further investment, power-up-first, missing identity/moves/mechanics, zero budget, unknown budget/costs, protection conflict, stale context/report evidence and required move changes without a new default tag. Focused negative mutations exercise individual/goal associations, duplicate path/step IDs, missing/forward/self/cross-path/cyclic prerequisites, role/action mismatches, unknown versions, malformed revisions/amounts/digests, target ranges, bounds and contradictory suggestions. Structural validity is not evidence of real strategic accuracy.
+
+Independent review found and resolved a current use-now summary bypass of missing evidence/step conditions and a Serde unit-model variant which discarded extra provenance fields. A targeted regression reproduced the model-field loss before the empty-struct variant fix. A separate regression reproduced Serde accepting object aliases for string enums; explicit string deserialization now matches renderer vocabulary. Active evolution targets also require their namespace in evaluated dataset provenance. These failed development regressions are distinct from final results below.
+
+## Executed checks
+
+- `npm run check`: stops at the same 58 pre-existing formatting failures outside the Task 008/S1 edit set. A fresh read-only audit verified every failure differs from HEAD only by line endings, all HEAD contents pass Prettier, and CRLF-to-LF normalization in memory passes. Unrelated files and formatter rules remain unchanged. The remaining stages were run separately.
+- `npm run lint` and `npm run typecheck`: passed.
+- `npm test`: all 74 tests in six suites passed on the approved outside-sandbox run (16 new renderer contract tests). The initial sandbox attempt failed before running any tests because Vitest's temporary-cache rename returned `EPERM`.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: final full suite passed, 88 tests passed and 2 existing private-image diagnostics ignored; binary/doc-test targets contain zero tests. Includes 23 new native contract tests. Earlier targeted runs validated fixture round-trips and the individual fixes.
+- `npm run rust:fmt` and `npm run rust:check`: passed. Existing incremental-cache hard-link warnings fell back to copying.
+- `npm run reference:test`: all 8 portable adapter/provenance tests passed.
+- `npm run reference:test-native`: both tests passed on the approved outside-sandbox retry. The sandbox passed whole-candidate validation, then failed the CLI test on a temporary output rename (`EPERM`).
+- Targeted Prettier passed for the 7 S1 TypeScript/JSON/Markdown files; all 31 local Markdown links/anchors passed; `git diff --check` passed. Rust formatting was checked separately. Scope checks confirm existing commands, inventory/appraisal/reference modules, renderer native DTOs, migrations, dependency/lockfiles, permissions and production catalog are unchanged from HEAD. The frontend production bundle contains no S1 contract/fixture strings.
+- `npm run tauri:build`: passed on the approved outside-sandbox retry, producing the optimized executable and x64 NSIS installer (11.46 MiB). The sandbox compiled the application but failed resolving the normal NSIS packaging download host (`11001`). The existing `.app` bundle-identifier advisory remains. Ignored build output was not installed or committed. No native GUI smoke test was performed.
+
+The earlier Task 008 validation remains historical evidence for that documentation-only increment. S1 adds no planner, strategic output, persistence/revision mutation, progress commands, UI, dependency, migration, model, capability or real dataset. Existing appraisal/inventory/tag/reference suites pass; the production catalog remains empty. The next bounded task is saved CP correction plus an independent strategic observation revision, as recorded under [S2](roadmap.md#s2--confirm-the-minimum-individual-and-goal-inputs).
+
+# Task 008 utility and progression specification validation
+
+Date: 2026-10-27. Branch: `docs/task-008-utility-roadmaps`. Scope: documentation only. The checkout was clean on `main` before branching. Remote GitHub branch reads confirmed the base and final main SHA remained `0a365d145d7cc9c530e28b4314db46285ea4b8d7`, containing merged PR #9. The main CI run was initially in progress; final inspection confirmed [run 40385059460](https://github.com/vBarFace/trainer-collection-manager/actions/runs/40385059460) completed successfully for that exact SHA. Remote inspection is separate from local checks below.
+
+## Inspected implementation and proposal boundaries
+
+Read repository guidance, PRD/roadmap, architecture/data model, appraisal/reference decisions and workflows, licensing/provenance research, validation scripts and CI. Cross-checked native inventory/IV revision and appraisal contracts, reference schema/activation, adapter provenance/ledger and renderer DTOs. Task 007 is integrated; production still uses `tcm-empty` / `empty-1`, and schema-1 evolution requirements are descriptive strings. Current appraisal emits no strategic recommendations. Moves, level, strategic revisions, roadmap storage and progress UI remain proposals.
+
+Updated the existing PRD, architecture/data model, evaluation plan, licensing guidance and roadmap/backlog; added concise ADR 0007. Independent read-only review found an ambiguity that could block an entire feasible plan because a later prerequisite was unfinished. Corrected the PRD, ADR and data model: ordinary dependencies block their dependent steps; plan-level blocking concerns missing evidence/budget or inability to proceed safely with the next required action. No strategic accuracy is claimed from fictional scenarios.
+
+## Executed local checks
+
+- Targeted Prettier passed for all 8 changed/new documents; all 58 local Markdown links/anchors passed; `git diff --check` passed. Scope review confirmed all changes are under `docs/`.
+- `npm run check`: the initial attempt stopped at formatting in 59 files outside the then-current edit set. A read-only audit verified all 59 differed from HEAD only by line endings, their HEAD contents passed Prettier, and their working contents passed after CRLF-to-LF normalization in memory. This validation log was subsequently updated and formatted; the final aggregate check still stops on the remaining 58 untouched files. Unrelated files and formatting rules were preserved. Later check stages were run separately.
+- `npm run lint` and `npm run typecheck`: passed without warnings.
+- `npm test`: 58 tests passed in five suites on the approved run outside the sandbox. The sandbox attempt failed before running tests because Vitest's temporary-cache rename returned `EPERM`.
+- `npm run reference:test`: all 8 portable adapter/provenance tests passed.
+- `npm run rust:fmt` and `npm run rust:check`: passed. Existing incremental-cache hard-link warnings fell back to copying.
+- `npm run tauri:build`: passed on the approved outside-sandbox retry, producing the optimized Windows executable and x64 NSIS installer (11.46 MiB). The sandbox compiled the executable but packaging failed resolving the normal NSIS download host (`11001`). The existing `.app` bundle-identifier advisory remains. Ignored build output was not installed or committed.
+- No Rust test suite, native reference integration test or GUI smoke test was newly executed for these documentation-only changes. Their implemented coverage was inspected; the remote CI result above is not presented as a local execution.
+
+Changes are confined to documentation. No runtime code, migration, dependency, capability, production catalog, model, private image or global memory change was made. No external game data was collected, provider contacted, issue/PR created, push performed or remote setting changed. Remaining gates are dataset-specific rights, validated strategic facts/mechanics, confirmed input support and trustworthy training labels/evaluation. The next implementation task is [S1: fictional utility contracts](roadmap.md#s1--lock-the-first-utility-contract-with-fictional-scenarios).
+
 # Task 007 adapter and compatibility validation
 
 Date: 2026-10-26. Base: `4a13d22` (Task 006 PR #8), verified against fetched `origin/main`. Branch: `feat/task-007-reference-adapter`. The connected repository had no open pull requests at inspection. No real dataset or permissions request was submitted. [Source evidence](reference-data-sources.md#task-007-evidence-review--2026-10-26) records the rights blocker; the production catalog remains byte-for-byte unchanged.
