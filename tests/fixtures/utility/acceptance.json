@@ -1,0 +1,1333 @@
+{
+  "notice": "Original fictional S1 acceptance fixtures. Every identity, move, target, cost and outcome is invented. Repeated hexadecimal digests identify fictional versions only; no real game data or performance claim.",
+  "cases": [
+    {
+      "id": "evolution-first",
+      "assessment": {
+        "contractVersion": "utility-1",
+        "pokemonId": "a1111111-1111-4111-8111-111111111111",
+        "goal": {
+          "id": "folio-trial",
+          "role": "ATTACKER",
+          "contextId": "paper-arena",
+          "description": "Fictional folio trial in the invented paper arena."
+        },
+        "currentUsefulness": "Fictional individual needs preparation for its selected paper-arena goal.",
+        "currentRoles": [],
+        "potentialRoles": [
+          {
+            "role": "ATTACKER",
+            "contextId": "paper-arena",
+            "readiness": "preparation_required",
+            "explanation": "Fictional contract example only; no game suitability claim."
+          }
+        ],
+        "unsupportedRoles": ["GYM DEF", "ROCKET", "PVP 1500", "PVP 2500"],
+        "validity": "current",
+        "validityReasons": [],
+        "suggestedAction": {
+          "pathId": "prepare",
+          "stepId": "prepare-evolve",
+          "kind": "evolve"
+        },
+        "suggestedSummaryTag": {
+          "kind": "action",
+          "tag": "EVOLVE"
+        },
+        "selectedPathId": "prepare",
+        "paths": [
+          {
+            "id": "prepare",
+            "pokemonId": "a1111111-1111-4111-8111-111111111111",
+            "goalId": "folio-trial",
+            "kind": "prepare",
+            "steps": [
+              {
+                "id": "prepare-evolve",
+                "required": true,
+                "action": {
+                  "kind": "evolve",
+                  "target": {
+                    "datasetId": "fictional-folio",
+                    "speciesId": "foldling",
+                    "formId": "foldwing"
+                  }
+                },
+                "prerequisites": [],
+                "conditions": [
+                  {
+                    "description": "Fictional fold eligibility has been explicitly supplied.",
+                    "state": "satisfied"
+                  }
+                ],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "prepare-moves",
+                "required": true,
+                "action": {
+                  "kind": "change_moves",
+                  "moves": ["Paper Whisper"]
+                },
+                "prerequisites": ["prepare-evolve"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "prepare-power",
+                "required": true,
+                "action": {
+                  "kind": "power_up",
+                  "target": {
+                    "minimum": 1.5,
+                    "maximum": 2,
+                    "unit": "fictional_fold_units",
+                    "contextId": "paper-arena",
+                    "rationale": "Invented range for shape tests only, not a game calculation."
+                  }
+                },
+                "prerequisites": ["prepare-moves"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "prepare-use",
+                "required": true,
+                "action": {
+                  "kind": "use_role",
+                  "role": "ATTACKER"
+                },
+                "prerequisites": ["prepare-power"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              }
+            ],
+            "estimatedCosts": [
+              {
+                "resource": "paper_tokens",
+                "amount": "12"
+              }
+            ],
+            "affordability": "within_budget",
+            "expectedBenefit": "Invented outcome in the paper arena only.",
+            "limitations": [
+              "Fictional example; structural validity is not strategic accuracy."
+            ]
+          }
+        ],
+        "constraints": {
+          "budget": [
+            {
+              "resource": "paper_tokens",
+              "amount": "20"
+            }
+          ],
+          "evolutionAllowed": true
+        },
+        "requiredInputs": [
+          "fictional_identity",
+          "fictional_moves",
+          "fictional_mechanics"
+        ],
+        "missingEvidence": [],
+        "assumptions": [
+          "All facts, costs and outcomes are invented for contract tests."
+        ],
+        "limitations": [
+          "No Pokemon GO facts or performance conclusions are represented."
+        ],
+        "provenance": {
+          "evaluated": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-1",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          },
+          "current": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-1",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          }
+        },
+        "actionReports": []
+      }
+    },
+    {
+      "id": "usable-now-optional-investment",
+      "assessment": {
+        "contractVersion": "utility-1",
+        "pokemonId": "a1111111-1111-4111-8111-111111111111",
+        "goal": {
+          "id": "folio-trial",
+          "role": "ATTACKER",
+          "contextId": "paper-arena",
+          "description": "Fictional folio trial in the invented paper arena."
+        },
+        "currentUsefulness": "Fictional individual can be used now in the invented paper arena.",
+        "currentRoles": [
+          {
+            "role": "ATTACKER",
+            "contextId": "paper-arena",
+            "readiness": "usable_now",
+            "explanation": "Fictional contract example only; no game suitability claim."
+          }
+        ],
+        "potentialRoles": [
+          {
+            "role": "ATTACKER",
+            "contextId": "paper-arena",
+            "readiness": "preparation_required",
+            "explanation": "Fictional contract example only; no game suitability claim."
+          }
+        ],
+        "unsupportedRoles": ["GYM DEF", "ROCKET", "PVP 1500", "PVP 2500"],
+        "validity": "current",
+        "validityReasons": [],
+        "suggestedAction": null,
+        "suggestedSummaryTag": {
+          "kind": "role",
+          "tag": "ATTACKER"
+        },
+        "selectedPathId": "use-now",
+        "paths": [
+          {
+            "id": "use-now",
+            "pokemonId": "a1111111-1111-4111-8111-111111111111",
+            "goalId": "folio-trial",
+            "kind": "use_now",
+            "steps": [
+              {
+                "id": "now-use",
+                "required": true,
+                "action": {
+                  "kind": "use_role",
+                  "role": "ATTACKER"
+                },
+                "prerequisites": [],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              }
+            ],
+            "estimatedCosts": [],
+            "affordability": "within_budget",
+            "expectedBenefit": "Invented outcome in the paper arena only.",
+            "limitations": [
+              "Fictional example; structural validity is not strategic accuracy."
+            ]
+          },
+          {
+            "id": "improve",
+            "pokemonId": "a1111111-1111-4111-8111-111111111111",
+            "goalId": "folio-trial",
+            "kind": "prepare",
+            "steps": [
+              {
+                "id": "improve-power",
+                "required": false,
+                "action": {
+                  "kind": "power_up",
+                  "target": {
+                    "minimum": 1.5,
+                    "maximum": 2,
+                    "unit": "fictional_fold_units",
+                    "contextId": "paper-arena",
+                    "rationale": "Invented range for shape tests only, not a game calculation."
+                  }
+                },
+                "prerequisites": [],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "improve-use",
+                "required": true,
+                "action": {
+                  "kind": "use_role",
+                  "role": "ATTACKER"
+                },
+                "prerequisites": ["improve-power"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              }
+            ],
+            "estimatedCosts": [
+              {
+                "resource": "paper_tokens",
+                "amount": "9"
+              }
+            ],
+            "affordability": "within_budget",
+            "expectedBenefit": "Invented outcome in the paper arena only.",
+            "limitations": [
+              "Fictional example; structural validity is not strategic accuracy."
+            ]
+          }
+        ],
+        "constraints": {
+          "budget": [
+            {
+              "resource": "paper_tokens",
+              "amount": "20"
+            }
+          ],
+          "evolutionAllowed": true
+        },
+        "requiredInputs": [
+          "fictional_identity",
+          "fictional_moves",
+          "fictional_mechanics"
+        ],
+        "missingEvidence": [],
+        "assumptions": [
+          "All facts, costs and outcomes are invented for contract tests."
+        ],
+        "limitations": [
+          "No Pokemon GO facts or performance conclusions are represented."
+        ],
+        "provenance": {
+          "evaluated": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-1",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          },
+          "current": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-1",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          }
+        },
+        "actionReports": []
+      }
+    },
+    {
+      "id": "power-up-first",
+      "assessment": {
+        "contractVersion": "utility-1",
+        "pokemonId": "a1111111-1111-4111-8111-111111111111",
+        "goal": {
+          "id": "folio-trial",
+          "role": "ATTACKER",
+          "contextId": "paper-arena",
+          "description": "Fictional folio trial in the invented paper arena."
+        },
+        "currentUsefulness": "Fictional individual needs preparation for its selected paper-arena goal.",
+        "currentRoles": [],
+        "potentialRoles": [
+          {
+            "role": "ATTACKER",
+            "contextId": "paper-arena",
+            "readiness": "preparation_required",
+            "explanation": "Fictional contract example only; no game suitability claim."
+          }
+        ],
+        "unsupportedRoles": ["GYM DEF", "ROCKET", "PVP 1500", "PVP 2500"],
+        "validity": "current",
+        "validityReasons": [],
+        "suggestedAction": {
+          "pathId": "prepare",
+          "stepId": "power-first",
+          "kind": "power_up"
+        },
+        "suggestedSummaryTag": {
+          "kind": "action",
+          "tag": "POWER UP"
+        },
+        "selectedPathId": "prepare",
+        "paths": [
+          {
+            "id": "prepare",
+            "pokemonId": "a1111111-1111-4111-8111-111111111111",
+            "goalId": "folio-trial",
+            "kind": "prepare",
+            "steps": [
+              {
+                "id": "power-first",
+                "required": true,
+                "action": {
+                  "kind": "power_up",
+                  "target": {
+                    "minimum": 1.5,
+                    "maximum": 2,
+                    "unit": "fictional_fold_units",
+                    "contextId": "paper-arena",
+                    "rationale": "Invented range for shape tests only, not a game calculation."
+                  }
+                },
+                "prerequisites": [],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "power-use",
+                "required": true,
+                "action": {
+                  "kind": "use_role",
+                  "role": "ATTACKER"
+                },
+                "prerequisites": ["power-first"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              }
+            ],
+            "estimatedCosts": [
+              {
+                "resource": "paper_tokens",
+                "amount": "7"
+              }
+            ],
+            "affordability": "within_budget",
+            "expectedBenefit": "Invented outcome in the paper arena only.",
+            "limitations": [
+              "Fictional example; structural validity is not strategic accuracy."
+            ]
+          }
+        ],
+        "constraints": {
+          "budget": [
+            {
+              "resource": "paper_tokens",
+              "amount": "20"
+            }
+          ],
+          "evolutionAllowed": true
+        },
+        "requiredInputs": [
+          "fictional_identity",
+          "fictional_moves",
+          "fictional_mechanics"
+        ],
+        "missingEvidence": [],
+        "assumptions": [
+          "All facts, costs and outcomes are invented for contract tests."
+        ],
+        "limitations": [
+          "No Pokemon GO facts or performance conclusions are represented."
+        ],
+        "provenance": {
+          "evaluated": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-1",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          },
+          "current": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-1",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          }
+        },
+        "actionReports": []
+      }
+    },
+    {
+      "id": "missing-evidence",
+      "assessment": {
+        "contractVersion": "utility-1",
+        "pokemonId": "a1111111-1111-4111-8111-111111111111",
+        "goal": {
+          "id": "folio-trial",
+          "role": "ATTACKER",
+          "contextId": "paper-arena",
+          "description": "Fictional folio trial in the invented paper arena."
+        },
+        "currentUsefulness": "Fictional individual needs preparation for its selected paper-arena goal.",
+        "currentRoles": null,
+        "potentialRoles": null,
+        "unsupportedRoles": ["GYM DEF", "ROCKET", "PVP 1500", "PVP 2500"],
+        "validity": "blocked",
+        "validityReasons": [
+          "Fictional identity, moves and mechanics are missing."
+        ],
+        "suggestedAction": null,
+        "suggestedSummaryTag": null,
+        "selectedPathId": "wait",
+        "paths": [
+          {
+            "id": "wait",
+            "pokemonId": "a1111111-1111-4111-8111-111111111111",
+            "goalId": "folio-trial",
+            "kind": "wait",
+            "steps": [
+              {
+                "id": "wait-evidence",
+                "required": true,
+                "action": {
+                  "kind": "collect_evidence",
+                  "fields": [
+                    "fictional_identity",
+                    "fictional_moves",
+                    "fictional_mechanics"
+                  ]
+                },
+                "prerequisites": [],
+                "conditions": null,
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              }
+            ],
+            "estimatedCosts": null,
+            "affordability": "unknown",
+            "expectedBenefit": "Invented outcome in the paper arena only.",
+            "limitations": [
+              "Fictional example; structural validity is not strategic accuracy."
+            ]
+          }
+        ],
+        "constraints": {
+          "budget": null,
+          "evolutionAllowed": null
+        },
+        "requiredInputs": [
+          "fictional_identity",
+          "fictional_moves",
+          "fictional_mechanics"
+        ],
+        "missingEvidence": [
+          "fictional_identity",
+          "fictional_moves",
+          "fictional_mechanics"
+        ],
+        "assumptions": [
+          "All facts, costs and outcomes are invented for contract tests."
+        ],
+        "limitations": [
+          "No Pokemon GO facts or performance conclusions are represented."
+        ],
+        "provenance": {
+          "evaluated": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": null,
+            "model": {
+              "mode": "deterministic_only"
+            }
+          },
+          "current": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": null,
+            "model": {
+              "mode": "deterministic_only"
+            }
+          }
+        },
+        "actionReports": []
+      }
+    },
+    {
+      "id": "zero-budget",
+      "assessment": {
+        "contractVersion": "utility-1",
+        "pokemonId": "a1111111-1111-4111-8111-111111111111",
+        "goal": {
+          "id": "folio-trial",
+          "role": "ATTACKER",
+          "contextId": "paper-arena",
+          "description": "Fictional folio trial in the invented paper arena."
+        },
+        "currentUsefulness": "Fictional individual can be used now in the invented paper arena.",
+        "currentRoles": [
+          {
+            "role": "ATTACKER",
+            "contextId": "paper-arena",
+            "readiness": "usable_now",
+            "explanation": "Fictional contract example only; no game suitability claim."
+          }
+        ],
+        "potentialRoles": [
+          {
+            "role": "ATTACKER",
+            "contextId": "paper-arena",
+            "readiness": "preparation_required",
+            "explanation": "Fictional contract example only; no game suitability claim."
+          }
+        ],
+        "unsupportedRoles": ["GYM DEF", "ROCKET", "PVP 1500", "PVP 2500"],
+        "validity": "current",
+        "validityReasons": [],
+        "suggestedAction": null,
+        "suggestedSummaryTag": {
+          "kind": "role",
+          "tag": "ATTACKER"
+        },
+        "selectedPathId": "use-now",
+        "paths": [
+          {
+            "id": "use-now",
+            "pokemonId": "a1111111-1111-4111-8111-111111111111",
+            "goalId": "folio-trial",
+            "kind": "use_now",
+            "steps": [
+              {
+                "id": "now-use",
+                "required": true,
+                "action": {
+                  "kind": "use_role",
+                  "role": "ATTACKER"
+                },
+                "prerequisites": [],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              }
+            ],
+            "estimatedCosts": [],
+            "affordability": "within_budget",
+            "expectedBenefit": "Invented outcome in the paper arena only.",
+            "limitations": [
+              "Fictional example; structural validity is not strategic accuracy."
+            ]
+          },
+          {
+            "id": "improve",
+            "pokemonId": "a1111111-1111-4111-8111-111111111111",
+            "goalId": "folio-trial",
+            "kind": "prepare",
+            "steps": [
+              {
+                "id": "improve-power",
+                "required": false,
+                "action": {
+                  "kind": "power_up",
+                  "target": {
+                    "minimum": 1.5,
+                    "maximum": 2,
+                    "unit": "fictional_fold_units",
+                    "contextId": "paper-arena",
+                    "rationale": "Invented range for shape tests only, not a game calculation."
+                  }
+                },
+                "prerequisites": [],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "improve-use",
+                "required": true,
+                "action": {
+                  "kind": "use_role",
+                  "role": "ATTACKER"
+                },
+                "prerequisites": ["improve-power"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              }
+            ],
+            "estimatedCosts": [
+              {
+                "resource": "paper_tokens",
+                "amount": "9"
+              }
+            ],
+            "affordability": "over_budget",
+            "expectedBenefit": "Invented outcome in the paper arena only.",
+            "limitations": [
+              "Fictional example; structural validity is not strategic accuracy."
+            ]
+          }
+        ],
+        "constraints": {
+          "budget": [
+            {
+              "resource": "paper_tokens",
+              "amount": "0"
+            }
+          ],
+          "evolutionAllowed": true
+        },
+        "requiredInputs": [
+          "fictional_identity",
+          "fictional_moves",
+          "fictional_mechanics"
+        ],
+        "missingEvidence": [],
+        "assumptions": [
+          "All facts, costs and outcomes are invented for contract tests."
+        ],
+        "limitations": [
+          "No Pokemon GO facts or performance conclusions are represented."
+        ],
+        "provenance": {
+          "evaluated": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          },
+          "current": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          }
+        },
+        "actionReports": []
+      }
+    },
+    {
+      "id": "unknown-budget",
+      "assessment": {
+        "contractVersion": "utility-1",
+        "pokemonId": "a1111111-1111-4111-8111-111111111111",
+        "goal": {
+          "id": "folio-trial",
+          "role": "ATTACKER",
+          "contextId": "paper-arena",
+          "description": "Fictional folio trial in the invented paper arena."
+        },
+        "currentUsefulness": "Fictional individual needs preparation for its selected paper-arena goal.",
+        "currentRoles": [],
+        "potentialRoles": [
+          {
+            "role": "ATTACKER",
+            "contextId": "paper-arena",
+            "readiness": "preparation_required",
+            "explanation": "Fictional contract example only; no game suitability claim."
+          }
+        ],
+        "unsupportedRoles": ["GYM DEF", "ROCKET", "PVP 1500", "PVP 2500"],
+        "validity": "blocked",
+        "validityReasons": [
+          "Fictional costs and available paper-token budget are unknown."
+        ],
+        "suggestedAction": null,
+        "suggestedSummaryTag": null,
+        "selectedPathId": "prepare",
+        "paths": [
+          {
+            "id": "prepare",
+            "pokemonId": "a1111111-1111-4111-8111-111111111111",
+            "goalId": "folio-trial",
+            "kind": "prepare",
+            "steps": [
+              {
+                "id": "power-first",
+                "required": true,
+                "action": {
+                  "kind": "power_up",
+                  "target": {
+                    "minimum": 1.5,
+                    "maximum": 2,
+                    "unit": "fictional_fold_units",
+                    "contextId": "paper-arena",
+                    "rationale": "Invented range for shape tests only, not a game calculation."
+                  }
+                },
+                "prerequisites": [],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "power-use",
+                "required": true,
+                "action": {
+                  "kind": "use_role",
+                  "role": "ATTACKER"
+                },
+                "prerequisites": ["power-first"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              }
+            ],
+            "estimatedCosts": [
+              {
+                "resource": "paper_tokens",
+                "amount": null
+              }
+            ],
+            "affordability": "unknown",
+            "expectedBenefit": "Invented outcome in the paper arena only.",
+            "limitations": [
+              "Fictional example; structural validity is not strategic accuracy."
+            ]
+          }
+        ],
+        "constraints": {
+          "budget": [
+            {
+              "resource": "paper_tokens",
+              "amount": null
+            }
+          ],
+          "evolutionAllowed": true
+        },
+        "requiredInputs": [
+          "fictional_identity",
+          "fictional_moves",
+          "fictional_mechanics"
+        ],
+        "missingEvidence": [],
+        "assumptions": [
+          "All facts, costs and outcomes are invented for contract tests."
+        ],
+        "limitations": [
+          "No Pokemon GO facts or performance conclusions are represented."
+        ],
+        "provenance": {
+          "evaluated": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-1",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          },
+          "current": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-1",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          }
+        },
+        "actionReports": []
+      }
+    },
+    {
+      "id": "protection-conflict",
+      "assessment": {
+        "contractVersion": "utility-1",
+        "pokemonId": "a1111111-1111-4111-8111-111111111111",
+        "goal": {
+          "id": "folio-trial",
+          "role": "ATTACKER",
+          "contextId": "paper-arena",
+          "description": "Fictional folio trial in the invented paper arena."
+        },
+        "currentUsefulness": "Fictional individual needs preparation for its selected paper-arena goal.",
+        "currentRoles": [],
+        "potentialRoles": [
+          {
+            "role": "ATTACKER",
+            "contextId": "paper-arena",
+            "readiness": "preparation_required",
+            "explanation": "Fictional contract example only; no game suitability claim."
+          }
+        ],
+        "unsupportedRoles": ["GYM DEF", "ROCKET", "PVP 1500", "PVP 2500"],
+        "validity": "blocked",
+        "validityReasons": [
+          "The user has not permitted an irreversible change of this fictional individual."
+        ],
+        "suggestedAction": null,
+        "suggestedSummaryTag": null,
+        "selectedPathId": "prepare",
+        "paths": [
+          {
+            "id": "prepare",
+            "pokemonId": "a1111111-1111-4111-8111-111111111111",
+            "goalId": "folio-trial",
+            "kind": "prepare",
+            "steps": [
+              {
+                "id": "prepare-evolve",
+                "required": true,
+                "action": {
+                  "kind": "evolve",
+                  "target": {
+                    "datasetId": "fictional-folio",
+                    "speciesId": "foldling",
+                    "formId": "foldwing"
+                  }
+                },
+                "prerequisites": [],
+                "conditions": [
+                  {
+                    "description": "Fictional fold eligibility has been explicitly supplied.",
+                    "state": "satisfied"
+                  }
+                ],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "prepare-moves",
+                "required": true,
+                "action": {
+                  "kind": "change_moves",
+                  "moves": ["Paper Whisper"]
+                },
+                "prerequisites": ["prepare-evolve"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "prepare-power",
+                "required": true,
+                "action": {
+                  "kind": "power_up",
+                  "target": {
+                    "minimum": 1.5,
+                    "maximum": 2,
+                    "unit": "fictional_fold_units",
+                    "contextId": "paper-arena",
+                    "rationale": "Invented range for shape tests only, not a game calculation."
+                  }
+                },
+                "prerequisites": ["prepare-moves"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "prepare-use",
+                "required": true,
+                "action": {
+                  "kind": "use_role",
+                  "role": "ATTACKER"
+                },
+                "prerequisites": ["prepare-power"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              }
+            ],
+            "estimatedCosts": [
+              {
+                "resource": "paper_tokens",
+                "amount": "12"
+              }
+            ],
+            "affordability": "within_budget",
+            "expectedBenefit": "Invented outcome in the paper arena only.",
+            "limitations": [
+              "Fictional example; structural validity is not strategic accuracy."
+            ]
+          }
+        ],
+        "constraints": {
+          "budget": [
+            {
+              "resource": "paper_tokens",
+              "amount": "20"
+            }
+          ],
+          "evolutionAllowed": false
+        },
+        "requiredInputs": [
+          "fictional_identity",
+          "fictional_moves",
+          "fictional_mechanics"
+        ],
+        "missingEvidence": [],
+        "assumptions": [
+          "All facts, costs and outcomes are invented for contract tests."
+        ],
+        "limitations": [
+          "No Pokemon GO facts or performance conclusions are represented."
+        ],
+        "provenance": {
+          "evaluated": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-1",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          },
+          "current": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-1",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          }
+        },
+        "actionReports": []
+      }
+    },
+    {
+      "id": "stale-context-report",
+      "assessment": {
+        "contractVersion": "utility-1",
+        "pokemonId": "a1111111-1111-4111-8111-111111111111",
+        "goal": {
+          "id": "folio-trial",
+          "role": "ATTACKER",
+          "contextId": "paper-arena",
+          "description": "Fictional folio trial in the invented paper arena."
+        },
+        "currentUsefulness": "Fictional individual needs preparation for its selected paper-arena goal.",
+        "currentRoles": [],
+        "potentialRoles": [
+          {
+            "role": "ATTACKER",
+            "contextId": "paper-arena",
+            "readiness": "preparation_required",
+            "explanation": "Fictional contract example only; no game suitability claim."
+          }
+        ],
+        "unsupportedRoles": ["GYM DEF", "ROCKET", "PVP 1500", "PVP 2500"],
+        "validity": "stale",
+        "validityReasons": [
+          "Observation revision and fictional rules/data version changed after this historical report."
+        ],
+        "suggestedAction": null,
+        "suggestedSummaryTag": null,
+        "selectedPathId": "prepare",
+        "paths": [
+          {
+            "id": "prepare",
+            "pokemonId": "a1111111-1111-4111-8111-111111111111",
+            "goalId": "folio-trial",
+            "kind": "prepare",
+            "steps": [
+              {
+                "id": "prepare-evolve",
+                "required": true,
+                "action": {
+                  "kind": "evolve",
+                  "target": {
+                    "datasetId": "fictional-folio",
+                    "speciesId": "foldling",
+                    "formId": "foldwing"
+                  }
+                },
+                "prerequisites": [],
+                "conditions": [
+                  {
+                    "description": "Fictional fold eligibility has been explicitly supplied.",
+                    "state": "satisfied"
+                  }
+                ],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "prepare-moves",
+                "required": true,
+                "action": {
+                  "kind": "change_moves",
+                  "moves": ["Paper Whisper"]
+                },
+                "prerequisites": ["prepare-evolve"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "prepare-power",
+                "required": true,
+                "action": {
+                  "kind": "power_up",
+                  "target": {
+                    "minimum": 1.5,
+                    "maximum": 2,
+                    "unit": "fictional_fold_units",
+                    "contextId": "paper-arena",
+                    "rationale": "Invented range for shape tests only, not a game calculation."
+                  }
+                },
+                "prerequisites": ["prepare-moves"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "prepare-use",
+                "required": true,
+                "action": {
+                  "kind": "use_role",
+                  "role": "ATTACKER"
+                },
+                "prerequisites": ["prepare-power"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              }
+            ],
+            "estimatedCosts": [
+              {
+                "resource": "paper_tokens",
+                "amount": "12"
+              }
+            ],
+            "affordability": "within_budget",
+            "expectedBenefit": "Invented outcome in the paper arena only.",
+            "limitations": [
+              "Fictional example; structural validity is not strategic accuracy."
+            ]
+          }
+        ],
+        "constraints": {
+          "budget": [
+            {
+              "resource": "paper_tokens",
+              "amount": "20"
+            }
+          ],
+          "evolutionAllowed": true
+        },
+        "requiredInputs": [
+          "fictional_identity",
+          "fictional_moves",
+          "fictional_mechanics"
+        ],
+        "missingEvidence": [],
+        "assumptions": [
+          "All facts, costs and outcomes are invented for contract tests."
+        ],
+        "limitations": [
+          "No Pokemon GO facts or performance conclusions are represented."
+        ],
+        "provenance": {
+          "evaluated": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-1",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          },
+          "current": {
+            "observationRevision": "9007199254740994",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-2",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-2",
+                "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          }
+        },
+        "actionReports": [
+          {
+            "pathId": "prepare",
+            "stepId": "prepare-evolve",
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "required-move-change",
+      "assessment": {
+        "contractVersion": "utility-1",
+        "pokemonId": "a1111111-1111-4111-8111-111111111111",
+        "goal": {
+          "id": "folio-trial",
+          "role": "ATTACKER",
+          "contextId": "paper-arena",
+          "description": "Fictional folio trial in the invented paper arena."
+        },
+        "currentUsefulness": "Fictional individual needs preparation for its selected paper-arena goal.",
+        "currentRoles": [],
+        "potentialRoles": [
+          {
+            "role": "ATTACKER",
+            "contextId": "paper-arena",
+            "readiness": "preparation_required",
+            "explanation": "Fictional contract example only; no game suitability claim."
+          }
+        ],
+        "unsupportedRoles": ["GYM DEF", "ROCKET", "PVP 1500", "PVP 2500"],
+        "validity": "current",
+        "validityReasons": [],
+        "suggestedAction": {
+          "pathId": "prepare",
+          "stepId": "move-first",
+          "kind": "change_moves"
+        },
+        "suggestedSummaryTag": null,
+        "selectedPathId": "prepare",
+        "paths": [
+          {
+            "id": "prepare",
+            "pokemonId": "a1111111-1111-4111-8111-111111111111",
+            "goalId": "folio-trial",
+            "kind": "prepare",
+            "steps": [
+              {
+                "id": "move-first",
+                "required": true,
+                "action": {
+                  "kind": "change_moves",
+                  "moves": ["Paper Whisper", "Origami Pulse"]
+                },
+                "prerequisites": [],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              },
+              {
+                "id": "move-use",
+                "required": true,
+                "action": {
+                  "kind": "use_role",
+                  "role": "ATTACKER"
+                },
+                "prerequisites": ["move-first"],
+                "conditions": [],
+                "explanation": "Fictional preparation or use instruction; not an in-game recommendation."
+              }
+            ],
+            "estimatedCosts": [
+              {
+                "resource": "paper_tokens",
+                "amount": "9007199254740993"
+              }
+            ],
+            "affordability": "within_budget",
+            "expectedBenefit": "Invented outcome in the paper arena only.",
+            "limitations": [
+              "Fictional example; structural validity is not strategic accuracy."
+            ]
+          }
+        ],
+        "constraints": {
+          "budget": [
+            {
+              "resource": "paper_tokens",
+              "amount": "9223372036854775807"
+            }
+          ],
+          "evolutionAllowed": true
+        },
+        "requiredInputs": [
+          "fictional_identity",
+          "fictional_moves",
+          "fictional_mechanics"
+        ],
+        "missingEvidence": [],
+        "assumptions": [
+          "All facts, costs and outcomes are invented for contract tests."
+        ],
+        "limitations": [
+          "No Pokemon GO facts or performance conclusions are represented."
+        ],
+        "provenance": {
+          "evaluated": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-1",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          },
+          "current": {
+            "observationRevision": "9007199254740993",
+            "constraintRevision": "0",
+            "rulesetVersion": "fictional-rules-1",
+            "datasets": [
+              {
+                "datasetId": "fictional-folio",
+                "version": "fictional-1",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "model": {
+              "mode": "deterministic_only"
+            }
+          }
+        },
+        "actionReports": []
+      }
+    }
+  ]
+}
