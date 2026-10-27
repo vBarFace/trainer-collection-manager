@@ -18,7 +18,7 @@ These are local issue proposals, not created GitHub issues. S1–S7 are small de
 
 ### S1 — Lock the first utility contract with fictional scenarios
 
-**Implemented S1 contracts only (2026-10-27):** isolated Rust/TypeScript `utility-1` types, bounded pure native validation and nine shared original fictional acceptance cases. No production command, inventory DTO, planner, persistence, progress command, UI or ML uses them. See [implemented wire contract and limits](utility-contracts.md) and [validation](validation.md). The scope/acceptance description below is retained from Task 008; S2 remains the next delivery increment.
+**Implemented S1 contracts only (2026-10-27):** isolated Rust/TypeScript `utility-1` types, bounded pure native validation and nine shared original fictional acceptance cases. No production command, inventory DTO, planner, persistence, progress command, UI or ML uses them. See [implemented wire contract and limits](utility-contracts.md) and [validation](validation.md). The scope/acceptance description below is retained from Task 008; S2.1 subsequently implements observation infrastructure without consuming these contracts.
 
 Dependencies: Task 008 specification. **Original planned scope, now delivered.** Define typed native/renderer strategic DTOs and a contract test matrix for one selected goal per UUID: current/potential roles, readiness, nullable next-action/summary tag, short alternative paths, conditional prerequisites and provenance. Keep the contracts disconnected from production evaluation and persistence; use only original fictional cases matching PRD scenarios A–E.
 
@@ -26,11 +26,25 @@ Acceptance: serialization/validation tests distinguish role/action kinds and unk
 
 ### S2 — Confirm the minimum individual and goal inputs
 
-**Recommended next bounded implementation task:** start with saved CP correction and a separate strategic observation revision. Reuse the narrow expected-value correction pattern; test unknown/positive CP, no-op/conflict handling, revision change/revert, UUID/tag preservation and unchanged `appraisal-1` lifecycle. Do not add a planner or roadmap storage in that follow-up. Remaining S2 inputs can follow in separate reviewed slices.
+**S2 remains in progress.** S2.1 implements saved CP correction and a separate persisted strategic observation revision, as detailed below. Remaining S2 inputs follow in separate reviewed slices; no planner or roadmap storage is delivered.
 
-Dependencies: S1; a field/units contract for the bounded attacker goal. Add only applicable confirmed moves/second-attack state, level/evidence, individual properties, saved CP correction, goal, budget and protections; allow explicit unknowns. Implement native-owned strategic/constraint revisions with expected-value/revision correction and minimal confirmation UI. Any migration is separately reviewed and preserves migrations 1–5.
+Dependencies: S1; a field/units contract for the bounded attacker goal. Add only applicable confirmed moves/second-attack state, level/evidence, individual properties, goal, budget and protection/transfer constraints; allow explicit unknowns. Saved CP correction and strategic observation revision are S2.1. Add goal/resource/protection revisions only alongside the concepts they track. Any later migration preserves migrations 1–6.
 
 Acceptance: actual changes, no-ops, same-second change/revert, concurrent drafts, unknown groups and restart behave as specified; resulting evolution observations remain on the same UUID. No stale pre-action values survive as confirmed new observations. Existing UUIDs/tags and independent appraisal invalidation are preserved; no game or screenshot evidence is fabricated.
+
+#### S2.1 — Saved CP correction and strategic observation revision
+
+**Complete (2026-10-27; see [executed validation](validation.md#s21-saved-cp-and-strategic-observation-revision-validation)).** Implemented scope: explicit positive/unknown CP correction for a selected UUID, native-confirmed results, confirmation/cancellation, duplicate-submit prevention, retained drafts after recoverable errors and mandatory reload after conflict. CP and revision use lossless decimal strings. Migration 6 establishes revision 0 for old/new records; native triggers advance it on actual CP, IV or confirmed identity query changes across supported writes, independently of appraisal revision. No-ops, labels, tags, appraisal runs and dataset/provenance changes alone preserve it. Expected CP plus expected revision reject stale CP drafts, including change/revert; overflow fails atomically. Appraisal and all unrelated individual data remain preserved.
+
+Only S2.1 is implemented. Remaining S2 work includes confirmed moves and second-attack state, level and supporting evidence, individual properties, selected player goals, available resources/budgets, protection and transfer constraints, and their narrowly scoped confirmation/concurrency contracts. Strategic evaluation, recommendations and action planning remain S3 onward.
+
+**Recommended next bounded increment: S2.2 — one selected player goal/context per individual.** Define a minimal explicit goal contract for one bounded attacker context, including unknown/unselected state, native persistence and expected-revision confirmation. This establishes which subsequent observations and resource constraints are actually required before expanding the schema. It needs no real game dataset, combat scoring or recommendation output. Goal/constraint revision should be introduced only with its concrete persisted inputs.
+
+#### Future action-driven individual lifecycle
+
+Ordinary screenshot import remains for new individuals: review/confirm creates a new UUID, without collection-wide similarity matching or silent updates. Existing-individual management starts with a selected UUID and explicit action, confirms what the user manually did in Pokémon GO, and updates that same individual while preserving confirmed lifecycle history.
+
+Separate future increments must implement confirmed evolution using validated reference evolution chains, Power Up actions, and action-specific screenshot updates associated with the selected UUID. Evolution must preserve IVs where mechanics permit and replace affected CP/moves with confirmed post-action observations or explicit unknowns; an available action never proves it occurred. These are requirements only. S2.1 adds no Evolve/Power Up controls, lifecycle event log, screenshot-update flow or game automation.
 
 ### Gate D — Authorize and validate the bounded game data/mechanics
 

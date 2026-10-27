@@ -13,6 +13,7 @@ import { emptyReview, validateReview, type ReviewFields } from "./review";
 import { extractText } from "./ocr";
 import { AppraisalPanel } from "./AppraisalPanel";
 import { ReferencePanel } from "./ReferencePanel";
+import { CpCorrectionPanel } from "./CpCorrectionPanel";
 
 interface Preview {
   url: string;
@@ -39,6 +40,7 @@ export function Inventory() {
   const [evaluationError, setEvaluationError] = useState("");
   const [savingIvs, setSavingIvs] = useState(false);
   const [savingIdentity, setSavingIdentity] = useState(false);
+  const [savingCp, setSavingCp] = useState(false);
   const recordOperation = useRef(false);
   const operation = useRef<"selecting" | "saving" | null>(null);
   const previewUrl = useRef<string | null>(null);
@@ -54,7 +56,7 @@ export function Inventory() {
     setPreview(null);
   }
 
-  async function loadInventory() {
+  async function loadInventory(retainDraftOnFailure = false) {
     const version = ++loadVersion.current;
     setLoadError("");
     try {
@@ -66,6 +68,7 @@ export function Inventory() {
         );
       }
     } catch (failure) {
+      if (retainDraftOnFailure) throw failure;
       if (mounted.current && version === loadVersion.current)
         setLoadError(
           nativeErrorMessage(failure, "Unable to load the local inventory."),
@@ -268,6 +271,34 @@ export function Inventory() {
     } finally {
       recordOperation.current = false;
       if (mounted.current) setSavingIvs(false);
+    }
+  }
+  async function saveSelectedCp(
+    expected: string | null,
+    revision: string,
+    cp: string | null,
+  ) {
+    if (!selectedId || recordOperation.current)
+      throw new Error("Inventory action already in progress");
+    recordOperation.current = true;
+    setSavingCp(true);
+    ++loadVersion.current;
+    try {
+      const record = await native.correctCp(selectedId, expected, revision, cp);
+      if (mounted.current)
+        setSnapshot((current) =>
+          current
+            ? {
+                ...current,
+                records: current.records.map((existing) =>
+                  existing.id === record.id ? record : existing,
+                ),
+              }
+            : current,
+        );
+    } finally {
+      recordOperation.current = false;
+      if (mounted.current) setSavingCp(false);
     }
   }
   async function saveSelectedIdentity(
@@ -507,7 +538,12 @@ export function Inventory() {
                   aria-controls={
                     selectedId === record.id ? "appraisal-panel" : undefined
                   }
-                  disabled={evaluating !== null || savingIvs || savingIdentity}
+                  disabled={
+                    evaluating !== null ||
+                    savingIvs ||
+                    savingIdentity ||
+                    savingCp
+                  }
                   onClick={() => {
                     setSelectedId(record.id);
                     setEvaluationError("");
@@ -528,12 +564,22 @@ export function Inventory() {
                   snapshot.records.find((record) => record.id === selectedId)!
                 }
                 busy={evaluating !== null}
-                disabled={savingIdentity}
+                disabled={savingIdentity || savingCp}
                 error={evaluationError}
                 onEvaluate={() => void evaluateSelected()}
                 onReload={() => void loadInventory()}
                 savingIvs={savingIvs}
                 onSaveIvs={saveSelectedIvs}
+              />
+              <CpCorrectionPanel
+                key={`cp-${selectedId}`}
+                record={
+                  snapshot.records.find((record) => record.id === selectedId)!
+                }
+                busy={evaluating !== null || savingIvs || savingIdentity}
+                saving={savingCp}
+                onSave={saveSelectedCp}
+                onReload={() => loadInventory(true)}
               />
               <ReferencePanel
                 key={`reference-${selectedId}`}
@@ -541,7 +587,7 @@ export function Inventory() {
                   snapshot.records.find((record) => record.id === selectedId)!
                     .reference
                 }
-                busy={evaluating !== null || savingIvs}
+                busy={evaluating !== null || savingIvs || savingCp}
                 saving={savingIdentity}
                 onSave={saveSelectedIdentity}
                 onReload={() => void loadInventory()}

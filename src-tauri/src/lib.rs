@@ -69,6 +69,24 @@ async fn evaluate_pokemon(
 }
 
 #[tauri::command]
+async fn correct_pokemon_cp(
+    state: State<'_, NativeInventory>,
+    id: String,
+    input: commands::CorrectCpInput,
+) -> Result<commands::RecordView, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        commands::correct_cp(&repository, &id, input)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
 async fn correct_pokemon_ivs(
     state: State<'_, NativeInventory>,
     id: String,
@@ -149,6 +167,7 @@ pub fn run() {
             confirm_inventory_import,
             evaluate_pokemon,
             correct_pokemon_ivs,
+            correct_pokemon_cp,
             correct_pokemon_identity,
             select_screenshot
         ])

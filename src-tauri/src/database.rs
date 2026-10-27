@@ -140,6 +140,45 @@ pub(crate) fn apply_migrations(connection: &mut Connection) -> rusqlite::Result<
             ) STRICT;",
         )
     })?;
+    apply_migration(&transaction, 6, |transaction| {
+        transaction.execute_batch(
+            "ALTER TABLE pokemon ADD COLUMN strategic_observation_revision INTEGER NOT NULL DEFAULT 0
+                CHECK (strategic_observation_revision >= 0);
+            CREATE TRIGGER pokemon_strategic_observation_changed
+                AFTER UPDATE OF cp, iv_attack, iv_defense, iv_hp ON pokemon
+                WHEN NEW.cp IS NOT OLD.cp OR NEW.iv_attack IS NOT OLD.iv_attack
+                    OR NEW.iv_defense IS NOT OLD.iv_defense OR NEW.iv_hp IS NOT OLD.iv_hp
+                BEGIN
+                    SELECT CASE WHEN OLD.strategic_observation_revision = 9223372036854775807
+                        THEN RAISE(ABORT, 'Strategic observation revision overflow') END;
+                    UPDATE pokemon SET strategic_observation_revision = OLD.strategic_observation_revision + 1
+                        WHERE id = NEW.id;
+                END;
+            CREATE TRIGGER pokemon_identity_observation_added AFTER INSERT ON pokemon_reference_identity
+                BEGIN
+                    SELECT CASE WHEN (SELECT strategic_observation_revision FROM pokemon WHERE id = NEW.pokemon_id) = 9223372036854775807
+                        THEN RAISE(ABORT, 'Strategic observation revision overflow') END;
+                    UPDATE pokemon SET strategic_observation_revision = strategic_observation_revision + 1
+                        WHERE id = NEW.pokemon_id;
+                END;
+            CREATE TRIGGER pokemon_identity_observation_changed
+                AFTER UPDATE OF species_query, form_query ON pokemon_reference_identity
+                WHEN NEW.species_query IS NOT OLD.species_query OR NEW.form_query IS NOT OLD.form_query
+                BEGIN
+                    SELECT CASE WHEN (SELECT strategic_observation_revision FROM pokemon WHERE id = NEW.pokemon_id) = 9223372036854775807
+                        THEN RAISE(ABORT, 'Strategic observation revision overflow') END;
+                    UPDATE pokemon SET strategic_observation_revision = strategic_observation_revision + 1
+                        WHERE id = NEW.pokemon_id;
+                END;
+            CREATE TRIGGER pokemon_identity_observation_removed AFTER DELETE ON pokemon_reference_identity
+                BEGIN
+                    SELECT CASE WHEN (SELECT strategic_observation_revision FROM pokemon WHERE id = OLD.pokemon_id) = 9223372036854775807
+                        THEN RAISE(ABORT, 'Strategic observation revision overflow') END;
+                    UPDATE pokemon SET strategic_observation_revision = strategic_observation_revision + 1
+                        WHERE id = OLD.pokemon_id;
+                END;",
+        )
+    })?;
     transaction.commit()
 }
 
@@ -177,7 +216,7 @@ mod tests {
         let mut connection = Connection::open_in_memory().unwrap();
         configure_connection(&connection).unwrap();
         apply_migrations(&mut connection).unwrap();
-        connection.execute_batch("DROP TABLE pokemon_reference_identity; DELETE FROM schema_migrations WHERE version = 5; CREATE TABLE pokemon_reference_identity (conflict TEXT);").unwrap();
+        connection.execute_batch("DROP TABLE pokemon_reference_identity; DELETE FROM schema_migrations WHERE version >= 5; CREATE TABLE pokemon_reference_identity (conflict TEXT);").unwrap();
         assert!(apply_migrations(&mut connection).is_err());
         assert_eq!(
             connection
@@ -231,7 +270,7 @@ mod tests {
                 .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            5
+            6
         );
         assert_eq!(
             connection
@@ -286,7 +325,7 @@ mod tests {
                 row.get(0)
             })
             .expect("migration version should be recorded");
-        assert_eq!(version, 5);
+        assert_eq!(version, 6);
         drop(connection);
 
         fs::remove_dir_all(temporary_directory).expect("temporary database should be removable");
