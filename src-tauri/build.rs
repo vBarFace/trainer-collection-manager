@@ -10,6 +10,7 @@ fn main() {
             "select_screenshot",
             "evolution_options",
             "confirm_evolution",
+            "confirm_power_up",
             "reobserve_pokemon",
             "pokemon_history",
         ]),

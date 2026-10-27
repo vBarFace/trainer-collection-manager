@@ -203,6 +203,24 @@ async fn reobserve_pokemon(
 }
 
 #[tauri::command]
+async fn confirm_power_up(
+    state: State<'_, NativeInventory>,
+    id: String,
+    input: commands::PowerUpInput,
+) -> Result<commands::RecordView, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        commands::confirm_power_up(&repository, &id, input)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
 async fn pokemon_history(
     state: State<'_, NativeInventory>,
     id: String,
@@ -242,6 +260,7 @@ pub fn run() {
             select_screenshot,
             evolution_options,
             confirm_evolution,
+            confirm_power_up,
             reobserve_pokemon,
             pokemon_history
         ])

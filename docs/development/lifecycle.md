@@ -1,4 +1,12 @@
-# Confirmed evolution and targeted screenshot review (S2.2)
+# Confirmed evolution, Power Up and targeted screenshot review (S2.2–S2.3)
+
+## Confirmed Power Up (S2.3)
+
+Choose **Power Up** in an existing individual's detail view. Enter the CP you observed after powering up in Pokémon GO, or leave it empty to keep the saved value. Review the selected UUID/species and saved/proposed CP, including the exact difference when both are known, then explicitly confirm the in-game action or cancel. No screenshot or resolved reference species is required. Empty CP preserves both known and unknown values; it never erases a known observation. Use **Correct saved CP** for ordinary corrections, including deliberate clearing. **Update from Screenshot** remains a separate existing UUID-scoped observation action and does not itself record a Power Up.
+
+`confirm_power_up(id, { requestId, expectedStrategicObservationRevision, cp, performedInGameConfirmed })` requires all fields explicitly, with `performedInGameConfirmed: true`. CP is a canonical positive signed-64-bit decimal string or null to keep. The existing immediate transaction checks the individual, request UUID and revision, updates CP only if changed and appends one `power_up` event. Before/after snapshots retain exact CP, identity and IVs, with manual provenance for supplied CP and null source when it is not supplied. The native UTC timestamp records confirmation. A failed transaction consumes neither the request ID nor the observation update. Recoverable retries retain the request UUID; conflicts, deleted individuals and previously confirmed requests require reload.
+
+The UUID, species/form, IVs, tags, nickname, creation time, appraisal and unrelated individuals are preserved. Observation revisions advance only for actual CP changes. Migration 8 extends the existing table without rewriting migrations 1–7, preserving legacy event data and ordering. Existing models have no persisted Stardust/Candy expenditure or favorites field; tags remain intact, and this increment adds neither resource inventory nor fabricated costs. No exact level, CP estimate or eligibility is inferred, and no game action is automated.
 
 ## User workflow
 
@@ -25,10 +33,10 @@ The existing strategic observation revision covers actual CP/IV/identity changes
 
 The production catalog is still `tcm-empty` / `empty-1` pending verified dataset redistribution rights. Real Pokémon evolution is unavailable until a reviewed reference release supplies those relationships. Tests use hand-authored relationship fixtures, including named Charmander → Charmeleon → Charizard identities with artificial dex identifiers and no imported statistics; these are not a shipped or licensed game dataset. The existing reviewed adapter excludes Mega relationships. Schema-1 evolution edges are a release-reviewed assertion of normal permanent evolution, not a generic transformation graph; same-species edges are additionally excluded by the native action API. Fusion, trading and temporary transformations must never be encoded as evolution edges.
 
-No spending, eligibility calculation, Power Up, recommendations, ML, additional gameplay actions, external API or cloud dependency is introduced. Screenshot extraction retains its existing bounded-layout and uncalibrated-confidence limitations. The user remains responsible for confirming the selected individual; the application cannot prove two screenshots depict the same Pokémon. History covers these two workflows, not prior corrections or every repository edit. Deleting an individual cascades its events through the existing delete contract.
+No spending, eligibility calculation, recommendations, ML, external API or cloud dependency is introduced. Screenshot extraction retains its existing bounded-layout and uncalibrated-confidence limitations. The user remains responsible for confirming the selected individual; the application cannot prove two screenshots depict the same Pokémon. History covers evolution, re-observation and Power Up, not prior corrections or every repository edit. Deleting an individual cascades its events through the existing delete contract.
 
 ## Verification and next increment
 
 See the current [validation log](validation.md). Tests cover successive evolutions retaining one UUID, branches/invalid targets/cancellation, preservation, post-evolution unknown CP, opt-in screenshot patches, missing data/species mismatch, stale and repeated requests, transaction rollback and existing imports/corrections.
 
-Suggested S2.3: one explicit selected player goal/context per individual, including unknown state and a narrowly scoped native revision. Keep moves, level, resources and mechanics expansion tied to that concrete goal; do not introduce strategic scoring or spending yet.
+Next proposed input increment: one explicit selected player goal/context per individual, including unknown state and a narrowly scoped native revision. S2.3 instead delivers the user-requested confirmed Power Up action above. Keep moves, level, resources and mechanics expansion tied to a concrete goal; do not introduce strategic scoring or spending yet.

@@ -1,3 +1,33 @@
+# S2.3 confirmed Power Up and CP updates validation
+
+Date: 2026-10-27. Base: `f404793` (verified against fetched `origin/main`). Dedicated branch: `feat/s2-3-confirmed-power-up`.
+
+## Delivered behavior and boundaries
+
+The existing individual detail view adds Power Up with optional manually entered CP, review preview, exact CP difference, explicit in-game confirmation and cancellation. Null updated CP means preserve the current observation; both unknown and known CP are retained without inference. The command updates one existing UUID and atomically records a distinct `power_up` event with before/after observations, manual CP provenance when supplied and native UTC confirmation time. It preserves identity/form, IVs, appraisal, tags, nickname and unrelated individuals. Request UUIDs reject duplicate confirmations, including history-only actions. Expected observation revisions reject stale drafts; retry preserves the request UUID.
+
+Migration 8 extends the existing checked lifecycle kinds while retaining legacy event JSON, timestamps, rowids/order, foreign keys, index and immutability. Migrations 1–7 remain unchanged. The same bounded main-window permission registers the typed command. No dependency, gameplay recommendation, level estimate, resource model, game automation or screenshot pipeline was added. Existing UUID-scoped screenshot re-observation and ordinary new-individual import retain their contracts. There is no persisted spending or favorites field; existing tags are preserved.
+
+## Executed checks
+
+- `npm run test`: passed, 122 tests across nine files, including 21 Power Up renderer/integration cases and the new native bridge case. Sandbox Vitest could not rename temporary cache files; the approved outside-sandbox run passed.
+- `npm run lint` and `npm run typecheck`: passed with the final integrated frontend.
+- Prettier check of all changed/new supported source and documentation files: passed. Final `npm run check` still stops at 66 untouched baseline files with CRLF/LF differences; all later stages were run independently. No check was weakened.
+- `npm run tauri:build`: passed, including TypeScript/Vite production build, optimized native executable and Windows NSIS installer (11.50 MiB). The sandbox attempt built the executable but could not resolve the NSIS download host; the approved outside-sandbox retry packaged successfully. The existing `.app` bundle-identifier advisory remains.
+- `git diff --check`: passed.
+
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed, 122 tests; two existing explicit-private-image tests ignored. Binary and doc-test targets passed with zero tests.
+- `npm run rust:fmt` and `npm run rust:check`: passed. Existing incremental-cache hard-link warnings use copying instead.
+- `npm run reference:test-native`: passed, two tests. The sandbox attempt encountered an `EPERM` temporary-file rename restriction; the approved outside-sandbox retry passed.
+- `npm run reference:test`: passed, eight tests.
+- The initial `npm run check` stopped at repository-wide Prettier failures. A read-only Prettier audit verified that all 77 reported tracked files differed from formatted output only in CRLF versus LF. No formatter policy or unrelated source content was changed. Changed frontend/document files are formatted separately; final integrated results are recorded above.
+
+Native coverage includes explicit/missing/invalid wire fields, precision above JavaScript's safe-integer range, successful known/unknown CP updates, null-as-keep for known and unknown values, unconfirmed/invalid/stale/missing target rejection, same-second correction/revert conflicts, replay protection and cross-action request uniqueness, UUID/metadata/unrelated-individual preservation, rollback after history failure and revision overflow, retry after rollback, persisted history after reopen and migration preservation/rollback/cascade. Existing S2.1/S2.2 tests remain in the full suite. A separate read-only native review found no actionable defects.
+
+Native GUI interaction and real Pokémon GO actions were not manually exercised. Automated renderer/native tests and a packaged build are distinct from a native runtime smoke test.
+
+---
+
 # S2.2 confirmed evolution and existing Pokémon re-observation validation
 
 Date: 2026-10-27. Base: `8fffce8bb9cb0a135d24a0094de5a430dbf5b970`. Started with a clean checkout on `main`, then created `feat/s2-2-evolution-reobservation`. No commit, push, remote PR or gameplay action was performed.

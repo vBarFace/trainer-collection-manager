@@ -714,7 +714,9 @@ export function HistoryPanel({ record }: { record: InventoryRecord }) {
               <p>
                 {event.kind === "evolution"
                   ? "Confirmed evolution"
-                  : "Updated observation"}{" "}
+                  : event.kind === "power_up"
+                    ? "Confirmed Power Up"
+                    : "Updated observation"}{" "}
                 · {event.confirmedAt} UTC
               </p>
               <p>

@@ -1506,7 +1506,7 @@ mod tests {
                 .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            7
+            8
         );
     }
 

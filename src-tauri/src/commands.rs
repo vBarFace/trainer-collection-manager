@@ -760,6 +760,48 @@ pub struct EvolutionInput {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PowerUpInput {
+    request_id: String,
+    expected_strategic_observation_revision: String,
+    #[serde(deserialize_with = "Option::<String>::deserialize")]
+    cp: Option<String>,
+    performed_in_game_confirmed: bool,
+}
+
+pub fn confirm_power_up(
+    repository: &InventoryRepository,
+    id: &str,
+    input: PowerUpInput,
+) -> Result<RecordView, CommandError> {
+    let cp = parse_cp(input.cp.as_deref())?;
+    if input
+        .cp
+        .as_ref()
+        .is_some_and(|value| cp.map(|cp| cp.to_string()).as_ref() != Some(value))
+    {
+        return Err(CommandError {
+            code: "invalid_input",
+            message:
+                "Updated CP must be a canonical positive decimal string or null to keep saved CP.",
+        });
+    }
+    Ok(repository
+        .confirm_power_up(
+            &inventory::PokemonId::parse(id)?,
+            inventory::PowerUpConfirmation {
+                request_id: &input.request_id,
+                expected_revision: parse_observation_revision(
+                    &input.expected_strategic_observation_revision,
+                )?,
+                cp,
+                performed_in_game_confirmed: input.performed_in_game_confirmed,
+            },
+        )?
+        .into())
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReobserveInput {
     request_id: String,
     expected_strategic_observation_revision: String,
@@ -859,6 +901,131 @@ pub fn history(
 mod lifecycle_contract_tests {
     use super::*;
     use serde_json::json;
+
+    fn power_up_request() -> serde_json::Value {
+        json!({"requestId":"11111111-1111-4111-8111-111111111111", "expectedStrategicObservationRevision":"0", "cp":"9007199254740993", "performedInGameConfirmed":true})
+    }
+
+    #[test]
+    fn power_up_contract_requires_explicit_fields_and_rejects_unrelated_input() {
+        let valid = power_up_request();
+        assert!(serde_json::from_value::<PowerUpInput>(valid.clone()).is_ok());
+        for field in [
+            "requestId",
+            "expectedStrategicObservationRevision",
+            "cp",
+            "performedInGameConfirmed",
+        ] {
+            let mut value = valid.clone();
+            value.as_object_mut().unwrap().remove(field);
+            assert!(
+                serde_json::from_value::<PowerUpInput>(value).is_err(),
+                "{field}"
+            );
+        }
+        for (field, value) in [
+            ("cp", json!(100)),
+            ("performedInGameConfirmed", json!("true")),
+            ("species", json!("Other")),
+            ("path", json!("private.png")),
+            ("stardust", json!(100)),
+        ] {
+            let mut input = valid.clone();
+            input[field] = value;
+            assert!(
+                serde_json::from_value::<PowerUpInput>(input).is_err(),
+                "{field}"
+            );
+        }
+    }
+
+    #[test]
+    fn power_up_command_validates_preserves_precision_and_survives_reopen() {
+        let path = std::env::temp_dir().join(format!(
+            "tcm-power-up-{}-{}.sqlite3",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let repo = InventoryRepository::open(&path).unwrap();
+        let initial = repo
+            .create(&PokemonInput {
+                display_name: "Saved".into(),
+                cp: None,
+                ivs: None,
+            })
+            .unwrap();
+        for cp in [
+            "",
+            "0",
+            "01",
+            "+1",
+            "-1",
+            "1.5",
+            " 1",
+            "9223372036854775808",
+        ] {
+            let mut input = power_up_request();
+            input["cp"] = json!(cp);
+            assert_eq!(
+                confirm_power_up(
+                    &repo,
+                    initial.id.as_str(),
+                    serde_json::from_value(input).unwrap()
+                )
+                .unwrap_err()
+                .code,
+                "invalid_input",
+                "{cp}"
+            );
+        }
+        let mut unconfirmed = power_up_request();
+        unconfirmed["performedInGameConfirmed"] = json!(false);
+        assert_eq!(
+            confirm_power_up(
+                &repo,
+                initial.id.as_str(),
+                serde_json::from_value(unconfirmed).unwrap()
+            )
+            .unwrap_err()
+            .code,
+            "invalid_input"
+        );
+        assert_eq!(repo.get(&initial.id).unwrap(), initial);
+        assert!(repo.history(&initial.id).unwrap().is_empty());
+        let input = power_up_request();
+        let after = confirm_power_up(
+            &repo,
+            initial.id.as_str(),
+            serde_json::from_value(input.clone()).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(after.id, initial.id.as_str());
+        assert_eq!(after.cp.as_deref(), Some("9007199254740993"));
+        assert_eq!(
+            confirm_power_up(
+                &repo,
+                initial.id.as_str(),
+                serde_json::from_value(input).unwrap()
+            )
+            .unwrap_err()
+            .code,
+            "already_confirmed"
+        );
+        drop(repo);
+        let repo = InventoryRepository::open(&path).unwrap();
+        assert_eq!(repo.get(&initial.id).unwrap().cp, Some(9007199254740993));
+        let event = repo.history(&initial.id).unwrap().remove(0);
+        assert_eq!(event.before.cp, None);
+        assert_eq!(event.after.cp, after.cp);
+        assert_eq!(event.kind, "power_up");
+        assert!(!event.confirmed_at.is_empty());
+        assert_eq!(repo.list().unwrap().len(), 1);
+        drop(repo);
+        std::fs::remove_file(path).unwrap();
+    }
 
     fn reobservation() -> serde_json::Value {
         json!({"requestId":"11111111-1111-4111-8111-111111111111", "expectedStrategicObservationRevision":"0", "cp":{"value":"9007199254740993","source":"screenshot"},"ivs":null,"observedIdentity":null,"sameIndividualConfirmed":true})

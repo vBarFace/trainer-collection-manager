@@ -5,6 +5,214 @@ const FIRST: &str = "11111111-1111-4111-8111-111111111111";
 const SECOND: &str = "22222222-2222-4222-8222-222222222222";
 const THIRD: &str = "33333333-3333-4333-8333-333333333333";
 
+fn power_up<'a>(
+    pokemon: &Pokemon,
+    request_id: &'a str,
+    cp: Option<i64>,
+) -> PowerUpConfirmation<'a> {
+    PowerUpConfirmation {
+        request_id,
+        expected_revision: pokemon.strategic_observation_revision,
+        cp,
+        performed_in_game_confirmed: true,
+    }
+}
+
+#[test]
+fn confirmed_power_up_changes_only_cp_and_preserves_individual_metadata() {
+    let repo = repository();
+    let initial = saved(&repo);
+    let (initial, tags) = repo.evaluate(&initial.id).unwrap();
+    let other = saved(&repo);
+    let (after, after_tags) = repo
+        .confirm_power_up(&initial.id, power_up(&initial, FIRST, Some(i64::MAX)))
+        .unwrap();
+    let mut expected = initial.clone();
+    expected.cp = Some(i64::MAX);
+    expected.strategic_observation_revision += 1;
+    expected.updated_at = after.updated_at.clone();
+    assert_eq!(after, expected);
+    assert_eq!(after_tags, tags);
+    assert_eq!(repo.get(&other.id).unwrap(), other);
+    assert!(repo.history(&other.id).unwrap().is_empty());
+    assert_eq!(repo.list().unwrap().len(), 2);
+    let event = repo.history(&initial.id).unwrap().remove(0);
+    assert_eq!(event.kind, "power_up");
+    assert_eq!(event.request_id, FIRST);
+    assert_eq!(event.pokemon_id, initial.id.as_str());
+    assert_eq!(event.before.cp.as_deref(), Some("9007199254740993"));
+    assert_eq!(event.after.cp.as_deref(), Some("9223372036854775807"));
+    assert_eq!(event.before.identity, event.after.identity);
+    assert_eq!(event.before.ivs, event.after.ivs);
+    assert!(matches!(event.cp_source, Some(ObservationSource::Manual)));
+    assert!(event.ivs_source.is_none());
+    assert!(event.same_individual_confirmed);
+    assert!(!event.confirmed_at.is_empty());
+    assert_eq!(event.dataset_version, initial.reference.dataset.version);
+}
+
+#[test]
+fn power_up_without_new_cp_keeps_known_and_unknown_observations_and_rejects_replay() {
+    for cp in [None, Some(123)] {
+        let repo = repository();
+        let initial = repo
+            .create(&PokemonInput {
+                display_name: "Saved".into(),
+                cp,
+                ivs: None,
+            })
+            .unwrap();
+        let (after, _) = repo
+            .confirm_power_up(&initial.id, power_up(&initial, FIRST, None))
+            .unwrap();
+        assert_eq!(after, initial);
+        let event = repo.history(&initial.id).unwrap().remove(0);
+        assert_eq!(event.before.cp, cp.map(|cp| cp.to_string()));
+        assert_eq!(event.after.cp, event.before.cp);
+        assert!(event.cp_source.is_none());
+        assert!(matches!(
+            repo.confirm_power_up(&initial.id, power_up(&initial, FIRST, None)),
+            Err(Error::AlreadyConfirmed)
+        ));
+        assert_eq!(repo.history(&initial.id).unwrap().len(), 1);
+        assert_eq!(repo.list().unwrap().len(), 1);
+    }
+}
+
+#[test]
+fn unconfirmed_invalid_stale_and_missing_power_ups_never_write() {
+    let repo = repository();
+    let initial = saved(&repo);
+    let mut cancelled = power_up(&initial, FIRST, Some(140));
+    cancelled.performed_in_game_confirmed = false;
+    assert!(matches!(
+        repo.confirm_power_up(&initial.id, cancelled),
+        Err(Error::InvalidInput(_))
+    ));
+    for cp in [0, -1] {
+        assert!(matches!(
+            repo.confirm_power_up(&initial.id, power_up(&initial, FIRST, Some(cp))),
+            Err(Error::InvalidInput(_))
+        ));
+    }
+    assert!(matches!(
+        repo.confirm_power_up(&initial.id, power_up(&initial, "invalid", None)),
+        Err(Error::InvalidInput(_))
+    ));
+    let mut stale = power_up(&initial, FIRST, Some(140));
+    stale.expected_revision -= 1;
+    assert!(matches!(
+        repo.confirm_power_up(&initial.id, stale),
+        Err(Error::ObservationConflict)
+    ));
+    assert!(matches!(
+        repo.confirm_power_up(
+            &PokemonId::parse(SECOND).unwrap(),
+            power_up(&initial, FIRST, None)
+        ),
+        Err(Error::NotFound(_))
+    ));
+    assert_eq!(repo.get(&initial.id).unwrap(), initial);
+    assert!(repo.history(&initial.id).unwrap().is_empty());
+    // A manual correction and revert still invalidate a pending Power Up.
+    let changed = repo
+        .correct_cp(
+            &initial.id,
+            initial.cp,
+            initial.strategic_observation_revision,
+            Some(100),
+        )
+        .unwrap()
+        .0;
+    repo.correct_cp(
+        &initial.id,
+        changed.cp,
+        changed.strategic_observation_revision,
+        initial.cp,
+    )
+    .unwrap();
+    assert!(matches!(
+        repo.confirm_power_up(&initial.id, power_up(&initial, FIRST, None)),
+        Err(Error::ObservationConflict)
+    ));
+    assert!(repo.history(&initial.id).unwrap().is_empty());
+}
+
+#[test]
+fn power_up_rolls_back_cp_revision_and_history_on_insert_failure_or_overflow() {
+    let repo = repository();
+    let initial = saved(&repo);
+    repo.connection.execute_batch("CREATE TRIGGER fail_event BEFORE INSERT ON pokemon_lifecycle_events BEGIN SELECT RAISE(ABORT, 'test failure'); END;").unwrap();
+    assert!(repo
+        .confirm_power_up(&initial.id, power_up(&initial, FIRST, Some(300)))
+        .is_err());
+    assert_eq!(repo.get(&initial.id).unwrap(), initial);
+    assert!(repo.history(&initial.id).unwrap().is_empty());
+    repo.connection
+        .execute_batch("DROP TRIGGER fail_event;")
+        .unwrap();
+    repo.connection
+        .execute(
+            "UPDATE pokemon SET strategic_observation_revision = ?2 WHERE id = ?1",
+            params![initial.id.as_str(), i64::MAX],
+        )
+        .unwrap();
+    let exhausted = repo.get(&initial.id).unwrap();
+    assert!(repo
+        .confirm_power_up(&initial.id, power_up(&exhausted, FIRST, Some(300)))
+        .is_err());
+    assert_eq!(repo.get(&initial.id).unwrap(), exhausted);
+    assert!(repo.history(&initial.id).unwrap().is_empty());
+    // A failed transaction does not consume the request; history-only confirmation still works.
+    repo.confirm_power_up(&initial.id, power_up(&exhausted, FIRST, None))
+        .unwrap();
+    assert_eq!(repo.history(&initial.id).unwrap().len(), 1);
+}
+
+#[test]
+fn corrections_evolution_reobservation_and_power_up_share_consistent_history() {
+    let repo = repository();
+    let initial = saved(&repo);
+    let corrected = repo
+        .correct_cp(
+            &initial.id,
+            initial.cp,
+            initial.strategic_observation_revision,
+            Some(123),
+        )
+        .unwrap()
+        .0;
+    assert!(repo.history(&initial.id).unwrap().is_empty());
+    let evolved = evolve(&repo, &corrected, FIRST, "charmeleon-normal")
+        .unwrap()
+        .0;
+    let powered = repo
+        .confirm_power_up(&initial.id, power_up(&evolved, SECOND, Some(456)))
+        .unwrap()
+        .0;
+    assert!(matches!(
+        repo.reobserve(&initial.id, observation(&powered, SECOND)),
+        Err(Error::AlreadyConfirmed)
+    ));
+    let observed = repo
+        .reobserve(&initial.id, observation(&powered, THIRD))
+        .unwrap()
+        .0;
+    assert_eq!(observed.id, initial.id);
+    let history = repo.history(&initial.id).unwrap();
+    assert_eq!(
+        history
+            .iter()
+            .map(|event| event.kind.as_str())
+            .collect::<Vec<_>>(),
+        vec!["reobservation", "power_up", "evolution"]
+    );
+    assert_eq!(history[1].before.cp, None);
+    assert_eq!(history[1].after.cp.as_deref(), Some("456"));
+    assert_eq!(history[0].before.cp, history[1].after.cp);
+    assert_eq!(repo.list().unwrap().len(), 1);
+}
+
 fn repository() -> InventoryRepository {
     let mut connection = Connection::open_in_memory().unwrap();
     database::configure_connection(&connection).unwrap();

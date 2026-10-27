@@ -15,6 +15,7 @@ import { extractText } from "./ocr";
 import { AppraisalPanel } from "./AppraisalPanel";
 import { ReferencePanel } from "./ReferencePanel";
 import { CpCorrectionPanel } from "./CpCorrectionPanel";
+import { PowerUpPanel } from "./PowerUpPanel";
 import {
   EvolutionPanel,
   ReobservationPanel,
@@ -48,7 +49,7 @@ export function Inventory() {
   const [savingIdentity, setSavingIdentity] = useState(false);
   const [savingCp, setSavingCp] = useState(false);
   const [lifecycleAction, setLifecycleAction] = useState<
-    "evolution" | "screenshot" | null
+    "evolution" | "screenshot" | "power_up" | null
   >(null);
   const recordOperation = useRef(false);
   const operation = useRef<"selecting" | "saving" | null>(null);
@@ -635,11 +636,33 @@ export function Inventory() {
                   savingIvs ||
                   savingIdentity ||
                   savingCp ||
-                  lifecycleAction === "screenshot"
+                  lifecycleAction === "screenshot" ||
+                  lifecycleAction === "power_up"
                 }
                 onCommit={commitLifecycle}
                 onActiveChange={(active) =>
                   setLifecycleAction(active ? "evolution" : null)
+                }
+                onReload={() => loadInventory(true)}
+              />
+              <PowerUpPanel
+                key={"power-up-" + selectedId}
+                record={
+                  snapshot.records.find((record) => record.id === selectedId)!
+                }
+                busy={
+                  busy ||
+                  preview !== null ||
+                  evaluating !== null ||
+                  savingIvs ||
+                  savingIdentity ||
+                  savingCp ||
+                  lifecycleAction === "evolution" ||
+                  lifecycleAction === "screenshot"
+                }
+                onCommit={commitLifecycle}
+                onActiveChange={(active) =>
+                  setLifecycleAction(active ? "power_up" : null)
                 }
                 onReload={() => loadInventory(true)}
               />
@@ -655,7 +678,8 @@ export function Inventory() {
                   savingIvs ||
                   savingIdentity ||
                   savingCp ||
-                  lifecycleAction === "evolution"
+                  lifecycleAction === "evolution" ||
+                  lifecycleAction === "power_up"
                 }
                 onCommit={commitLifecycle}
                 onActiveChange={(active) =>
