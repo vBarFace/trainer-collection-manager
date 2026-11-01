@@ -8,6 +8,11 @@ are bundled or redistributed. See [actual field coverage and file formats](docs/
 This local-import boundary supersedes the bundled-empty-only behavior described
 in older milestones below. Original code remains MIT; game-data rights are separate.
 
+Batch import supports up to 500 selected images, sequential local extraction,
+explicit grouping and individual confirmation. Inventory now has search, filters,
+same-form duplicate counts, optional manual observations and explicit protection,
+favorite and tag controls. See [the actual supported workflow and OCR limits](docs/development/mvp-import-and-inventory.md).
+
 An open-source, offline-first Windows desktop foundation for Pokémon GO collection management. This project is independent and is not affiliated with or endorsed by Pokémon or Niantic.
 
 ## What works today

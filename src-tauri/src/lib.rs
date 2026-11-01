@@ -1,7 +1,9 @@
+mod batch;
 mod commands;
 mod database;
 pub mod evaluation;
 mod extraction;
+pub mod individual_details;
 pub mod inventory;
 mod ocr_regions;
 pub mod reference;
@@ -310,11 +312,18 @@ async fn import_reference(
             .query_row("SELECT date('now')", [], |r| r.get(0))
             .map_err(|_| commands::CommandError::storage())?;
         let source_digest = reference_store::digest(&bytes);
-        if repository.local_package().ok().flatten().is_some_and(|active| {
-            active.provider == provider
-                && active.source_sha256 == source_digest
-                && active.catalog["dataset"]["upstreamRevision"].as_str() == Some(&revision)
-        }) {
+        if repository
+            .local_package()
+            .ok()
+            .flatten()
+            .is_some_and(|active| {
+                repository.reference_error.is_none()
+                    && active.validate().is_ok()
+                    && active.provider == provider
+                    && active.source_sha256 == source_digest
+                    && active.catalog["dataset"]["upstreamRevision"].as_str() == Some(&revision)
+            })
+        {
             return repository.reference_status().map(Some).map_err(Into::into);
         }
         let normalized =
@@ -357,6 +366,192 @@ async fn rollback_reference(
     .map_err(|_| commands::CommandError::storage())?
 }
 
+#[tauri::command]
+async fn select_screenshot_batch(
+    window: tauri::WebviewWindow,
+    state: State<'_, Arc<Mutex<batch::Batch>>>,
+) -> Result<Option<batch::Selection>, screenshot::Error> {
+    let state = state.inner().clone();
+    if PICKER_OPEN.swap(true, Ordering::AcqRel) {
+        return Err(screenshot::Error {
+            code: "picker_busy",
+            message: "An image picker is already open.",
+        });
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        struct Release;
+        impl Drop for Release {
+            fn drop(&mut self) {
+                PICKER_OPEN.store(false, Ordering::Release);
+            }
+        }
+        let _release = Release;
+        state
+            .lock()
+            .map_err(|_| screenshot::Error {
+                code: "batch_error",
+                message: "Temporary batch unavailable.",
+            })?
+            .select(&window)
+    })
+    .await
+    .map_err(|_| screenshot::Error {
+        code: "batch_error",
+        message: "Unable to select screenshots.",
+    })?
+}
+
+#[tauri::command]
+async fn screenshot_batch_preview(
+    state: State<'_, Arc<Mutex<batch::Batch>>>,
+    session_id: String,
+    index: usize,
+) -> Result<screenshot::Preview, screenshot::Error> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .lock()
+            .map_err(|_| screenshot::Error {
+                code: "batch_error",
+                message: "Temporary batch unavailable.",
+            })?
+            .preview(&session_id, index)
+    })
+    .await
+    .map_err(|_| screenshot::Error {
+        code: "batch_error",
+        message: "Unable to preview this screenshot.",
+    })?
+}
+
+#[tauri::command]
+async fn release_screenshot_batch(
+    state: State<'_, Arc<Mutex<batch::Batch>>>,
+    session_id: String,
+) -> Result<(), screenshot::Error> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .lock()
+            .map_err(|_| screenshot::Error {
+                code: "batch_error",
+                message: "Temporary batch unavailable.",
+            })?
+            .release(&session_id);
+        Ok(())
+    })
+    .await
+    .map_err(|_| screenshot::Error {
+        code: "batch_error",
+        message: "Unable to release this screenshot queue.",
+    })?
+}
+
+#[tauri::command]
+async fn individual_details(
+    state: State<'_, NativeInventory>,
+    id: String,
+) -> Result<individual_details::DetailsView, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        let id = inventory::PokemonId::parse(&id)?;
+        repository.individual_details(&id).map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn save_individual_details(
+    state: State<'_, NativeInventory>,
+    id: String,
+    expected_revision: String,
+    values: individual_details::IndividualDetails,
+) -> Result<individual_details::DetailsView, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        let id = inventory::PokemonId::parse(&id)?;
+        let revision = expected_revision
+            .parse::<i64>()
+            .map_err(|_| commands::CommandError {
+                code: "invalid_input",
+                message: "Invalid observation revision.",
+            })?;
+        repository
+            .save_individual_details(&id, revision, values)
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn create_custom_tag(
+    state: State<'_, NativeInventory>,
+    name: String,
+) -> Result<commands::TagView, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?
+            .create_custom_tag(&name)
+            .map(Into::into)
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn confirm_pokemon_tags(
+    state: State<'_, NativeInventory>,
+    id: String,
+    expected: Vec<String>,
+    desired: Vec<String>,
+) -> Result<(), commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        let id = inventory::PokemonId::parse(&id)?;
+        repository
+            .confirm_tags(&id, &expected, &desired)
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn confirm_batch_import(
+    state: State<'_, NativeInventory>,
+    request_id: String,
+    input: commands::ImportInput,
+) -> Result<commands::RecordView, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        commands::confirm_batch(&repository, &request_id, input)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
@@ -368,6 +563,7 @@ pub fn run() {
             let repository = inventory::InventoryRepository::open(&path)
                 .map_err(|_| "Unable to initialize local inventory storage")?;
             app.manage(NativeInventory(Arc::new(Mutex::new(repository))));
+            app.manage(Arc::new(Mutex::new(batch::Batch::default())));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -385,7 +581,15 @@ pub fn run() {
             pokemon_history,
             reference_status,
             import_reference,
-            rollback_reference
+            rollback_reference,
+            select_screenshot_batch,
+            screenshot_batch_preview,
+            release_screenshot_batch,
+            individual_details,
+            save_individual_details,
+            create_custom_tag,
+            confirm_pokemon_tags,
+            confirm_batch_import
         ])
         .run(tauri::generate_context!())
         .expect("error while running Trainer Collection Manager");

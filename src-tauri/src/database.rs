@@ -2,7 +2,7 @@ use rusqlite::{Connection, Transaction};
 use std::fs;
 use std::path::Path;
 
-pub const SCHEMA_VERSION: i64 = 9;
+pub const SCHEMA_VERSION: i64 = 10;
 pub const DATABASE_FILE_NAME: &str = "trainer-collection-manager.sqlite3";
 
 pub fn initialize(database_path: &Path) -> rusqlite::Result<()> {
@@ -232,6 +232,25 @@ pub(crate) fn apply_migrations(connection: &mut Connection) -> rusqlite::Result<
                 dataset_id TEXT NOT NULL, form_id TEXT NOT NULL, species_id TEXT NOT NULL,
                 PRIMARY KEY(dataset_id, form_id)
             ) STRICT;",
+        )
+    })?;
+    apply_migration(&transaction, 10, |transaction| {
+        transaction.execute_batch(
+            "CREATE TABLE IF NOT EXISTS pokemon_details (
+            pokemon_id TEXT PRIMARY KEY REFERENCES pokemon(id) ON DELETE CASCADE,
+            details_json TEXT NOT NULL CHECK(json_valid(details_json)),
+            observation_revision INTEGER NOT NULL CHECK(observation_revision>=0),
+            invalidated INTEGER NOT NULL DEFAULT 0 CHECK(invalidated IN (0,1))
+        ) STRICT;
+        CREATE TRIGGER IF NOT EXISTS pokemon_details_after_action AFTER INSERT ON pokemon_lifecycle_events
+            WHEN NEW.kind IN ('power_up','evolution') BEGIN
+            UPDATE pokemon_details SET invalidated=1 WHERE pokemon_id=NEW.pokemon_id;
+        END;
+        CREATE TABLE IF NOT EXISTS pokemon_import_requests (
+            request_id TEXT PRIMARY KEY NOT NULL,
+            pokemon_id TEXT NOT NULL UNIQUE REFERENCES pokemon(id) ON DELETE CASCADE,
+            input_digest TEXT NOT NULL
+        ) STRICT;",
         )
     })?;
     transaction.commit()

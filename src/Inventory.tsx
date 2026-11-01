@@ -16,6 +16,9 @@ import { AppraisalPanel } from "./AppraisalPanel";
 import { ReferencePanel } from "./ReferencePanel";
 import { CpCorrectionPanel } from "./CpCorrectionPanel";
 import { PowerUpPanel } from "./PowerUpPanel";
+import { BatchImport } from "./BatchImport";
+import { IndividualDetails } from "./IndividualDetails";
+import { TagEditor } from "./TagEditor";
 import {
   EvolutionPanel,
   ReobservationPanel,
@@ -49,7 +52,13 @@ export function Inventory() {
   const [savingIdentity, setSavingIdentity] = useState(false);
   const [savingCp, setSavingCp] = useState(false);
   const [lifecycleAction, setLifecycleAction] = useState<
-    "evolution" | "screenshot" | "power_up" | null
+    | "evolution"
+    | "screenshot"
+    | "power_up"
+    | "batch"
+    | "details"
+    | "tags"
+    | null
   >(null);
   const recordOperation = useRef(false);
   const operation = useRef<"selecting" | "saving" | null>(null);
@@ -59,6 +68,15 @@ export function Inventory() {
   const loadVersion = useRef(0);
   const reviewHeading = useRef<HTMLHeadingElement>(null);
   const selectButton = useRef<HTMLButtonElement>(null);
+  const [query, setQuery] = useState("");
+  const [minimumCp, setMinimumCp] = useState("");
+  const [maximumCp, setMaximumCp] = useState("");
+  const [minimumIvs, setMinimumIvs] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+  const [evaluationFilter, setEvaluationFilter] = useState("");
+  const [propertyFilter, setPropertyFilter] = useState("");
+  const [duplicatesOnly, setDuplicatesOnly] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(100);
 
   function releasePreview() {
     if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
@@ -383,10 +401,82 @@ export function Inventory() {
       </p>
     );
   }
-  const busy = phase !== "idle";
+  const busy =
+    phase !== "idle" ||
+    lifecycleAction === "batch" ||
+    lifecycleAction === "details" ||
+    lifecycleAction === "tags";
+  const groups = new Map<string, number>();
+  const groupKey = (record: InventoryRecord) =>
+    record.reference.state === "resolved" && record.reference.form
+      ? `${record.reference.dataset.datasetId}:${record.reference.form.id}`
+      : null;
+  for (const record of snapshot?.records ?? []) {
+    const key = groupKey(record);
+    if (key) groups.set(key, (groups.get(key) ?? 0) + 1);
+  }
+  const validBound = (value: string) =>
+    value === "" || /^[0-9]{1,19}$/.test(value);
+  const boundsValid =
+    validBound(minimumCp) &&
+    validBound(maximumCp) &&
+    (minimumIvs === "" || /^(?:[0-9]|[1-3][0-9]|4[0-5])$/.test(minimumIvs));
+  const filteredRecords = (snapshot?.records ?? []).filter((record) => {
+    const facts = snapshot?.details?.[record.id]?.values;
+    const names = [
+      record.displayName,
+      record.reference.identity?.species,
+      record.reference.identity?.form,
+      record.reference.species?.name,
+      record.reference.form?.name,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase();
+    return (
+      names.includes(query.toLocaleLowerCase()) &&
+      (!tagFilter || record.tags.some((tag) => tag.id === tagFilter)) &&
+      (!evaluationFilter || record.evaluation.state === evaluationFilter) &&
+      (!duplicatesOnly || (groups.get(groupKey(record) ?? "") ?? 0) > 1) &&
+      (!propertyFilter ||
+        (propertyFilter === "protected"
+          ? facts?.protected ||
+            record.tags.some((tag) => tag.name === "SAVE/SPECIAL")
+          : facts?.[
+              propertyFilter as "shiny" | "shadow" | "purified" | "favorite"
+            ] === true)) &&
+      (!boundsValid ||
+        ((!minimumCp ||
+          (record.cp !== null && BigInt(record.cp) >= BigInt(minimumCp))) &&
+          (!maximumCp ||
+            (record.cp !== null && BigInt(record.cp) <= BigInt(maximumCp))) &&
+          (!minimumIvs ||
+            (record.ivs !== null &&
+              record.ivs.attack + record.ivs.defense + record.ivs.hp >=
+                Number(minimumIvs)))))
+    );
+  });
 
   return (
     <div className="inventory">
+      <BatchImport
+        disabled={
+          phase !== "idle" ||
+          preview !== null ||
+          !snapshot ||
+          (lifecycleAction !== null && lifecycleAction !== "batch") ||
+          evaluating !== null ||
+          savingIvs ||
+          savingIdentity ||
+          savingCp
+        }
+        onSaved={() => loadInventory()}
+        onActiveChange={(active) =>
+          setLifecycleAction((current) =>
+            active ? "batch" : current === "batch" ? null : current,
+          )
+        }
+      />
       <section aria-labelledby="import-title">
         <h2 id="import-title">Screenshot review</h2>
         <p>
@@ -529,6 +619,100 @@ export function Inventory() {
       </section>
       <section aria-labelledby="records-title">
         <h2 id="records-title">Local collection</h2>
+        <div className="collection-filters">
+          <label>
+            Search name, confirmed species or form
+            <input
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setVisibleCount(100);
+              }}
+            />
+          </label>
+          <label>
+            Minimum CP
+            <input
+              value={minimumCp}
+              inputMode="numeric"
+              onChange={(e) => setMinimumCp(e.target.value)}
+            />
+          </label>
+          <label>
+            Maximum CP
+            <input
+              value={maximumCp}
+              inputMode="numeric"
+              onChange={(e) => setMaximumCp(e.target.value)}
+            />
+          </label>
+          <label>
+            Minimum total appraisal IVs (0–45)
+            <input
+              value={minimumIvs}
+              inputMode="numeric"
+              onChange={(e) => setMinimumIvs(e.target.value)}
+            />
+          </label>
+          <label>
+            Applied role or tag
+            <select
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+            >
+              <option value="">All applied tags</option>
+              {snapshot?.tags.map((tag) => (
+                <option key={tag.id} value={tag.id}>
+                  {tag.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Appraisal status
+            <select
+              value={evaluationFilter}
+              onChange={(e) => setEvaluationFilter(e.target.value)}
+            >
+              <option value="">All statuses</option>
+              {Object.entries(evaluationLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Confirmed individual property
+            <select
+              value={propertyFilter}
+              onChange={(e) => setPropertyFilter(e.target.value)}
+            >
+              <option value="">All / unknown included</option>
+              {["shiny", "shadow", "purified", "favorite", "protected"].map(
+                (value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={duplicatesOnly}
+              onChange={(e) => setDuplicatesOnly(e.target.checked)}
+            />
+            Show confirmed species/form duplicates
+          </label>
+          {!boundsValid && (
+            <p role="alert">
+              Use whole CP bounds and an IV total from 0 to 45. Numeric filters
+              are suspended until corrected.
+            </p>
+          )}
+        </div>
         <p>
           Existing tags are preserved and do not indicate a completed
           evaluation.
@@ -545,55 +729,116 @@ export function Inventory() {
         ) : snapshot.records.length === 0 ? (
           <p>No Pokémon saved yet. Confirm a screenshot review to add one.</p>
         ) : (
-          <ul className="inventory-list">
-            {snapshot.records.map((record) => (
-              <li key={record.id}>
-                <h3>{record.displayName}</h3>
-                <p>Evaluation: {evaluationLabels[record.evaluation.state]}</p>
-                <p>Appraisal only · Strategic analysis not performed</p>
-                <p>
-                  Species: {record.reference.identity?.species ?? "Unknown"}
-                </p>
-                <p>CP: {record.cp ?? "Unknown"}</p>
-                <p>
-                  Appraisal IVs:{" "}
-                  {record.ivs
-                    ? `${record.ivs.attack} / ${record.ivs.defense} / ${record.ivs.hp} (attack / defense / HP)`
-                    : "Unknown"}
-                </p>
-                <p>
-                  Tags:{" "}
-                  {record.tags.length
-                    ? record.tags.map((tag) => tag.name).join(", ")
-                    : "None"}
-                </p>
-                <button
-                  type="button"
-                  aria-expanded={selectedId === record.id}
-                  aria-controls={
-                    selectedId === record.id ? "appraisal-panel" : undefined
-                  }
-                  disabled={
-                    lifecycleAction !== null ||
-                    evaluating !== null ||
-                    savingIvs ||
-                    savingIdentity ||
-                    savingCp
-                  }
-                  onClick={() => {
-                    setSelectedId(record.id);
-                    setEvaluationError("");
-                  }}
-                >
-                  Review appraisal for {record.displayName}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <>
+            <p>
+              {filteredRecords.length} matching individuals · showing up to{" "}
+              {visibleCount}
+            </p>
+            <ul className="inventory-list">
+              {filteredRecords.slice(0, visibleCount).map((record) => (
+                <li key={record.id}>
+                  <h3>{record.displayName}</h3>
+                  <p>
+                    Same-form individuals:{" "}
+                    {groupKey(record)
+                      ? groups.get(groupKey(record)!)
+                      : "Identity unresolved"}
+                  </p>
+                  <p>Evaluation: {evaluationLabels[record.evaluation.state]}</p>
+                  <p>Appraisal only · Strategic analysis not performed</p>
+                  <p>
+                    Species: {record.reference.identity?.species ?? "Unknown"}
+                  </p>
+                  <p>CP: {record.cp ?? "Unknown"}</p>
+                  <p>
+                    Appraisal IVs:{" "}
+                    {record.ivs
+                      ? `${record.ivs.attack} / ${record.ivs.defense} / ${record.ivs.hp} (attack / defense / HP)`
+                      : "Unknown"}
+                  </p>
+                  <p>
+                    Tags:{" "}
+                    {record.tags.length
+                      ? record.tags.map((tag) => tag.name).join(", ")
+                      : "None"}
+                  </p>
+                  <button
+                    type="button"
+                    aria-expanded={selectedId === record.id}
+                    aria-controls={
+                      selectedId === record.id ? "appraisal-panel" : undefined
+                    }
+                    disabled={
+                      lifecycleAction !== null ||
+                      evaluating !== null ||
+                      savingIvs ||
+                      savingIdentity ||
+                      savingCp
+                    }
+                    onClick={() => {
+                      setSelectedId(record.id);
+                      setEvaluationError("");
+                    }}
+                  >
+                    Review appraisal for {record.displayName}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {filteredRecords.length > visibleCount && (
+              <button
+                type="button"
+                onClick={() => setVisibleCount((count) => count + 100)}
+              >
+                Show 100 more individuals
+              </button>
+            )}
+          </>
         )}
         {!loadError &&
           snapshot?.records.find((record) => record.id === selectedId) && (
             <div id="appraisal-panel">
+              <TagEditor
+                record={
+                  snapshot.records.find((record) => record.id === selectedId)!
+                }
+                tags={snapshot.tags}
+                disabled={
+                  phase !== "idle" ||
+                  preview !== null ||
+                  evaluating !== null ||
+                  savingIvs ||
+                  savingIdentity ||
+                  savingCp ||
+                  (lifecycleAction !== null && lifecycleAction !== "tags")
+                }
+                onSaved={() => loadInventory(true)}
+                onActiveChange={(active) =>
+                  setLifecycleAction((current) =>
+                    active ? "tags" : current === "tags" ? null : current,
+                  )
+                }
+              />
+              <IndividualDetails
+                record={
+                  snapshot.records.find((record) => record.id === selectedId)!
+                }
+                disabled={
+                  phase !== "idle" ||
+                  preview !== null ||
+                  evaluating !== null ||
+                  savingIvs ||
+                  savingIdentity ||
+                  savingCp ||
+                  (lifecycleAction !== null && lifecycleAction !== "details")
+                }
+                onSaved={() => loadInventory(true)}
+                onActiveChange={(active) =>
+                  setLifecycleAction((current) =>
+                    active ? "details" : current === "details" ? null : current,
+                  )
+                }
+              />
               <AppraisalPanel
                 key={selectedId}
                 record={

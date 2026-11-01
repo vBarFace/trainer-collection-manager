@@ -165,13 +165,24 @@ impl From<(Pokemon, Vec<Tag>)> for RecordView {
 pub struct Snapshot {
     records: Vec<RecordView>,
     tags: Vec<TagView>,
+    details: std::collections::BTreeMap<String, crate::individual_details::DetailsView>,
 }
 
 pub fn snapshot(repository: &InventoryRepository) -> Result<Snapshot, CommandError> {
     let (records, tags) = repository.snapshot()?;
+    let details = records
+        .iter()
+        .map(|(pokemon, _)| {
+            Ok((
+                pokemon.id.as_str().to_string(),
+                repository.individual_details(&pokemon.id)?,
+            ))
+        })
+        .collect::<inventory::Result<_>>()?;
     Ok(Snapshot {
         records: records.into_iter().map(Into::into).collect(),
         tags: tags.into_iter().map(Into::into).collect(),
+        details,
     })
 }
 
@@ -194,6 +205,26 @@ pub fn confirm(
         .map(|id| TagId::parse(id))
         .collect::<inventory::Result<Vec<_>>>()?;
     Ok(repository.create_with_tags(&pokemon, &tags)?.into())
+}
+
+pub fn confirm_batch(
+    repository: &InventoryRepository,
+    request_id: &str,
+    input: ImportInput,
+) -> Result<RecordView, CommandError> {
+    let pokemon = PokemonInput {
+        display_name: input.display_name,
+        cp: parse_cp(input.cp.as_deref())?,
+        ivs: input.ivs.map(Into::into),
+    };
+    let tags = input
+        .tag_ids
+        .iter()
+        .map(|id| TagId::parse(id))
+        .collect::<inventory::Result<Vec<_>>>()?;
+    Ok(repository
+        .confirm_batch_import(request_id, &pokemon, &tags)?
+        .into())
 }
 
 pub fn evaluate(repository: &InventoryRepository, id: &str) -> Result<RecordView, CommandError> {

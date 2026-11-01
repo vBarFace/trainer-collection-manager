@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Inventory } from "./Inventory";
@@ -109,6 +110,56 @@ const saved: InventoryRecord = {
   },
 };
 const imported: InventoryRecord = { ...saved, tags: [] };
+
+describe("collection filters", () => {
+  it("searches confirmed species independently from nickname and compares CP without precision loss", async () => {
+    const other = {
+      ...saved,
+      id: "00000000-0000-4000-8000-000000000002",
+      displayName: "Second",
+      cp: "9007199254740992",
+      reference: {
+        ...saved.reference,
+        identity: { species: "Fictional Emberwit", form: "Normal" },
+      },
+    };
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: [saved, other],
+      tags: [special, custom],
+    });
+    render(<Inventory />);
+    await screen.findByRole("button", { name: "Review appraisal for Buddy" });
+    fireEvent.change(screen.getByLabelText("Minimum CP"), {
+      target: { value: "9007199254740993" },
+    });
+    expect(
+      screen.getByRole("button", { name: "Review appraisal for Buddy" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Review appraisal for Second" }),
+    ).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Minimum CP"), {
+      target: { value: "" },
+    });
+    fireEvent.change(
+      screen.getByLabelText("Search name, confirmed species or form"),
+      { target: { value: "Emberwit" } },
+    );
+    expect(
+      screen.getByRole("button", { name: "Review appraisal for Second" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Review appraisal for Buddy" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByLabelText("Show confirmed species/form duplicates"),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Review appraisal for Second" }),
+    ).not.toBeInTheDocument();
+    expect(native.confirmImport).not.toHaveBeenCalled();
+  });
+});
 
 describe("saved CP correction", () => {
   async function openCp() {
@@ -542,7 +593,13 @@ describe("Inventory manual import", () => {
     fireEvent.change(screen.getByLabelText("HP IV"), {
       target: { value: "15" },
     });
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(
+      within(
+        screen
+          .getByRole("button", { name: "Confirm and save" })
+          .closest("form")!,
+      ).queryByRole("checkbox"),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Confirm and save" }));
     await screen.findByText(
       "Saved Buddy to your local inventory. Awaiting evaluation.",

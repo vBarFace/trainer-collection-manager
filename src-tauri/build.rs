@@ -16,6 +16,14 @@ fn main() {
             "reference_status",
             "import_reference",
             "rollback_reference",
+            "select_screenshot_batch",
+            "screenshot_batch_preview",
+            "release_screenshot_batch",
+            "individual_details",
+            "save_individual_details",
+            "create_custom_tag",
+            "confirm_pokemon_tags",
+            "confirm_batch_import",
         ]),
     ))
     .expect("Unable to build application permissions");

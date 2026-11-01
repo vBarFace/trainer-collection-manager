@@ -114,7 +114,7 @@ fn decode_preview(bytes: &[u8]) -> Result<Preview, Error> {
     })
 }
 
-fn read_selected(path: &Path) -> Result<Preview, Error> {
+pub(crate) fn read_selected(path: &Path) -> Result<Preview, Error> {
     let unreadable = || Error {
         code: "image_read",
         message:
