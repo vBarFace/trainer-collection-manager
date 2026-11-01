@@ -90,6 +90,37 @@ owned alternatives, and record reference/mechanics versions. Unknown costs stay
 unknown and block executable investments. Existing UUIDs, lifecycle confirmation,
 bounded roadmap progress and local-only persistence remain the foundation.
 
+## Recommendation presentation and individual roadmaps
+
+The individual roadmap remains a core deliverable throughout the prioritized
+gym, Rocket and transfer work. Extend the existing UUID-linked planner alongside
+each role assessment, starting with the first gym increment; do not defer it
+until after all roles or replace it with a role label alone.
+
+Lead with understandable role guidance and useful opponent-type groups. Show
+the individual's confirmed typing and distinguish it from its observed attack
+types or a clearly labeled potential move set. Attack typing, dual types,
+resistances, move availability and the relevant mechanics must inform the result;
+the individual's species typing alone cannot establish a favorable matchup.
+
+Use a declared set of representative scenarios for the default broad summary,
+without requiring the user to configure one specific opponent per individual.
+Include a few representative opponent species where useful, with exact matchup
+details available on demand. Do not overwhelm the default view with exhaustive
+counter lists or present type advantage alone as verified overall performance.
+Defense summaries should explain durability and relevant weaknesses under the
+declared assumptions rather than promise universal superiority. General matchup
+guidance must remain distinct from verified simulation results.
+
+Connect the explanation to the same individual's ordered next steps: use now,
+optionally review relevant missing data, consider a supported evolution, adjust
+moves or Power Up where justified, or retain/wait without investment. Show the
+expected benefit, prerequisites, costs when known and uncertainty. Preserve
+postpone/ignore, explicit action confirmation, history and stale-plan detection.
+Do not require all optional observations before showing limited potential, or
+mark unsupported investments executable. These are next-increment requirements,
+not claims that the current collection/statistical roadmap already supports them.
+
 ## Next concrete increment and validation
 
 Implement the smallest end-to-end **gym-attack** assessment using verified local
@@ -99,6 +130,8 @@ using owned alternatives. Collection-only comparisons do not meet acceptance.
 Expose the result in the existing recommendation/details views. Reuse the current
 manual observations and pure Rust evaluation boundary; avoid rebuilding import,
 inventory or planning infrastructure.
+The same increment must connect the broad type-oriented role summary and optional
+opponent examples to the individual's roadmap with only supported next steps.
 
 Validate independently reviewed damage/matchup examples, move availability,
 missing/contradictory observations, collection alternatives, protection, stale
@@ -108,6 +141,9 @@ adding a stronger owned alternative changes action priority without changing the
 same individual's performance calculation under identical reference/context inputs.
 Check that weak reference-level performance is not relabeled strong merely for
 being the best owned option, and that external rankings apply to the stated mode.
+Verify that type summaries distinguish observed from proposed attacks, account
+for dual-type exceptions, disclose limited evidence, and preserve UUID-linked
+roadmap confirmation and invalidation through each supported role assessment.
 Real provider validation remains private, with original fictional committed
 fixtures and separate provenance/rights notices. Actual gameplay support may
 only be claimed after implementation and executed verification.

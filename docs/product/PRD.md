@@ -12,6 +12,11 @@ mathematical/statistical models or deterministic simulations independently of
 the owned collection. Compare owned alternatives afterward to personalize action
 and investment priority; collection-only comparisons do not satisfy the MVP.
 
+Keep the individual roadmap central to each role increment. Recommendations
+should lead with useful type-based guidance and a few optional opponent examples,
+with detailed matchup assumptions available on demand; link the assessment to
+supported next steps for the same UUID. See the current priority contract above.
+
 The active user brief is a deterministic/statistical, offline collection MVP,
 without ML or LLM models. ADR 0009 supersedes this document's older proposed
 learning/hybrid milestones. Implemented behavior and remaining acceptance are

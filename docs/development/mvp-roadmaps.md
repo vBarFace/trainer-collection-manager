@@ -1,5 +1,18 @@
 # Individual roadmaps and confirmed progress
 
+## Next role-assessment requirements
+
+The user reaffirmed that individual roadmaps remain central to the upcoming gym,
+Rocket and transfer increments. Each increment must connect its reference-based
+role assessment and personalized priority to supported next steps for the same
+UUID. Lead with broad opponent-type guidance, distinguish the individual's typing
+from actual/proposed move types, and show a few opponent examples when useful;
+exact matchups are optional detail. Preserve unknowns, action confirmation and
+stale-plan checks. See the [current priority contract](mvp-current-priorities.md).
+These are requirements for upcoming work, not additional implemented actions.
+
+## Implemented collection/statistical preview
+
 Open Recommendations, choose an individual assessment, and create its personalized
 roadmap. Inventory links to the same UUID's assessment. The roadmap covers the
 currently supported collection/statistical goal: missing-data review, comparison
