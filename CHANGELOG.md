@@ -10,6 +10,11 @@ All notable changes are documented here.
 
 ### Added
 
+- Explicit local PvPoke/PokeMiners/PoGoAPI source imports in Settings, with bounded
+  conservative normalization, source digests/notices, transactional activation,
+  persistent identity/version continuity and rollback. Downloaded game data is
+  never bundled. See the MVP coverage matrix for unsupported fields and rights.
+
 - Task 007: offline development-time PvPoke adapter with explicit reviewed species/form mappings, deterministic schema-1 candidates, SHA-256 source/plan/output provenance, cumulative identity/version release ledger and the production Rust validator. Native activation rejects reused species/Dex associations and moved form IDs across in-session removals/provider switches. Fictional transformation, native integration and inventory continuity tests cover updates without changing the database or UI. Real-data distribution remains blocked: source software licenses/public access do not establish the underlying dataset rights; `tcm-empty` / `empty-1` is unchanged.
 
 - Task 006: validated offline reference snapshots with schema/dataset versions and provenance; migration 5 stores explicitly confirmed species/form identity separately from player observations. Stable reference pins, conservative unresolved states, pure evaluation context and a minimal Inventory reference/correction panel prepare future data-backed scopes. No real game dataset is bundled pending verified redistribution rights; original fictional fixtures test the contract. Existing appraisal math and lifecycle are unchanged.

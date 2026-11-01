@@ -43,6 +43,18 @@ is performed. Original code remains MIT; upstream data rights remain separate.
 
 ## Executed baseline
 
+PR 0: local commit `b29fdf9`, branch `fix/power-up-history-synchronization`.
+Frontend checks passed (122 tests and 8 adapter tests); native format/check and
+122 native tests passed, 2 authorized-sample tests ignored. Remote CI has not
+been rerun because no branch has been pushed.
+
+PR 1: `feat/local-reference-installation` adds bounded offline provider adapters,
+Settings, per-user transactional activation/rollback and persistent identity and
+version continuity. Four adapter tests, two activation tests, and two Settings
+tests passed. [Coverage and unverified fields](mvp-reference-coverage.md) are
+explicit. No current real Game Master compatibility or dataset redistribution
+rights claim is made. No downloader or background networking is introduced.
+
 - Windows isolated Power Up suite: 21 passed.
 - Windows full frontend baseline: 122 passed (the CI timing failure did not
   reproduce on this run).

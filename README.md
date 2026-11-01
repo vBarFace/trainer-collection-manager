@@ -1,5 +1,13 @@
 # Trainer Collection Manager
 
+The 2026-11-01 deterministic MVP implementation is tracked in
+[the delivery audit](docs/development/mvp-delivery.md). **Settings** now imports
+user-acquired local PvPoke, PokeMiners or PoGoAPI JSON, records provenance, and
+supports atomic activation and rollback across restart. No real game datasets
+are bundled or redistributed. See [actual field coverage and file formats](docs/development/mvp-reference-coverage.md).
+This local-import boundary supersedes the bundled-empty-only behavior described
+in older milestones below. Original code remains MIT; game-data rights are separate.
+
 An open-source, offline-first Windows desktop foundation for Pokémon GO collection management. This project is independent and is not affiliated with or endorsed by Pokémon or Niantic.
 
 ## What works today

@@ -276,8 +276,9 @@ fn read_tag(row: &rusqlite::Row<'_>) -> rusqlite::Result<Tag> {
 /// Open only with the app-data path resolved by native startup. Each connection
 /// enables foreign keys before migrations or repository operations.
 pub struct InventoryRepository {
-    connection: Connection,
-    catalog: Catalog,
+    pub(crate) connection: Connection,
+    pub(crate) catalog: Catalog,
+    pub(crate) reference_error: Option<&'static str>,
 }
 
 impl InventoryRepository {
@@ -285,10 +286,15 @@ impl InventoryRepository {
         database::initialize(path)?;
         let connection = Connection::open(path)?;
         database::configure_connection(&connection)?;
-        Ok(Self {
+        let mut repository = Self {
             connection,
             catalog: Catalog::bundled().map_err(Error::InvalidInput)?,
-        })
+            reference_error: None,
+        };
+        if repository.restore_local_reference().is_err() {
+            repository.reference_error = Some("Stored reference data is invalid. Inventory is retained; import a valid reference or roll back in Settings.");
+        }
+        Ok(repository)
     }
 
     /// Native-only whole-snapshot replacement. Invalid data leaves the current catalog intact.
@@ -866,6 +872,7 @@ mod tests {
         InventoryRepository {
             connection,
             catalog: Catalog::bundled().unwrap(),
+            reference_error: None,
         }
     }
 
@@ -1478,6 +1485,7 @@ mod tests {
         let repo = InventoryRepository {
             connection,
             catalog: Catalog::bundled().unwrap(),
+            reference_error: None,
         };
         let id = PokemonId::parse("00000000-0000-4000-8000-000000000000").unwrap();
         let pokemon = repo.get(&id).unwrap();
@@ -1506,7 +1514,7 @@ mod tests {
                 .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            8
+            database::SCHEMA_VERSION
         );
     }
 
