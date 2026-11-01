@@ -149,7 +149,9 @@ describe("confirmed Power Up", () => {
     ).toBeDisabled();
     confirm();
     await screen.findByText("Power Up confirmed and saved locally.");
-    expect(screen.getByRole("button", { name: "Power Up" })).toHaveFocus();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Power Up" })).toHaveFocus(),
+    );
     expect(native.confirmPowerUp).toHaveBeenCalledExactlyOnceWith(record.id, {
       requestId: expect.stringMatching(/^[0-9a-f-]{36}$/),
       expectedStrategicObservationRevision: record.strategicObservationRevision,
@@ -326,7 +328,10 @@ describe("confirmed Power Up", () => {
     expect(
       screen.getByRole("button", { name: "Select screenshot" }),
     ).toBeDisabled();
-    confirm();
+    // Settle the native confirmation and the parent record's effects before
+    // starting a separate history request. A success message may render before
+    // HistoryPanel invalidates the previous record's cache/request version.
+    await act(async () => confirm());
     await screen.findByText("Power Up confirmed and saved locally.");
     expect(screen.getByText("Confirmed CP: 9223372036854775807")).toBeVisible();
     expect(
@@ -403,9 +408,13 @@ it("invalidates loaded history when an action preserves CP and the observation r
   review();
   confirm();
   await screen.findByText("Power Up confirmed and saved locally.");
-  expect(
-    screen.queryByText("No confirmed lifecycle events yet."),
-  ).not.toBeInTheDocument();
+  // HistoryPanel clears its cache in an effect after the confirmed record is
+  // rendered. The success message alone does not await that separate effect.
+  await waitFor(() =>
+    expect(
+      screen.queryByText("No confirmed lifecycle events yet."),
+    ).not.toBeInTheDocument(),
+  );
   fireEvent.click(
     screen.getByRole("button", { name: "Load confirmed history" }),
   );
