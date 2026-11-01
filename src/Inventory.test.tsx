@@ -112,6 +112,38 @@ const saved: InventoryRecord = {
 const imported: InventoryRecord = { ...saved, tags: [] };
 
 describe("collection filters", () => {
+  it("searches a thousand-record collection while bounding rendered rows", async () => {
+    vi.mocked(native.snapshot).mockResolvedValue({
+      records: Array.from({ length: 1000 }, (_, index) => ({
+        ...saved,
+        id: `00000000-0000-4000-8000-${index.toString(16).padStart(12, "0")}`,
+        displayName: `Entry ${index}`,
+      })),
+      tags: [],
+    });
+    render(<Inventory />);
+    await screen.findByText("1000 matching individuals · showing up to 100");
+    expect(
+      screen.getAllByRole("button", { name: /Review appraisal for Entry/ }),
+    ).toHaveLength(100);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show 100 more individuals" }),
+    );
+    expect(
+      screen.getAllByRole("button", { name: /Review appraisal for Entry/ }),
+    ).toHaveLength(200);
+    fireEvent.change(
+      screen.getByLabelText("Search name, confirmed species or form"),
+      { target: { value: "Entry 999" } },
+    );
+    expect(
+      screen.getByRole("button", { name: "Review appraisal for Entry 999" }),
+    ).toBeVisible();
+    expect(
+      screen.getAllByRole("button", { name: /Review appraisal for Entry/ }),
+    ).toHaveLength(1);
+    expect(native.confirmImport).not.toHaveBeenCalled();
+  });
   it("searches confirmed species independently from nickname and compares CP without precision loss", async () => {
     const other = {
       ...saved,

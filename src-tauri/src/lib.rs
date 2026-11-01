@@ -1,3 +1,4 @@
+pub mod backup;
 mod batch;
 mod commands;
 mod database;
@@ -5,11 +6,14 @@ pub mod evaluation;
 mod extraction;
 pub mod individual_details;
 pub mod inventory;
+#[cfg(test)]
+mod mvp_smoke_tests;
 mod ocr_regions;
 pub mod reference;
 pub mod reference_store;
 mod screenshot;
 pub mod source_adapter;
+pub mod source_files;
 pub mod strategy;
 pub mod strategy_service;
 pub mod utility;
@@ -269,49 +273,41 @@ async fn import_reference(
 ) -> Result<Option<reference_store::ReferenceStatus>, commands::CommandError> {
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        use std::io::Read;
         if !reference::valid_text(&revision, 100) {
             return Err(commands::CommandError {
                 code: "invalid_input",
                 message: "Supply an upstream revision or dated local source identifier.",
             });
         }
-        let Some(path) = rfd::FileDialog::new()
+        let picker = rfd::FileDialog::new()
             .set_parent(&window)
             .set_title("Import local reference JSON")
-            .add_filter("Reference JSON", &["json"])
-            .pick_file()
-        else {
+            .add_filter("Reference JSON", &["json"]);
+        let paths = if provider == "pogoapi" {
+            picker.pick_files()
+        } else {
+            picker.pick_file().map(|path| vec![path])
+        };
+        let Some(paths) = paths else {
             return Ok(None);
         };
-        let file = std::fs::File::open(path).map_err(|_| commands::CommandError {
-            code: "reference_read",
-            message: "Unable to read the selected reference file.",
-        })?;
-        if !file
-            .metadata()
+        let date: String = state
+            .0
+            .lock()
             .map_err(|_| commands::CommandError::storage())?
-            .is_file()
-        {
-            return Err(commands::CommandError::storage());
-        }
-        let mut bytes = Vec::new();
-        file.take(reference_store::MAX_SOURCE_BYTES + 1)
-            .read_to_end(&mut bytes)
+            .connection
+            .query_row("SELECT date('now')", [], |r| r.get(0))
             .map_err(|_| commands::CommandError::storage())?;
-        if bytes.len() as u64 > reference_store::MAX_SOURCE_BYTES {
-            return Err(commands::CommandError {
-                code: "reference_limit",
-                message: "Reference source exceeds the 64 MiB limit.",
-            });
-        }
+        let input = source_files::read(&provider, &paths, &revision, &date).map_err(|message| {
+            commands::CommandError {
+                code: "reference_read",
+                message,
+            }
+        })?;
+        let bytes = input.bytes;
         let mut repository = state
             .0
             .lock()
-            .map_err(|_| commands::CommandError::storage())?;
-        let date: String = repository
-            .connection
-            .query_row("SELECT date('now')", [], |r| r.get(0))
             .map_err(|_| commands::CommandError::storage())?;
         let source_digest = reference_store::digest(&bytes);
         if repository
@@ -343,6 +339,7 @@ async fn import_reference(
                 limitations: normalized.limitations,
                 source_sha256: reference_store::digest(&bytes),
                 provider,
+                artifacts: input.artifacts,
             })
             .map(Some)
             .map_err(Into::into)
@@ -472,6 +469,7 @@ async fn save_individual_details(
     state: State<'_, NativeInventory>,
     id: String,
     expected_revision: String,
+    expected_evidence_token: String,
     values: individual_details::IndividualDetails,
 ) -> Result<individual_details::DetailsView, commands::CommandError> {
     let state = state.inner().clone();
@@ -488,7 +486,7 @@ async fn save_individual_details(
                 message: "Invalid observation revision.",
             })?;
         repository
-            .save_individual_details(&id, revision, values)
+            .save_individual_details(&id, revision, &expected_evidence_token, values)
             .map_err(Into::into)
     })
     .await
@@ -671,6 +669,20 @@ async fn save_strategy_preferences(
     .map_err(|_| commands::CommandError::storage())?
 }
 
+#[tauri::command]
+async fn export_structured_backup(
+    window: tauri::WebviewWindow,
+    state: State<'_, NativeInventory>,
+) -> Result<bool, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move||{
+        let Some(path)=rfd::FileDialog::new().set_parent(&window).set_title("Export confirmed collection data").set_file_name("trainer-collection-backup.json").add_filter("Structured JSON backup",&["json"]).save_file() else {return Ok(false)};
+        let bytes=state.0.lock().map_err(|_|commands::CommandError::storage())?.structured_backup()?;
+        backup::write_atomic(&path,&bytes).map_err(|_|commands::CommandError{code:"backup_write",message:"Unable to write the backup. Existing target data is retained; choose a writable local location."})?;
+        Ok(true)
+    }).await.map_err(|_|commands::CommandError::storage())?
+}
+
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
@@ -713,7 +725,8 @@ pub fn run() {
             pokemon_roadmap,
             generate_roadmap,
             update_roadmap_progress,
-            save_strategy_preferences
+            save_strategy_preferences,
+            export_structured_backup
         ])
         .run(tauri::generate_context!())
         .expect("error while running Trainer Collection Manager");

@@ -22,6 +22,8 @@ pub struct LocalPackage {
     pub limitations: Vec<String>,
     pub source_sha256: String,
     pub provider: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub artifacts: Vec<crate::source_files::SourceArtifact>,
 }
 
 impl LocalPackage {
@@ -42,6 +44,19 @@ impl LocalPackage {
             ));
         }
         let mut previous = (0.0, 0.0);
+        if self.artifacts.len() > 3
+            || self.artifacts.iter().any(|artifact| {
+                !crate::reference::valid_text(&artifact.kind, 100)
+                    || !crate::reference::valid_text(&artifact.source_url, 2000)
+                    || !artifact.source_url.starts_with("https://")
+                    || artifact.sha256.len() != 64
+                    || !artifact.sha256.bytes().all(|b| b.is_ascii_hexdigit())
+                    || !crate::reference::valid_text(&artifact.upstream_revision, 100)
+                    || !crate::reference::valid_text(&artifact.retrieved_at, 10)
+            })
+        {
+            return Err(Error::InvalidInput("Invalid source artifact provenance"));
+        }
         for &(level, multiplier) in &self.cp_multipliers {
             if !level.is_finite()
                 || !multiplier.is_finite()
@@ -125,6 +140,7 @@ impl InventoryRepository {
         let mut content =
             serde_json::to_value(&package).map_err(|_| Error::InvalidInput("Invalid package"))?;
         content["catalog"]["dataset"]["retrievedAt"] = Value::Null;
+        content.as_object_mut().unwrap().remove("artifacts");
         let package_digest = digest(&serde_json::to_vec(&content).unwrap());
         let transaction = self.connection.unchecked_transaction()?;
         let seen: Option<String> = transaction
@@ -256,6 +272,7 @@ mod tests {
             limitations: vec![],
             source_sha256: digest(b"fictional original source"),
             provider: "fictional".into(),
+            artifacts: vec![],
         }
     }
     #[test]

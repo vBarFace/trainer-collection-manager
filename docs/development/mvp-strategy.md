@@ -53,6 +53,8 @@ protection/favorites/special variants. No transfer/trade candidate is emitted wh
 collection value remains unresolved. Suggested tags never become applied tags.
 
 The 11 integrated Rust engine tests pass. They establish the bounded mathematical
-and safety contracts, not broad gameplay accuracy. A representative real-source
-compatibility run and independently reviewed real-species numerical examples are
-still required for full gameplay-domain acceptance.
+and safety contracts, not broad gameplay accuracy. A subsequent real-source pass
+validated all three current inputs and nine hypothetical standard-stat cases
+against independent rational arithmetic; see [the exact evidence and limits](mvp-real-reference-validation.md).
+Full gameplay-domain acceptance still requires broader mechanics, eligibility,
+move/cost evidence and real-image validation.

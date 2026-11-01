@@ -31,8 +31,8 @@ export function LeagueStatistics({
           <p>{league.explanation}</p>
           {league.potential && (
             <p>
-              Modeled ceiling {league.potential.levelCeiling} · target level{" "}
-              {league.potential.level} · CP {league.potential.cp} · HP{" "}
+              Modeled ceiling {league.potential.levelCeiling} · hypothetical
+              level {league.potential.level} · CP {league.potential.cp} · HP{" "}
               {league.potential.hp} · stat product{" "}
               {league.potential.statProduct.toFixed(1)} · IV rank{" "}
               {league.potential.ivRank} / {league.potential.rankedSpreads}
@@ -244,6 +244,10 @@ export function Recommendations({
               {reports.slice(0, limit).map((report) => (
                 <li key={report.pokemonId}>
                   <h3>{report.displayName}</h3>
+                  <p>
+                    Rules: {report.rulesetVersion} · reference:{" "}
+                    {report.datasetId}/{report.datasetVersion}
+                  </p>
                   <p>
                     {report.protected
                       ? "Retained by your confirmed constraints"

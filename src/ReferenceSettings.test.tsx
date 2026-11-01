@@ -12,6 +12,20 @@ beforeEach(() =>
 );
 afterEach(cleanup);
 
+it("exports structured data only after an explicit user action", async () => {
+  render(<ReferenceSettings />);
+  await screen.findByText(/No user reference installed/);
+  expect(invoke).toHaveBeenCalledTimes(1);
+  vi.mocked(invoke).mockResolvedValueOnce(true);
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Export structured inventory and plans",
+    }),
+  );
+  await screen.findByText(/exported without screenshots/);
+  expect(invoke).toHaveBeenLastCalledWith("export_structured_backup");
+});
+
 it("requires an explicit source revision and keeps cancelled imports offline", async () => {
   render(<ReferenceSettings />);
   await screen.findByText(/No user reference installed/);

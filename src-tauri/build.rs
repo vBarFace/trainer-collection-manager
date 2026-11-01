@@ -29,6 +29,7 @@ fn main() {
             "generate_roadmap",
             "update_roadmap_progress",
             "save_strategy_preferences",
+            "export_structured_backup",
         ]),
     ))
     .expect("Unable to build application permissions");

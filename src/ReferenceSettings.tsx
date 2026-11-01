@@ -9,6 +9,13 @@ export interface ReferenceStatus {
     cpMultipliers: [number, number][];
     coverage: string[];
     limitations: string[];
+    artifacts?: {
+      kind: string;
+      sourceUrl: string;
+      sha256: string;
+      upstreamRevision: string;
+      retrievedAt: string;
+    }[];
     catalog: {
       dataset: {
         datasetId: string;
@@ -82,10 +89,36 @@ export function ReferenceSettings() {
       setBusy(false);
     }
   }
+  async function exportBackup() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const exported = await invoke<boolean>("export_structured_backup");
+      setMessage(
+        exported
+          ? "Structured inventory and plans exported without screenshots or downloaded catalog files. Backup import is not yet supported."
+          : "Export cancelled. Existing data retained.",
+      );
+    } catch (failure) {
+      setError(
+        nativeErrorMessage(
+          failure,
+          "Unable to export the structured inventory.",
+        ),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   const active = status?.active;
   return (
     <section aria-labelledby="reference-settings-title">
       <h2 id="reference-settings-title">Local reference data</h2>
+      <button type="button" disabled={busy} onClick={() => void exportBackup()}>
+        Export structured inventory and plans
+      </button>
       <p>
         Import a JSON source you have obtained and reviewed. The application
         makes no network requests. Game data is stored in your application-data
@@ -108,13 +141,33 @@ export function ReferenceSettings() {
           <option value="pokeminers">
             PokeMiners — latest.json Game Master
           </option>
-          <option value="pogoapi">PoGoAPI — local JSON source bundle</option>
+          <option value="pogoapi">
+            PoGoAPI — source files or local JSON bundle
+          </option>
           <option value="snapshot">Reviewed Task 007 schema-1 snapshot</option>
         </select>
         <p>
-          PoGoAPI bundle keys: pokemon_stats, pokemon_types, cp_multiplier.
-          Preserve each downloaded response in its corresponding key. Optional
+          For PoGoAPI, select the downloaded pokemon_stats, pokemon_types and
+          cp_multiplier JSON files together, or one existing bundle. Optional
           fields remain unknown.
+        </p>
+        <p>
+          Get files from{" "}
+          <a href="https://pogoapi.net/api/v1/pokemon_stats.json">
+            PoGoAPI stats
+          </a>
+          , <a href="https://pogoapi.net/api/v1/pokemon_types.json">types</a>{" "}
+          and{" "}
+          <a href="https://pogoapi.net/api/v1/cp_multiplier.json">
+            CP multipliers
+          </a>
+          , or the{" "}
+          <a href="https://github.com/pvpoke/pvpoke/tree/master/src/data/gamemaster">
+            PvPoke
+          </a>
+          /<a href="https://github.com/PokeMiners/game_masters">PokeMiners</a>{" "}
+          repositories. You initiate and manage downloads outside this
+          application.
         </p>
         <label htmlFor="reference-revision">
           Upstream commit or dated source identifier
@@ -164,6 +217,21 @@ export function ReferenceSettings() {
           <p>Declared license: {active.catalog.dataset.license}</p>
           <p>{active.catalog.dataset.notice}</p>
           <p className="digest">Source SHA-256: {active.sourceSha256}</p>
+          {active.artifacts && (
+            <details>
+              <summary>Individual source artifacts and provenance</summary>
+              <ul>
+                {active.artifacts.map((artifact) => (
+                  <li key={artifact.kind}>
+                    <a href={artifact.sourceUrl}>{artifact.kind}</a> · declared
+                    revision {artifact.upstreamRevision} ·{" "}
+                    {artifact.retrievedAt}
+                    <p className="digest">Raw SHA-256: {artifact.sha256}</p>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
           <h3>Supported data</h3>
           <ul>
             {active.coverage.map((item) => (

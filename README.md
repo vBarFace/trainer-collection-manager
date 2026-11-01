@@ -1,65 +1,80 @@
 # Trainer Collection Manager
 
-The 2026-11-01 deterministic MVP implementation is tracked in
-[the delivery audit](docs/development/mvp-delivery.md). **Settings** now imports
-user-acquired local PvPoke, PokeMiners or PoGoAPI JSON, records provenance, and
-supports atomic activation and rollback across restart. No real game datasets
-are bundled or redistributed. See [actual field coverage and file formats](docs/development/mvp-reference-coverage.md).
-This local-import boundary supersedes the bundled-empty-only behavior described
-in older milestones below. Original code remains MIT; game-data rights are separate.
+An open-source, offline-first Windows desktop collection manager for Pokémon GO.
+Original code is MIT. The project is independent of Pokémon and Niantic. No
+account, telemetry, cloud service, game automation, LLM or learned recommendation
+model is used.
 
-Batch import supports up to 500 selected images, sequential local extraction,
-explicit grouping and individual confirmation. Inventory now has search, filters,
-same-form duplicate counts, optional manual observations and explicit protection,
-favorite and tag controls. See [the actual supported workflow and OCR limits](docs/development/mvp-import-and-inventory.md).
+## Current MVP preview
 
-**Recommendations** now explains safe collection decisions and compares supported
-league stat products with actual owned alternatives. Global collection/league
-goals and confirmed Stardust budgets are optional. Current battle readiness,
-PvE/Rocket/gym performance and investment costs remain unsupported; see
-[the deterministic scope](docs/development/mvp-strategy.md). Statistical IV rank
-is not a battle ranking. Teams and Bag placeholders are removed from navigation.
+- Import up to 500 PNG/JPEG screenshots, extract queued images sequentially,
+  correct uncertain name/CP/appraisal IV fields and explicitly group screenshots.
+  Each confirmed new individual receives a stable UUID; retries are idempotent.
+- Search and filter the inventory by name, confirmed species/form, CP, IV total,
+  applied tags, appraisal status and confirmed properties. Inspect duplicates.
+- Confirm optional HP, dimensions, gender, catch date, moves, level evidence and
+  variants manually. Unknown stays unknown. Favorite, protection and applied tags
+  are separate from engine suggestions.
+- Install user-acquired local PvPoke, PokeMiners, PoGoAPI or reviewed Task 007
+  schema-1 reference files in Settings. Validate and activate atomically, retain
+  provenance, and roll back across restart. No game datasets are bundled.
+- Read explainable Rust collection guidance and Great/Ultra/Master theoretical
+  stat products within an explicit level-40 or level-50 mechanics ceiling. Compare
+  actual owned alternatives. IV rank is not a battle-performance ranking.
+- Set optional global collection/league goals and a confirmed Stardust budget.
+  Inspect a per-UUID roadmap, postpone/ignore steps and open explicit observation
+  confirmation. Stale plans block progress until recalculation.
+- Confirm evolution, Power Up and targeted screenshot re-observation on the same
+  UUID using the existing lifecycle workflows. No progress checkbox changes game
+  observations or resources. Evolution needs a reviewed reference relationship.
+- Restart with confirmed data and plans intact. Export structured user data,
+  identity pins, tag definitions and plans without screenshots or catalog files.
+  Backup import is not implemented.
 
-An open-source, offline-first Windows desktop foundation for Pokémon GO collection management. This project is independent and is not affiliated with or endorsed by Pokémon or Niantic.
+## Supported scope and remaining acceptance
 
-## What works today
+This is a bounded collection/statistical preview, **not the fully accepted gameplay
+MVP**. Broader form normalization, merged field-level provider coverage, moves,
+evolution eligibility and costs, PvE DPS/TDO, gym/Rocket simulation, meta rankings,
+rarity/event evidence and executable investment plans remain unsupported. Extra
+optional observations are manual; representative authorized screenshots are still
+needed to benchmark and extend OCR. Current pinned sources now pass structural
+adapter validation, with nine independent hypothetical numeric checks; broader
+gameplay mechanics and real-image acceptance remain open. See the
+[real-source validation record](docs/development/mvp-real-reference-validation.md).
 
-- Tauri 2 + React + TypeScript desktop shell with keyboard-accessible navigation.
-- Local SQLite initialization in the per-user application-data directory.
-- Ordered SQLite migrations for application settings and normalized Pokémon inventory/tags.
-- Native typed Rust inventory CRUD and tagging APIs, including optional appraisal IVs and the `SAVE/SPECIAL` standard tag, with validation and persistence tests.
-- Native PNG/JPEG selection, local preview, automatic local name/CP OCR and appraisal-bar suggestions and editable review with explicit confirmed inventory saving and a persistent list.
-- Versioned offline appraisal evaluation, persistent lifecycle states and explainable IV results. Select an inventory record to evaluate or re-evaluate it.
-- Explicit correction of saved appraisal IVs, including marking the group unknown, with cancellation, retry and conflicting-edit protection.
-- Explicit correction of saved CP, including clearing/restoring unknown CP, with confirmation, cancellation and protection against stale drafts. Native persisted observation revisions track CP/IV/identity changes independently of appraisal.
-- Confirmed **Power Up** for a selected UUID: optional manual CP, preview, explicit in-game confirmation and atomic action history. Leaving new CP empty preserves saved CP; no level or costs are inferred.
-- Validated/versioned offline reference foundation and explicit species/form confirmation, separate from display names. This release uses an empty catalog pending verified dataset rights; real GO metadata is unavailable. See [reference data](docs/development/reference-data.md).
-- Reproducible offline PvPoke development adapter, native candidate validation, SHA-256 provenance and identity continuity checks. Original fictional fixtures exercise generation; the real-data release criterion remains blocked by unverified dataset redistribution rights. See [adapter workflow](docs/development/reference-data.md#task-007-adapter-and-release-workflow).
-- Strict frontend linting, formatting, typechecking, unit-test and CI configuration.
-
-Inventory supports [screenshot review](docs/development/screenshot-review.md) and confirmed saving of display name, optional CP and optional grouped appraisal IVs. Imported records start **Pending**. [Appraisal evaluation](docs/development/evaluation.md) reports attack/defense/HP IVs, their total and descriptive percentage, and a perfect 15/15/15 finding when applicable. Missing IVs produce **Needs data**; IV changes or a ruleset change make previous attempts **Stale**. Select **Correct saved IVs** to review and confirm a replacement group, then request evaluation separately. Names, CP and tags are outside this correction flow. Evaluation metadata and confirmed corrections survive restart.
-
-For a selected saved individual, choose **Correct saved CP**, enter a positive whole number or leave CP empty for unknown, then confirm. Cancelling saves nothing. Failed saves retain the draft; a conflict requires reloading current information. CP uses exact decimal strings through the full SQLite positive integer range and never changes appraisal results or infers level, spending or usefulness. Native-confirmed CP and all saved corrections survive restart.
-
-Ordinary screenshot import creates a new UUID after review; matching names, species, CP or IVs never merge or update existing individuals. Existing-individual management starts with an explicit action on a known UUID and updates that same individual after confirmation. Confirmed normal evolution, **Power Up** and **Update from Screenshot** operate on that selected UUID, with transactional confirmed history. Evolution requires resolved local reference relationships; the bundled empty catalog currently prevents real-species evolution. Power Up works without reference data or a screenshot. See the [lifecycle workflow](docs/development/lifecycle.md). See the [product workflow](docs/product/PRD.md#new-import-and-existing-individual-management) and [remaining S2 work](docs/development/roadmap.md#s2--confirm-the-minimum-individual-and-goal-inputs).
-
-Appraisal percentage is not a PvP ranking, PvE strength score, overall quality score or transfer criterion. No strategic recommendation or suggested tag is generated, and evaluation never changes assigned tags. Import review still confirms data only. Recommendations, Teams, Bag and Settings remain placeholders. Name, visible CP and appraisal IVs are filled automatically when supported evidence is readable. OCR and bar suggestions remain editable and tentative, with manual fallback. One supplied real screenshot has been verified; general recognition accuracy has not been established. See [extraction limitations](docs/development/local-extraction.md). Conversational AI, cloud, telemetry, game automation and external datasets are deferred.
+See the [audit and delivery plan](docs/development/mvp-delivery.md),
+[actual dataset coverage, acquisition and rights](docs/development/mvp-reference-coverage.md),
+[batch import and inventory](docs/development/mvp-import-and-inventory.md),
+[deterministic calculations](docs/development/mvp-strategy.md),
+[roadmap confirmation/progress](docs/development/mvp-roadmaps.md), and
+[executed validation](docs/development/mvp-alpha-validation.md).
 
 ## Quick start (Windows)
 
-Install Node.js LTS, Rust with the stable MSVC toolchain, Visual Studio Build Tools with **Desktop development with C++**, and Microsoft Edge WebView2. Then:
+Install Node.js LTS, stable Rust MSVC, Visual Studio Build Tools with **Desktop
+development with C++**, and Microsoft Edge WebView2. Then run:
 
 ```powershell
 npm ci
 npm run tauri:dev
 ```
 
-See [development setup](docs/development/setup.md) for all commands and prerequisites.
+For an installer, run `npm run tauri:build`. Build output is ignored by Git; no
+release is published automatically. See [setup](docs/development/setup.md).
 
-## Privacy and data
+## Privacy and licensing
 
-The application is designed to be useful without an account or network connection. Its SQLite database is created under the application data directory resolved by Tauri; it is excluded from Git. Screenshots are opened read-only, validated and processed in memory. The OCR engine and English/Portuguese language resources are included at build time; runtime requires no download or internet connection. Original image bytes, metadata, paths and filenames are never stored in the application database or copied into application storage. Only explicitly confirmed structured records and tags are saved.
+The native layer owns SQLite under the Tauri per-user application-data directory.
+Screenshots are read-only and temporary; their bytes, metadata, names and paths
+never enter persistent inventory. Original files remain untouched. Bundled generic
+English/Portuguese OCR resources work offline. Reference imports use a native
+picker and make no application network requests. Offline operation continues
+after local data installation.
 
-## Contributing
+Public data accessibility and a software license do not establish underlying
+Pokémon GO game-data rights. Keep downloaded datasets and user exports private
+and outside Git/release bundles; see [third-party notices](docs/legal/third-party-assets.md).
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and the repository [AGENTS.md](AGENTS.md). Original project code is available under the [MIT License](LICENSE); third-party materials need separate review.
+Read [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and
+[AGENTS.md](AGENTS.md). Original code is under [MIT](LICENSE).

@@ -140,4 +140,76 @@ mod tests {
         assert_eq!(std::fs::read(&path).unwrap(), bytes);
         std::fs::remove_file(path).unwrap();
     }
+
+    #[test]
+    fn sequentially_decodes_one_hundred_generated_files_and_releases_the_queue() {
+        use image::{DynamicImage, ImageFormat, Rgb, RgbImage};
+
+        struct GeneratedFiles {
+            directory: PathBuf,
+            paths: Vec<PathBuf>,
+        }
+        impl Drop for GeneratedFiles {
+            fn drop(&mut self) {
+                // Only these generated files belong to this test. Directory
+                // removal is nonrecursive and cannot delete unlisted contents.
+                for path in &self.paths {
+                    let _ = std::fs::remove_file(path);
+                }
+                let _ = std::fs::remove_dir(&self.directory);
+            }
+        }
+
+        let directory = std::env::temp_dir().join(format!(
+            "tcm-batch-hundred-{}-{}-{}",
+            std::process::id(),
+            NEXT_SESSION.fetch_add(1, Ordering::Relaxed),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&directory).unwrap();
+        let mut generated = GeneratedFiles {
+            directory,
+            paths: Vec::with_capacity(100),
+        };
+        let mut originals = Vec::with_capacity(100);
+        for index in 0..100 {
+            // Original tiny color images exercise decoding and ownership only;
+            // they are not representative screenshots or OCR accuracy evidence.
+            let image =
+                DynamicImage::ImageRgb8(RgbImage::from_pixel(12, 24, Rgb([index as u8, 64, 128])));
+            let mut encoded = std::io::Cursor::new(Vec::new());
+            image.write_to(&mut encoded, ImageFormat::Png).unwrap();
+            let bytes = encoded.into_inner();
+            let path = generated
+                .directory
+                .join(format!("original-generated-{index:03}.png"));
+            generated.paths.push(path.clone());
+            std::fs::write(&path, &bytes).unwrap();
+            originals.push(bytes);
+        }
+
+        let mut batch = Batch::default();
+        let selected = batch.replace(generated.paths.clone()).unwrap();
+        assert_eq!(selected.count, 100);
+        for (index, path) in generated.paths.iter().enumerate() {
+            {
+                let preview = batch.preview(&selected.session_id, index).unwrap();
+                assert_eq!((preview.width, preview.height), (12, 24));
+                assert!(!preview.png.is_empty());
+            }
+            assert_eq!(std::fs::read(path).unwrap(), originals[index]);
+        }
+        batch.release(&selected.session_id);
+        assert!(batch.session.is_none());
+        assert_eq!(
+            batch.preview(&selected.session_id, 0).unwrap_err().code,
+            "batch_expired"
+        );
+        for (path, original) in generated.paths.iter().zip(&originals) {
+            assert_eq!(std::fs::read(path).unwrap(), *original);
+        }
+    }
 }

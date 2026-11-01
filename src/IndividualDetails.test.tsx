@@ -27,6 +27,7 @@ beforeEach(() =>
     values: facts,
     observationRevision: "7",
     needsReconfirmation: false,
+    evidenceToken: "details-token",
   }),
 );
 afterEach(cleanup);
@@ -65,6 +66,7 @@ it("keeps unknown variants distinct and submits only explicitly confirmed option
   expect(invoke).toHaveBeenLastCalledWith("save_individual_details", {
     id: "00000000-0000-4000-8000-000000000001",
     expectedRevision: "7",
+    expectedEvidenceToken: "details-token",
     values: { ...facts, currentHp: 47, maximumHp: 47, favorite: true },
   });
   expect(callbacks.onSaved).toHaveBeenCalledOnce();

@@ -1,5 +1,9 @@
 # S2.3 confirmed Power Up and CP updates validation
 
+For the current 2026-11-01 deterministic MVP initiative, see
+[executed alpha validation and remaining acceptance](mvp-alpha-validation.md).
+The record below describes the earlier S2.3 milestone.
+
 Date: 2026-10-27. Base: `f404793` (verified against fetched `origin/main`). Dedicated branch: `feat/s2-3-confirmed-power-up`.
 
 ## Delivered behavior and boundaries

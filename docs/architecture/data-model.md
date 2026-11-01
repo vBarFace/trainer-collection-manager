@@ -1,5 +1,22 @@
 # Data model
 
+## Deterministic MVP additions — migrations 9–11
+
+Migrations 1–8 retain their original SQL. Migration 9 adds per-user active/previous
+reference packages and cumulative immutable-version/species/form ledgers.
+Migration 10 adds typed optional individual details, evidence invalidation after
+confirmed evolution/Power Up, and atomic import-request-to-UUID idempotency.
+Migration 11 adds one current plus one preceding roadmap per stable UUID, with
+bounded report/progress JSON and optimistic context/revision checks. Global
+goal/budget preferences occupy one versioned application_settings entry.
+
+Screenshots, paths and filenames never enter these tables. Reference changes do
+not rewrite player observations or identity pins. Power Up without a CP patch
+preserves the existing strategic revision while its lifecycle token and optional
+evidence invalidation stale affected plans. See ADRs 0008/0009 and current
+[roadmap contracts](../development/mvp-roadmaps.md). The older schema narrative
+below describes the previous milestone.
+
 ## Implemented schema
 
 `schema_migrations` records applied immutable migration versions. Version 1 creates `application_settings` for local metadata; version 2 adds inventory and seeds standard tags; version 3 adds appraisal IVs and the `SAVE/SPECIAL` standard tag; version 4 adds appraisal revision tracking and evaluation metadata; version 5 adds separately confirmed reference identity; version 6 adds strategic observation revision tracking. Version 7 adds confirmed lifecycle event history; version 8 extends its allowed action kinds with Power Up. Versions 1–7 are unchanged. Pending migrations run in order in one transaction and record their versions only on success. Reopening the database does not rerun applied migrations, reset revisions or reseed tags.
