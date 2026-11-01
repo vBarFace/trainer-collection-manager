@@ -149,7 +149,9 @@ describe("confirmed Power Up", () => {
     ).toBeDisabled();
     confirm();
     await screen.findByText("Power Up confirmed and saved locally.");
-    expect(screen.getByRole("button", { name: "Power Up" })).toHaveFocus();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Power Up" })).toHaveFocus(),
+    );
     expect(native.confirmPowerUp).toHaveBeenCalledExactlyOnceWith(record.id, {
       requestId: expect.stringMatching(/^[0-9a-f-]{36}$/),
       expectedStrategicObservationRevision: record.strategicObservationRevision,
