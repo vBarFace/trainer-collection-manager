@@ -403,9 +403,13 @@ it("invalidates loaded history when an action preserves CP and the observation r
   review();
   confirm();
   await screen.findByText("Power Up confirmed and saved locally.");
-  expect(
-    screen.queryByText("No confirmed lifecycle events yet."),
-  ).not.toBeInTheDocument();
+  // HistoryPanel clears its cache in an effect after the confirmed record is
+  // rendered. The success message alone does not await that separate effect.
+  await waitFor(() =>
+    expect(
+      screen.queryByText("No confirmed lifecycle events yet."),
+    ).not.toBeInTheDocument(),
+  );
   fireEvent.click(
     screen.getByRole("button", { name: "Load confirmed history" }),
   );
