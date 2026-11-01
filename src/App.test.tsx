@@ -2,7 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
-vi.mock("./native", () => ({
+vi.mock("./native", async (original) => ({
+  ...(await original<typeof import("./native")>()),
   native: { snapshot: vi.fn().mockResolvedValue({ records: [], tags: [] }) },
 }));
 describe("App", () => {

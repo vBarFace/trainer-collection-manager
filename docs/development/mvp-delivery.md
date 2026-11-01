@@ -43,6 +43,13 @@ is performed. Original code remains MIT; upstream data rights remain separate.
 
 ## Executed baseline
 
+PR 2: batch review, searchable/filterable paged inventory, typed optional manual
+observations, explicit protection/favorite distinction, and applied tag editing.
+See [behavior, persistence and remaining OCR acceptance](mvp-import-and-inventory.md).
+Before final batch enhancements: 132 frontend tests and 135 native tests passed,
+with 2 sample-dependent native tests ignored. Final counts are recorded below
+after the integrated validation run.
+
 PR 0: local commit `b29fdf9`, branch `fix/power-up-history-synchronization`.
 Frontend checks passed (122 tests and 8 adapter tests); native format/check and
 122 native tests passed, 2 authorized-sample tests ignored. Remote CI has not

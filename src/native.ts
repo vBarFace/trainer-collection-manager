@@ -117,6 +117,14 @@ export interface Evaluation {
 export interface InventorySnapshot {
   records: InventoryRecord[];
   tags: Tag[];
+  details?: Record<
+    string,
+    {
+      values: import("./IndividualDetails").IndividualFacts;
+      observationRevision: string;
+      needsReconfirmation: boolean;
+    }
+  >;
 }
 export interface ScreenshotPreview {
   png: number[];
@@ -197,6 +205,8 @@ export interface HistoryEvent {
 }
 
 export const native = {
+  confirmBatchImport: (requestId: string, input: ImportInput) =>
+    invoke<InventoryRecord>("confirm_batch_import", { requestId, input }),
   confirmPowerUp: (id: string, input: PowerUpInput) =>
     invoke<InventoryRecord>("confirm_power_up", { id, input }),
   evolutionOptions: (id: string) =>
