@@ -51,8 +51,16 @@ whose capped league optimum falls below level 40.
 These are hypothetical calculation checks, not observed player Pokémon or claims
 that every spread/level is legally obtainable. Current level, encounter floors,
 variants, moves, meta performance, costs and actual battle readiness remain
-separate unresolved inputs. This does not validate all 4,096-spread ranks against
-an independent ranking implementation or establish full PvP/PvE correctness.
+separate unresolved inputs.
+
+A subsequent independent ranking check enumerated all 4,096 IV spreads for each
+of the same nine examples. It selected each spread's highest permitted half level
+using an exact squared-CP inequality, then compared rational stat products by
+cross-multiplication, including exact ties. All nine native rank and spread-count
+results matched. This checks the sampled theoretical rankings through level 40;
+it does not establish every species/form, level-50 mechanics, obtainable spreads,
+eligibility or full PvP/PvE correctness. The checker and its private report remain
+outside Git with the acquired source bytes; no source records are committed.
 
 ## Reproduce with private files
 
