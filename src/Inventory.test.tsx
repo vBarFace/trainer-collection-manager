@@ -193,9 +193,11 @@ describe("saved CP correction", () => {
     expect(
       screen.getByText("Confirmed CP: 9007199254740993"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Correct saved CP" }),
-    ).toHaveFocus();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Correct saved CP" }),
+      ).toHaveFocus(),
+    );
     expect(native.evaluate).not.toHaveBeenCalled();
     expect(native.correctIvs).not.toHaveBeenCalled();
     expect(native.correctIdentity).not.toHaveBeenCalled();
@@ -559,9 +561,11 @@ describe("Inventory manual import", () => {
     expect(native.snapshot).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Evaluation: Pending")).toBeInTheDocument();
     expect(screen.getByText("Tags: None")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Select screenshot" }),
-    ).toHaveFocus();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Select screenshot" }),
+      ).toHaveFocus(),
+    );
   });
   it("blocks incomplete groups before calling native save", async () => {
     render(<Inventory />);
@@ -638,9 +642,11 @@ describe("Inventory manual import", () => {
       "Screenshot selection cancelled. Nothing was saved.",
     );
     expect(revokeObjectURL).toHaveBeenCalledTimes(1);
-    expect(
-      screen.getByRole("button", { name: "Select screenshot" }),
-    ).toHaveFocus();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Select screenshot" }),
+      ).toHaveFocus(),
+    );
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(native.confirmImport).not.toHaveBeenCalled();
   });
