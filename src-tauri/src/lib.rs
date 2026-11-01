@@ -310,11 +310,16 @@ async fn import_reference(
             .query_row("SELECT date('now')", [], |r| r.get(0))
             .map_err(|_| commands::CommandError::storage())?;
         let source_digest = reference_store::digest(&bytes);
-        if repository.local_package().ok().flatten().is_some_and(|active| {
-            active.provider == provider
-                && active.source_sha256 == source_digest
-                && active.catalog["dataset"]["upstreamRevision"].as_str() == Some(&revision)
-        }) {
+        if repository
+            .local_package()
+            .ok()
+            .flatten()
+            .is_some_and(|active| {
+                active.provider == provider
+                    && active.source_sha256 == source_digest
+                    && active.catalog["dataset"]["upstreamRevision"].as_str() == Some(&revision)
+            })
+        {
             return repository.reference_status().map(Some).map_err(Into::into);
         }
         let normalized =
