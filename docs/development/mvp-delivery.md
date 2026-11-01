@@ -43,6 +43,11 @@ is performed. Original code remains MIT; upstream data rights remain separate.
 
 ## Executed baseline
 
+PR 3: pure `collection-1` Rust statistical engine and collection-aware safe
+guidance. Eleven integrated engine tests passed, including hand-calculated
+numbers, CP caps, level ceilings, protected retention, contradictory/missing
+observations and exceptional mechanics. [Scope and limits](mvp-strategy.md).
+
 PR 2: batch review, searchable/filterable paged inventory, typed optional manual
 observations, explicit protection/favorite distinction, and applied tag editing.
 See [behavior, persistence and remaining OCR acceptance](mvp-import-and-inventory.md).

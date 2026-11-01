@@ -10,6 +10,7 @@ pub mod reference;
 pub mod reference_store;
 mod screenshot;
 pub mod source_adapter;
+pub mod strategy;
 pub mod utility;
 
 use std::sync::{
