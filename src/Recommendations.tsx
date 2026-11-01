@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { nativeErrorMessage } from "./native";
+import { IndividualRoadmap } from "./IndividualRoadmap";
 import {
   strategyNative,
   type CollectionStrategy,
@@ -69,6 +70,7 @@ export function Recommendations({
   const [limit, setLimit] = useState(100);
   const alive = useRef(false);
   const pending = useRef(false);
+  const assessmentHeading = useRef<HTMLHeadingElement>(null);
   async function load() {
     setBusy(true);
     setError("");
@@ -147,6 +149,12 @@ export function Recommendations({
   const current = snapshot?.reports.find(
     (report) => report.pokemonId === selected,
   );
+  useEffect(() => {
+    if (current) {
+      assessmentHeading.current?.focus();
+      assessmentHeading.current?.scrollIntoView?.({ block: "start" });
+    }
+  }, [selected, snapshot?.context, current]);
   return (
     <div className="recommendations">
       <section>
@@ -303,7 +311,9 @@ export function Recommendations({
       </section>
       {current && (
         <section className="individual-assessment">
-          <h2>{current.displayName} · individual assessment</h2>
+          <h2 ref={assessmentHeading} tabIndex={-1}>
+            {current.displayName} · individual assessment
+          </h2>
           <LeagueStatistics
             report={current}
             onOpenIndividual={onOpenIndividual}
@@ -325,6 +335,11 @@ export function Recommendations({
               ))}
             </ul>
           </details>
+          <IndividualRoadmap
+            key={`${current.pokemonId}:${snapshot?.context}`}
+            id={current.pokemonId}
+            onOpenIndividual={onOpenIndividual}
+          />
         </section>
       )}
     </div>

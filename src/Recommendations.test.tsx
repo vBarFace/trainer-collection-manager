@@ -82,6 +82,16 @@ const snapshot: CollectionStrategy = {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(strategyNative.collection).mockResolvedValue(snapshot);
+  vi.mocked(strategyNative.roadmap).mockResolvedValue({
+    context: snapshot.context,
+    currentContext: snapshot.context,
+    revision: "0",
+    report: null,
+    previous: null,
+    progress: {},
+    stale: false,
+    generatedAt: null,
+  });
 });
 afterEach(cleanup);
 it("shows explainable facts and distinguishes limited statistics from battle rankings", async () => {
