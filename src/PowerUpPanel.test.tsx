@@ -328,7 +328,10 @@ describe("confirmed Power Up", () => {
     expect(
       screen.getByRole("button", { name: "Select screenshot" }),
     ).toBeDisabled();
-    confirm();
+    // Settle the native confirmation and the parent record's effects before
+    // starting a separate history request. A success message may render before
+    // HistoryPanel invalidates the previous record's cache/request version.
+    await act(async () => confirm());
     await screen.findByText("Power Up confirmed and saved locally.");
     expect(screen.getByText("Confirmed CP: 9223372036854775807")).toBeVisible();
     expect(
