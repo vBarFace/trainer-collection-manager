@@ -148,9 +148,11 @@ describe("reference details", () => {
         form: "Plain",
       });
       expect(network).not.toHaveBeenCalled();
-      expect(
-        screen.getByRole("button", { name: "Correct species and form" }),
-      ).toHaveFocus();
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Correct species and form" }),
+        ).toHaveFocus(),
+      );
     } finally {
       network.mockRestore();
     }
