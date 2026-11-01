@@ -103,6 +103,48 @@ function confirm() {
 }
 
 describe("bounded batch screenshot review", () => {
+  it("processes 100 fictional screenshots with only one image/OCR job in flight and saves only after confirmation", async () => {
+    vi.mocked(batchNative.select).mockResolvedValue({
+      sessionId: "fictional-100",
+      count: 100,
+    });
+    let active = 0;
+    let peak = 0;
+    vi.mocked(batchNative.preview).mockImplementation(async () => {
+      active++;
+      peak = Math.max(peak, active);
+      await Promise.resolve();
+      return image;
+    });
+    vi.mocked(extractText).mockImplementation(async () => {
+      await Promise.resolve();
+      active--;
+      return extraction;
+    });
+    render(<BatchImport onSaved={vi.fn()} />);
+    await open();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Extract queued screenshots" }),
+    );
+    await screen.findByText(
+      /Local extraction finished: 100 screenshots processed/,
+    );
+    expect(vi.mocked(batchNative.preview).mock.calls).toEqual(
+      Array.from({ length: 100 }, (_, index) => ["fictional-100", index]),
+    );
+    expect(extractText).toHaveBeenCalledTimes(100);
+    expect(peak).toBe(1);
+    expect(active).toBe(0);
+    expect(screen.getAllByText("Missing optional information")).toHaveLength(
+      100,
+    );
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(native.confirmBatchImport).not.toHaveBeenCalled();
+    confirm();
+    await screen.findByText("Saved");
+    expect(native.confirmBatchImport).toHaveBeenCalledOnce();
+  });
+
   it("extracts the entire queue sequentially without saving or retaining preview URLs", async () => {
     let concurrent = 0;
     let peak = 0;

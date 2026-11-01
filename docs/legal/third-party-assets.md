@@ -1,5 +1,12 @@
 # Third-party assets and data
 
+The deterministic MVP adds user-selected local source imports, not redistributed
+game datasets. See [the current provider/field/rights matrix](../development/mvp-reference-coverage.md).
+`sha2` 0.10.9 (already locked transitively; MIT OR Apache-2.0, verified from its
+installed Cargo package manifest) is now a direct provenance-hashing dependency.
+No new gameplay assets, recommendation models or model weights are included.
+User-controlled acquisition does not establish underlying data-use rights.
+
 No third-party game images, sprites, logos or game datasets are included. Generic OCR language data is obtained through locked npm packages and bundled at build time; model bytes and generated assets are not committed.
 
 The MIT license covers only original project code and documentation. Pokémon, Pokémon GO and related marks belong to their respective owners and are not licensed by this project. Before adding any external asset, dataset, library content or model, record its source, license, redistribution rights, attribution and update/removal plan.

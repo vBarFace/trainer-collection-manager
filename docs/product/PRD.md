@@ -1,5 +1,15 @@
 # Product requirements document
 
+## Current MVP scope — 2026-11-01
+
+The active user brief is a deterministic/statistical, offline collection MVP,
+without ML or LLM models. ADR 0009 supersedes this document's older proposed
+learning/hybrid milestones. Implemented behavior and remaining acceptance are
+tracked in [the delivery audit](../development/mvp-delivery.md),
+[scope and calculations](../development/mvp-strategy.md), and
+[alpha validation](../development/mvp-alpha-validation.md). The historical
+proposals below do not claim current supported gameplay domains.
+
 ## Vision
 
 Trainer Collection Manager is a free, open-source, offline-first desktop app for casual Pokémon GO players to maintain a local collection and receive explainable support for manual in-game decisions.

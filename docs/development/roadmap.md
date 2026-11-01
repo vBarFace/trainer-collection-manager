@@ -1,5 +1,19 @@
 # Development roadmap
 
+## Current deterministic MVP initiative — 2026-11-01
+
+The current brief supersedes the historical Task 008 learning/hybrid proposals
+below. No ML or LLM is part of this MVP. Follow the
+[current gap matrix and delivery record](mvp-delivery.md),
+[actual supported reference fields](mvp-reference-coverage.md), and
+[remaining alpha acceptance](mvp-alpha-validation.md).
+
+Local increments implement stabilization, user-local reference import, batch
+review/inventory completeness, collection/statistical evaluation, recommendations,
+bounded roadmaps and structured export. Full gameplay accuracy, broader merged
+source coverage and representative authorized OCR benchmarking remain open.
+The older milestone record below is historical context.
+
 1. Implemented (Task 002): local inventory schema, stable UUIDs, validation, grouped optional appraisal IVs, standard/custom tags and typed Rust persistence.
 2. Implemented (Task 003): native PNG/JPEG selection, bounded temporary preview, manual review, explicit atomic confirmed saving and a minimal persistent **Awaiting evaluation** Inventory list. Import review confirms data without selecting classification tags; previously saved tags remain intact. OCR and automatic extraction are deferred.
 3. Implemented bounded increment (Task 004): typed per-field extraction, conservative experimental appraisal-bar geometry, editable tentative suggestions and safe manual fallback. No new dependencies or persistence fields. Name/CP OCR and real-image accuracy validation remain unsupported; see [local extraction](local-extraction.md).

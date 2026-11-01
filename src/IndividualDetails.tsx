@@ -24,6 +24,7 @@ interface DetailsView {
   values: IndividualFacts;
   observationRevision: string;
   needsReconfirmation: boolean;
+  evidenceToken: string;
 }
 const numberFields = [
   "currentHp",
@@ -140,6 +141,7 @@ export function IndividualDetails({
       await invoke("save_individual_details", {
         id: record.id,
         expectedRevision: view.observationRevision,
+        expectedEvidenceToken: view.evidenceToken,
         values,
       });
       await onSaved();

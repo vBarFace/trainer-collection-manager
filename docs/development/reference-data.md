@@ -1,5 +1,11 @@
 # Local reference data
 
+Current MVP: Settings can explicitly import user-acquired provider JSON or a
+reviewed Task 007 schema-1 snapshot into per-user storage, with atomic activation,
+rollback and persistent identity continuity. Bundled data remains empty.
+[Current field coverage, formats and rights](mvp-reference-coverage.md) and
+ADR 0008 supersede the bundled-only activation scope described below.
+
 Task 006 provides a validated, offline reference foundation. **This release bundles no real Pokémon GO records.** The UI can retain manually confirmed species/form queries, but real game metadata remains unavailable. This is the compliant fallback allowed by the task, not a completed GO encyclopedia. See [source and licensing research](reference-data-sources.md) and [decision 0006](../decisions/0006-versioned-local-reference-data.md).
 
 ## Ownership and schema

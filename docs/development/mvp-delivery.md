@@ -37,11 +37,21 @@ one frontend assertion (Power Up history invalidation).
    requires representative authorized samples, which are not in this checkout.
 
 Each increment uses a dedicated local branch and conventional commit. Branches
-may stack on the prior unmerged increment. Remote push/PR creation and release
-publication require explicit authorization under repository AGENTS.md. No merge
-is performed. Original code remains MIT; upstream data rights remain separate.
+stack on the prior unmerged increment. The brief requests focused PR delivery;
+repository AGENTS.md still requires explicit approval at remote publication.
+No merge or release publication is performed. Original code remains MIT;
+upstream data rights remain separate.
 
 ## Executed baseline
+
+PR 6: screenshot/catalog-free structured export, individual source-artifact
+hashes and multi-file PoGoAPI import, 100-image/1,000-record checks, and a
+history-aware cross-instance optional-observation confirmation fix. Final checks:
+144 frontend, 8 adapter, 160 native, 2 native reference CLI tests passed; 2
+authorized-sample tests ignored. Rust format/check, Windows release/NSIS build,
+and native app launch/navigation passed. See [actual acceptance and artifact](mvp-alpha-validation.md).
+Full gameplay MVP acceptance remains open for the explicitly listed data,
+mechanics, real-image and installed-app verification gaps.
 
 PR 5: per-UUID roadmap UI, required/optional steps, postpone/ignore/reset,
 explicit review-confirmation handoff, stale controls and previous-plan context.

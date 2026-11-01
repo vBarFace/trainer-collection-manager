@@ -648,6 +648,7 @@ mod tests {
             limitations: vec![],
             source_sha256: digest(b"original fictional strategy source"),
             provider: "fictional".into(),
+            artifacts: vec![],
         };
         repo.install_reference(package).unwrap();
         let pokemon = repo
@@ -763,6 +764,7 @@ mod tests {
         repo.save_individual_details(
             &id,
             revision,
+            &repo.individual_details(&id).unwrap().evidence_token,
             IndividualDetails {
                 shiny: Some(true),
                 favorite: Some(true),

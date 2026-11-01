@@ -10,6 +10,22 @@ All notable changes are documented here.
 
 ### Added
 
+- Deterministic MVP preview: bounded 500-image batch queue with sequential local
+  extraction, explicit grouping and idempotent confirmation; inventory search,
+  filters, duplicate counts and paged rendering; typed optional manual facts,
+  separate favorite/protection and explicit applied-tag editing.
+- Rust collection-1 guidance and modeled level-40/50 league statistics with
+  explicit uncertainty, actual owned alternatives and optional global goals/
+  confirmed Stardust budgets. No battle ranking, universal score or executable
+  investment/disposal is invented when mechanics/costs are unsupported.
+- Bounded per-UUID roadmap progress, stale context/revision checks, explicit
+  confirmation handoffs, current/previous history, and structured user-data export
+  excluding screenshots/catalog files. Cross-instance history-only Power Up
+  rejects stale optional-observation drafts using an evidence token.
+- Windows preview build and volume/end-to-end validation. Broader real-source
+  coverage, real-image OCR accuracy and full gameplay acceptance remain open;
+  see docs/development/mvp-alpha-validation.md. No release is published.
+
 - Explicit local PvPoke/PokeMiners/PoGoAPI source imports in Settings, with bounded
   conservative normalization, source digests/notices, transactional activation,
   persistent identity/version continuity and rollback. Downloaded game data is

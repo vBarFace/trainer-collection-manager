@@ -82,6 +82,7 @@ pub struct DetailsView {
     pub observation_revision: String,
     pub saved_at_revision: Option<String>,
     pub needs_reconfirmation: bool,
+    pub evidence_token: String,
 }
 
 impl InventoryRepository {
@@ -167,31 +168,42 @@ impl InventoryRepository {
     }
 
     pub fn individual_details(&self, id: &PokemonId) -> Result<DetailsView> {
-        let pokemon = self.get(id)?;
-        let stored: Option<(String, i64, bool)> = self
-            .connection
-            .query_row(
-                "SELECT details_json,observation_revision,invalidated FROM pokemon_details WHERE pokemon_id=?1",
-                [id.as_str()],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )
-            .optional()?;
-        let (values, saved, invalidated) = match stored {
-            Some((json, revision, invalidated)) => (
+        // One SQL snapshot couples optional evidence to history-only actions,
+        // including another app instance confirming Power Up without new CP.
+        type Row = (
+            i64,
+            Option<String>,
+            Option<i64>,
+            Option<bool>,
+            Option<String>,
+        );
+        let (revision,json,saved,invalidated,latest_action):Row=self.connection.query_row(
+            "SELECT p.strategic_observation_revision,d.details_json,d.observation_revision,d.invalidated,
+                (SELECT request_id FROM pokemon_lifecycle_events WHERE pokemon_id=p.id ORDER BY rowid DESC LIMIT 1)
+             FROM pokemon p LEFT JOIN pokemon_details d ON d.pokemon_id=p.id WHERE p.id=?1",
+             [id.as_str()],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).optional()?.ok_or(Error::NotFound("Pokemon"))?;
+        let values: IndividualDetails = json
+            .map(|json| {
                 serde_json::from_str(&json)
-                    .map_err(|_| Error::InvalidInput("Invalid stored individual observations"))?,
-                Some(revision),
-                invalidated,
-            ),
-            None => (IndividualDetails::default(), None, false),
-        };
+                    .map_err(|_| Error::InvalidInput("Invalid stored individual observations"))
+            })
+            .transpose()?
+            .unwrap_or_default();
+        values.validate()?;
+        let evidence_token = crate::reference_store::digest(
+            &serde_json::to_vec(
+                &serde_json::json!({"revision":revision.to_string(),"latestAction":latest_action}),
+            )
+            .unwrap(),
+        );
         Ok(DetailsView {
             values,
             source: "manually_confirmed",
-            observation_revision: pokemon.strategic_observation_revision.to_string(),
+            observation_revision: revision.to_string(),
             saved_at_revision: saved.map(|v| v.to_string()),
-            needs_reconfirmation: invalidated
-                || saved.is_some_and(|v| v != pokemon.strategic_observation_revision),
+            needs_reconfirmation: invalidated.unwrap_or(false)
+                || saved.is_some_and(|v| v != revision),
+            evidence_token,
         })
     }
 
@@ -199,6 +211,7 @@ impl InventoryRepository {
         &self,
         id: &PokemonId,
         expected_revision: i64,
+        expected_evidence_token: &str,
         values: IndividualDetails,
     ) -> Result<DetailsView> {
         values.validate()?;
@@ -218,6 +231,9 @@ impl InventoryRepository {
             return Err(Error::ObservationConflict);
         }
         let current = self.individual_details(id)?;
+        if current.evidence_token != expected_evidence_token {
+            return Err(Error::ObservationConflict);
+        }
         if current.values != values || current.needs_reconfirmation {
             let revision = expected_revision
                 .checked_add(1)
@@ -292,6 +308,7 @@ mod tests {
         repo.save_individual_details(
             &pokemon.id,
             0,
+            &repo.individual_details(&pokemon.id).unwrap().evidence_token,
             IndividualDetails {
                 level: Some(10.0),
                 level_evidence: Some("Explicit user evidence".into()),
@@ -299,16 +316,24 @@ mod tests {
             },
         )
         .unwrap();
-        repo.confirm_power_up(
-            &pokemon.id,
-            crate::inventory::PowerUpConfirmation {
-                request_id: "00000000-0000-4000-8000-000000000011",
-                expected_revision: 1,
-                cp: None,
-                performed_in_game_confirmed: true,
-            },
-        )
-        .unwrap();
+        let draft = repo.individual_details(&pokemon.id).unwrap();
+        let second_instance = InventoryRepository::open(&path).unwrap();
+        second_instance
+            .confirm_power_up(
+                &pokemon.id,
+                crate::inventory::PowerUpConfirmation {
+                    request_id: "00000000-0000-4000-8000-000000000011",
+                    expected_revision: 1,
+                    cp: None,
+                    performed_in_game_confirmed: true,
+                },
+            )
+            .unwrap();
+        drop(second_instance);
+        assert!(matches!(
+            repo.save_individual_details(&pokemon.id, 1, &draft.evidence_token, draft.values),
+            Err(Error::ObservationConflict)
+        ));
         assert_eq!(
             repo.get(&pokemon.id)
                 .unwrap()
@@ -373,21 +398,41 @@ mod tests {
             ..Default::default()
         };
         let saved = repo
-            .save_individual_details(&pokemon.id, 0, details.clone())
+            .save_individual_details(
+                &pokemon.id,
+                0,
+                &repo.individual_details(&pokemon.id).unwrap().evidence_token,
+                details.clone(),
+            )
             .unwrap();
         assert_eq!(saved.observation_revision, "1");
         assert!(!saved.needs_reconfirmation);
         assert!(repo
-            .save_individual_details(&pokemon.id, 0, IndividualDetails::default())
+            .save_individual_details(
+                &pokemon.id,
+                0,
+                &repo.individual_details(&pokemon.id).unwrap().evidence_token,
+                IndividualDetails::default()
+            )
             .is_err());
         let noop = repo
-            .save_individual_details(&pokemon.id, 1, details.clone())
+            .save_individual_details(
+                &pokemon.id,
+                1,
+                &repo.individual_details(&pokemon.id).unwrap().evidence_token,
+                details.clone(),
+            )
             .unwrap();
         assert_eq!(noop.observation_revision, "1");
         let mut invalid = details.clone();
         invalid.catch_date = Some("2026-02-30".into());
         assert!(repo
-            .save_individual_details(&pokemon.id, 1, invalid)
+            .save_individual_details(
+                &pokemon.id,
+                1,
+                &repo.individual_details(&pokemon.id).unwrap().evidence_token,
+                invalid
+            )
             .is_err());
         drop(repo);
         let repo = InventoryRepository::open(&path).unwrap();
