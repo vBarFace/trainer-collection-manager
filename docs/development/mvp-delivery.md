@@ -44,6 +44,12 @@ upstream data rights remain separate.
 
 ## Executed baseline
 
+Final reference-validation follow-up: pinned real PvPoke and GM files plus three
+PoGoAPI endpoints passed the offline developer validator. Nine independent
+hypothetical statistical cases passed; three source base-stat samples agreed.
+This supersedes the initial structural-compatibility uncertainty below, without
+claiming full mechanics or data-rights acceptance. [Reproducible evidence](mvp-real-reference-validation.md).
+
 PR 6: screenshot/catalog-free structured export, individual source-artifact
 hashes and multi-file PoGoAPI import, 100-image/1,000-record checks, and a
 history-aware cross-instance optional-observation confirmation fix. Final checks:

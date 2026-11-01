@@ -14,6 +14,11 @@ name = "validate-reference"
 path = "src/bin/validate-reference.rs"
 required-features = ["reference-tools"]
 
+[[bin]]
+name = "validate-source"
+path = "src/bin/validate-source.rs"
+required-features = ["reference-tools"]
+
 [build-dependencies]
 tauri-build = { version = "2.4.1", features = [] }
 

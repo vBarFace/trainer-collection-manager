@@ -64,15 +64,22 @@ representative real-data screenshot acceptance was performed.
 
 ## Remaining release acceptance
 
+Subsequent source validation: current pinned PvPoke/GM inputs and separately
+hashed PoGoAPI responses passed the production adapters. Nine hypothetical
+real-reference statistical cases matched independent exact rational arithmetic;
+three sampled base-stat records agreed across all providers. See [revisions,
+fingerprints, counts and limitations](mvp-real-reference-validation.md). No real
+dataset records or derived sample fixture records are committed.
+
 | Acceptance area                              | State / required evidence                                                                                        |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Stable UUIDs, corrections, lifecycle history | Existing and new native integration tests; no game automation                                                    |
-| Local reference install/rollback/restart     | Fictional structural tests pass; current real GM import unverified                                               |
+| Local reference install/rollback/restart     | Fictional persistence tests and current pinned real-source structural validation passed                          |
 | Real provider field coverage                 | Bounded ordinary forms/stats/types/CPM only; provider snapshots remain alternatives, not merged fields           |
 | Bulk review/grouping/idempotent save         | Fictional frontend/native tests pass; real representative throughput/accuracy unmeasured                         |
 | Extended visible screenshot fields           | Manual completion implemented; extra OCR/layout/symbol recognition not accepted                                  |
 | Search/filter/duplicates                     | Implemented; exact CP string comparisons and unknown identity tested                                             |
-| Statistical league scope                     | Modeled ceiling shown; real-species numerical review and broader mechanics remain open                           |
+| Statistical league scope                     | Modeled ceiling shown; nine independent hypothetical real-reference checks passed; broader mechanics open        |
 | PvE/gym/Rocket/meta/rarity and investments   | Unsupported; missing evidence blocks spending/disposal rather than generating false scores                       |
 | Roadmaps/progress                            | Bounded collection/statistical review/compare/wait plans implemented; executable investment plans gated          |
 | Structured export                            | Implemented/tested; no backup import or catalog redistribution                                                   |

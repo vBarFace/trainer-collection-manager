@@ -38,8 +38,10 @@ MVP**. Broader form normalization, merged field-level provider coverage, moves,
 evolution eligibility and costs, PvE DPS/TDO, gym/Rocket simulation, meta rankings,
 rarity/event evidence and executable investment plans remain unsupported. Extra
 optional observations are manual; representative authorized screenshots are still
-needed to benchmark and extend OCR. Current real Game Master compatibility and
-independently reviewed real-species numerical examples remain unverified.
+needed to benchmark and extend OCR. Current pinned sources now pass structural
+adapter validation, with nine independent hypothetical numeric checks; broader
+gameplay mechanics and real-image acceptance remain open. See the
+[real-source validation record](docs/development/mvp-real-reference-validation.md).
 
 See the [audit and delivery plan](docs/development/mvp-delivery.md),
 [actual dataset coverage, acquisition and rights](docs/development/mvp-reference-coverage.md),
