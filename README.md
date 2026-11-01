@@ -13,6 +13,13 @@ explicit grouping and individual confirmation. Inventory now has search, filters
 same-form duplicate counts, optional manual observations and explicit protection,
 favorite and tag controls. See [the actual supported workflow and OCR limits](docs/development/mvp-import-and-inventory.md).
 
+**Recommendations** now explains safe collection decisions and compares supported
+league stat products with actual owned alternatives. Global collection/league
+goals and confirmed Stardust budgets are optional. Current battle readiness,
+PvE/Rocket/gym performance and investment costs remain unsupported; see
+[the deterministic scope](docs/development/mvp-strategy.md). Statistical IV rank
+is not a battle ranking. Teams and Bag placeholders are removed from navigation.
+
 An open-source, offline-first Windows desktop foundation for Pokémon GO collection management. This project is independent and is not affiliated with or endorsed by Pokémon or Niantic.
 
 ## What works today

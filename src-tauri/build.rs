@@ -24,6 +24,11 @@ fn main() {
             "create_custom_tag",
             "confirm_pokemon_tags",
             "confirm_batch_import",
+            "collection_strategy",
+            "pokemon_roadmap",
+            "generate_roadmap",
+            "update_roadmap_progress",
+            "save_strategy_preferences",
         ]),
     ))
     .expect("Unable to build application permissions");

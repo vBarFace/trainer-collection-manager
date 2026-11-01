@@ -1,20 +1,14 @@
 import { useState } from "react";
 import { Inventory } from "./Inventory";
 import { ReferenceSettings } from "./ReferenceSettings";
+import { Recommendations } from "./Recommendations";
 
 const navigationItems = ["Inventory", "Recommendations", "Settings"] as const;
 type NavigationItem = (typeof navigationItems)[number];
 
-const descriptions: Record<NavigationItem, string> = {
-  Inventory: "Review screenshots manually and save your local collection.",
-  Recommendations:
-    "Explainable, deterministic recommendations are planned for a later milestone.",
-  Settings:
-    "Application preferences will remain local to this Windows user profile.",
-};
-
 export function App() {
   const [activeItem, setActiveItem] = useState<NavigationItem>("Inventory");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   return (
     <div className="app-shell">
@@ -48,22 +42,26 @@ export function App() {
         </p>
       </aside>
       <main id="main-content">
-        <p className="eyebrow">Foundation release</p>
+        <p className="eyebrow">Offline collection workspace · MVP preview</p>
         <h1>{activeItem}</h1>
         {activeItem === "Inventory" ? (
-          <Inventory />
+          <Inventory
+            initialSelectedId={selectedId}
+            onViewAssessment={(id) => {
+              setSelectedId(id);
+              setActiveItem("Recommendations");
+            }}
+          />
         ) : activeItem === "Settings" ? (
           <ReferenceSettings />
         ) : (
-          <section className="placeholder" aria-labelledby="placeholder-title">
-            <p className="status">Planned</p>
-            <h2 id="placeholder-title">This area is a placeholder</h2>
-            <p>{descriptions[activeItem]}</p>
-            <p>
-              The app database initializes locally at startup with versioned
-              migrations only.
-            </p>
-          </section>
+          <Recommendations
+            initialSelectedId={selectedId}
+            onOpenIndividual={(id) => {
+              setSelectedId(id);
+              setActiveItem("Inventory");
+            }}
+          />
         )}
       </main>
     </div>
