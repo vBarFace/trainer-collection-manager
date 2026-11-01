@@ -2,7 +2,8 @@ use rusqlite::{Connection, Transaction};
 use std::fs;
 use std::path::Path;
 
-pub const SCHEMA_VERSION: i64 = 10;
+#[cfg(test)]
+pub const SCHEMA_VERSION: i64 = 11;
 pub const DATABASE_FILE_NAME: &str = "trainer-collection-manager.sqlite3";
 
 pub fn initialize(database_path: &Path) -> rusqlite::Result<()> {
@@ -250,6 +251,19 @@ pub(crate) fn apply_migrations(connection: &mut Connection) -> rusqlite::Result<
             request_id TEXT PRIMARY KEY NOT NULL,
             pokemon_id TEXT NOT NULL UNIQUE REFERENCES pokemon(id) ON DELETE CASCADE,
             input_digest TEXT NOT NULL
+        ) STRICT;",
+        )
+    })?;
+    apply_migration(&transaction, 11, |transaction| {
+        transaction.execute_batch(
+            "CREATE TABLE IF NOT EXISTS pokemon_roadmaps (
+            pokemon_id TEXT PRIMARY KEY NOT NULL REFERENCES pokemon(id) ON DELETE CASCADE,
+            context TEXT NOT NULL,
+            report_json TEXT NOT NULL CHECK(json_valid(report_json)),
+            previous_json TEXT CHECK(previous_json IS NULL OR json_valid(previous_json)),
+            progress_json TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(progress_json)),
+            revision INTEGER NOT NULL DEFAULT 0 CHECK(revision>=0),
+            generated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         ) STRICT;",
         )
     })?;

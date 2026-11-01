@@ -43,6 +43,13 @@ is performed. Original code remains MIT; upstream data rights remain separate.
 
 ## Executed baseline
 
+PR 4: functional Recommendations navigation and native collection service,
+supporting facts/uncertainty, owned alternatives, versioned league statistics,
+retention overrides and explicit global goals/budget. Six integrated service
+tests passed; recommendation/navigation/inventory UI subset: 46 passed.
+The bounded roadmap persistence backend is included with the service; its
+progress UI is the next increment. See ADR 0009.
+
 PR 3: pure `collection-1` Rust statistical engine and collection-aware safe
 guidance. Eleven integrated engine tests passed, including hand-calculated
 numbers, CP caps, level ceilings, protected retention, contradictory/missing

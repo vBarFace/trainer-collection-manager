@@ -11,6 +11,7 @@ pub mod reference_store;
 mod screenshot;
 pub mod source_adapter;
 pub mod strategy;
+pub mod strategy_service;
 pub mod utility;
 
 use std::sync::{
@@ -553,6 +554,123 @@ async fn confirm_batch_import(
     .map_err(|_| commands::CommandError::storage())?
 }
 
+fn revision_arg(value: &str) -> Result<i64, commands::CommandError> {
+    value
+        .parse::<i64>()
+        .ok()
+        .filter(|v| *v >= 0 && v.to_string() == value)
+        .ok_or(commands::CommandError {
+            code: "invalid_input",
+            message: "Invalid nonnegative revision.",
+        })
+}
+
+#[tauri::command]
+async fn collection_strategy(
+    state: State<'_, NativeInventory>,
+) -> Result<strategy_service::CollectionStrategy, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?
+            .collection_strategy()
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn pokemon_roadmap(
+    state: State<'_, NativeInventory>,
+    id: String,
+) -> Result<strategy_service::RoadmapView, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        let id = inventory::PokemonId::parse(&id)?;
+        repository.roadmap(&id).map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn generate_roadmap(
+    state: State<'_, NativeInventory>,
+    id: String,
+    expected_context: String,
+) -> Result<strategy_service::RoadmapView, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        let id = inventory::PokemonId::parse(&id)?;
+        repository
+            .generate_roadmap(&id, &expected_context)
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn update_roadmap_progress(
+    state: State<'_, NativeInventory>,
+    id: String,
+    expected_context: String,
+    expected_revision: String,
+    step_id: String,
+    status: String,
+) -> Result<strategy_service::RoadmapView, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        let id = inventory::PokemonId::parse(&id)?;
+        repository
+            .update_roadmap_progress(
+                &id,
+                &expected_context,
+                revision_arg(&expected_revision)?,
+                &step_id,
+                &status,
+            )
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn save_strategy_preferences(
+    state: State<'_, NativeInventory>,
+    expected_revision: String,
+    goal: String,
+    stardust_budget: Option<u32>,
+) -> Result<strategy_service::GoalContext, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?
+            .save_strategy_preferences(revision_arg(&expected_revision)?, &goal, stardust_budget)
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
@@ -590,7 +708,12 @@ pub fn run() {
             save_individual_details,
             create_custom_tag,
             confirm_pokemon_tags,
-            confirm_batch_import
+            confirm_batch_import,
+            collection_strategy,
+            pokemon_roadmap,
+            generate_roadmap,
+            update_roadmap_progress,
+            save_strategy_preferences
         ])
         .run(tauri::generate_context!())
         .expect("error while running Trainer Collection Manager");

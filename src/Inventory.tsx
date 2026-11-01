@@ -32,7 +32,13 @@ interface Preview {
   extraction: ScreenshotExtraction;
 }
 
-export function Inventory() {
+export function Inventory({
+  initialSelectedId = null,
+  onViewAssessment,
+}: {
+  initialSelectedId?: string | null;
+  onViewAssessment?: (id: string) => void;
+} = {}) {
   const [snapshot, setSnapshot] = useState<InventorySnapshot | null>(null);
   const [loadError, setLoadError] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -45,7 +51,9 @@ export function Inventory() {
   >("idle");
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialSelectedId,
+  );
   const [evaluating, setEvaluating] = useState<string | null>(null);
   const [evaluationError, setEvaluationError] = useState("");
   const [savingIvs, setSavingIvs] = useState(false);
@@ -745,7 +753,10 @@ export function Inventory() {
                       : "Identity unresolved"}
                   </p>
                   <p>Evaluation: {evaluationLabels[record.evaluation.state]}</p>
-                  <p>Appraisal only · Strategic analysis not performed</p>
+                  <p>
+                    Appraisal and confirmed facts · Open Recommendations for
+                    supported strategic guidance
+                  </p>
                   <p>
                     Species: {record.reference.identity?.species ?? "Unknown"}
                   </p>
@@ -798,6 +809,15 @@ export function Inventory() {
         {!loadError &&
           snapshot?.records.find((record) => record.id === selectedId) && (
             <div id="appraisal-panel">
+              {onViewAssessment && (
+                <button
+                  type="button"
+                  disabled={busy || lifecycleAction !== null}
+                  onClick={() => onViewAssessment(selectedId!)}
+                >
+                  View statistics and progression roadmap
+                </button>
+              )}
               <TagEditor
                 record={
                   snapshot.records.find((record) => record.id === selectedId)!

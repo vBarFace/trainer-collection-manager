@@ -135,7 +135,7 @@ h1 {
 .inventory form {
   min-width: 0;
 }
-.inventory button {
+main button {
   padding: 10px 14px;
   border: 1px solid #526575;
   border-radius: 7px;
@@ -143,16 +143,18 @@ h1 {
   color: #17212b;
   cursor: pointer;
 }
-.inventory button:disabled {
+main button:disabled {
   opacity: 0.6;
   cursor: wait;
 }
-.inventory button:focus-visible,
-.inventory input:focus-visible {
+main button:focus-visible,
+main input:focus-visible,
+main select:focus-visible {
   outline: 3px solid #26765c;
   outline-offset: 3px;
 }
-.inventory input:not([type="checkbox"]) {
+main input:not([type="checkbox"]),
+main select {
   display: block;
   width: 100%;
   padding: 8px;
@@ -160,15 +162,15 @@ h1 {
   border-radius: 5px;
   font: inherit;
 }
-.inventory fieldset {
+main fieldset {
   margin: 12px 0;
   border: 1px solid #bac8d1;
 }
-.inventory label {
+main label {
   display: block;
   margin: 12px 0;
 }
-.inventory [role="alert"] {
+main [role="alert"] {
   padding: 12px;
   color: #8b2020;
   background: #fff0f0;
@@ -189,12 +191,33 @@ h1 {
   gap: 12px;
   padding-left: 22px;
 }
-.inventory-list li {
+.inventory-list > li {
   padding: 12px;
   background: #fff;
   border: 1px solid #dce4e9;
   border-radius: 7px;
   overflow-wrap: anywhere;
+}
+.recommendations,
+.individual-assessment {
+  display: grid;
+  gap: 24px;
+}
+main button {
+  margin: 4px 4px 4px 0;
+}
+main section {
+  min-width: 0;
+}
+.digest {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+}
+.collection-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0 16px;
 }
 .appraisal-panel {
   padding: 20px;
