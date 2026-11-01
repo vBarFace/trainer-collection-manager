@@ -2,6 +2,11 @@
 
 ## Current MVP scope — 2026-11-01
 
+Latest user clarification: screenshot extraction is limited to display name, CP
+and appraisal IVs. All other individual fields remain manual and optional.
+Prioritize gym attack/defense, Team Rocket and transfer-candidate review, then
+expand PvP. Follow the [current priority and acceptance contract](../development/mvp-current-priorities.md).
+
 The active user brief is a deterministic/statistical, offline collection MVP,
 without ML or LLM models. ADR 0009 supersedes this document's older proposed
 learning/hybrid milestones. Implemented behavior and remaining acceptance are

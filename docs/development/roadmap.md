@@ -2,6 +2,13 @@
 
 ## Current deterministic MVP initiative — 2026-11-01
 
+The latest user-confirmed order is **gym attack/defense → Team Rocket →
+transfer-candidate review → expanded PvP**. Screenshot automation stays at name,
+CP and appraisal IVs; other fields are manual and optional. The next vertical
+slice is a bounded gym-attack assessment, followed by gym defense. See the
+[current priority contract](mvp-current-priorities.md), which supersedes older
+next-step proposals below without claiming these assessments are implemented.
+
 The current brief supersedes the historical Task 008 learning/hybrid proposals
 below. No ML or LLM is part of this MVP. Follow the
 [current gap matrix and delivery record](mvp-delivery.md),

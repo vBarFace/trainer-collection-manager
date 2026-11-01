@@ -36,9 +36,13 @@ model is used.
 This is a bounded collection/statistical preview, **not the fully accepted gameplay
 MVP**. Broader form normalization, merged field-level provider coverage, moves,
 evolution eligibility and costs, PvE DPS/TDO, gym/Rocket simulation, meta rankings,
-rarity/event evidence and executable investment plans remain unsupported. Extra
-optional observations are manual; representative authorized screenshots are still
-needed to benchmark and extend OCR. Current pinned sources now pass structural
+rarity/event evidence and executable investment plans remain unsupported. Other
+individual observations remain manual and optional under the current approved scope;
+OCR stays limited to name, CP and appraisal IVs. Representative authorized images
+are still needed to benchmark those supported fields. Next gameplay priorities
+are gym attack/defense, Team Rocket and transfer-candidate review, before expanded
+PvP; see the [current delivery priorities](docs/development/mvp-current-priorities.md).
+Current pinned sources now pass structural
 adapter validation, with nine independent hypothetical numeric checks; broader
 gameplay mechanics and real-image acceptance remain open. See the
 [real-source validation record](docs/development/mvp-real-reference-validation.md).

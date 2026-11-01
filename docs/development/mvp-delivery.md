@@ -1,5 +1,12 @@
 # Intelligent MVP delivery audit
 
+Latest user clarification (2026-11-01): deliver gym attack/defense, Team Rocket
+and transfer-candidate review before expanded PvP. Limit automatic screenshot
+extraction to name, CP and appraisal IVs; other fields stay manual and optional.
+The next implementation slice is a bounded gym-attack assessment. See the
+[current priority contract](mvp-current-priorities.md). The audit and historical
+implementation record below do not imply these new gameplay assessments exist.
+
 Audited 2026-11-01 against remote/local main `4378a15`. No open PRs were
 returned by GitHub. Main CI run 40602113292 passed native checks and failed
 one frontend assertion (Power Up history invalidation).
@@ -65,9 +72,11 @@ formatting, lint, strict TypeScript, 144 UI tests and 8 adapter tests. The focus
 fixes await React effects without timers, relaxed assertions or production UI
 changes. Each PR links its current frontend and native CI checks.
 
-The next acceptance work is representative authorized screenshot extraction and
-an installed-app offline journey, followed by the still-unverified source-field
-and gameplay mechanics in the [alpha acceptance matrix](mvp-alpha-validation.md).
+Next implementation follows the current gym/Rocket/transfer priority contract.
+Acceptance still requires validation of the supported name/CP/IV extraction and
+an installed-app offline journey, alongside the source-field and gameplay
+mechanics in the [alpha acceptance matrix](mvp-alpha-validation.md). Expanded OCR
+is deferred and does not gate the prioritized gameplay work.
 This stack delivers the collection/statistical preview; it does not establish
 full gameplay-MVP or personal-alpha acceptance.
 
