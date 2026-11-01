@@ -43,6 +43,10 @@ is performed. Original code remains MIT; upstream data rights remain separate.
 
 ## Executed baseline
 
+PR 5: per-UUID roadmap UI, required/optional steps, postpone/ignore/reset,
+explicit review-confirmation handoff, stale controls and previous-plan context.
+The six recommendation/roadmap UI tests passed. See [roadmap behavior and limits](mvp-roadmaps.md).
+
 PR 4: functional Recommendations navigation and native collection service,
 supporting facts/uncertainty, owned alternatives, versioned league statistics,
 retention overrides and explicit global goals/budget. Six integrated service
