@@ -66,6 +66,7 @@ impl LocalPackage {
 pub struct ReferenceStatus {
     pub active: Option<LocalPackage>,
     pub can_rollback: bool,
+    pub error: Option<&'static str>,
 }
 
 impl InventoryRepository {
@@ -87,7 +88,12 @@ impl InventoryRepository {
 
     pub fn reference_status(&self) -> Result<ReferenceStatus> {
         Ok(ReferenceStatus {
-            active: self.local_package()?,
+            active: self
+                .local_package()
+                .ok()
+                .flatten()
+                .filter(|p| p.validate().is_ok()),
+            error: self.reference_error,
             can_rollback: self.connection.query_row(
                 "SELECT EXISTS(SELECT 1 FROM local_reference_slots WHERE slot='previous')",
                 [],
@@ -114,7 +120,12 @@ impl InventoryRepository {
             .ok_or(Error::InvalidInput("Missing version"))?;
         let serialized = serde_json::to_string(&package)
             .map_err(|_| Error::InvalidInput("Invalid reference package"))?;
-        let package_digest = digest(serialized.as_bytes());
+        // Acquisition time is provenance, not immutable source content. Reusing
+        // identical bytes on another day must not look like version tampering.
+        let mut content =
+            serde_json::to_value(&package).map_err(|_| Error::InvalidInput("Invalid package"))?;
+        content["catalog"]["dataset"]["retrievedAt"] = Value::Null;
+        let package_digest = digest(&serde_json::to_vec(&content).unwrap());
         let transaction = self.connection.unchecked_transaction()?;
         let seen: Option<String> = transaction
             .query_row(
@@ -210,6 +221,7 @@ impl InventoryRepository {
         }
         transaction.commit()?;
         self.catalog = catalog;
+        self.reference_error = None;
         self.reference_status()
     }
 
@@ -313,5 +325,45 @@ mod tests {
         let mut value = package();
         value.cp_multipliers[0].1 = f64::NAN;
         assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn reimport_date_is_not_content_and_corrupt_active_can_be_recovered() {
+        let path = std::env::temp_dir().join(format!(
+            "tcm-recovery-{}-{}.sqlite3",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut repo = InventoryRepository::open(&path).unwrap();
+        let first = package();
+        repo.install_reference(first.clone()).unwrap();
+        let mut second = first.clone();
+        second.catalog["dataset"]["version"] = Value::String("second".into());
+        repo.install_reference(second).unwrap();
+        let mut later = first.clone();
+        later.catalog["dataset"]["retrievedAt"] = Value::String("2026-11-02".into());
+        repo.install_reference(later).unwrap();
+        repo.connection
+            .execute(
+                "UPDATE local_reference_slots SET package_json='{}' WHERE slot='active'",
+                [],
+            )
+            .unwrap();
+        drop(repo);
+        let mut repo = InventoryRepository::open(&path).unwrap();
+        assert!(repo.reference_status().unwrap().error.is_some());
+        assert!(repo.reference_status().unwrap().active.is_none());
+        assert!(repo.snapshot().is_ok());
+        repo.rollback_reference().unwrap();
+        assert!(repo.reference_status().unwrap().error.is_none());
+        assert_eq!(
+            repo.reference_status().unwrap().active.unwrap().catalog["dataset"]["version"],
+            "second"
+        );
+        drop(repo);
+        let _ = std::fs::remove_file(path);
     }
 }

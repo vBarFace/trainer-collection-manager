@@ -278,6 +278,7 @@ fn read_tag(row: &rusqlite::Row<'_>) -> rusqlite::Result<Tag> {
 pub struct InventoryRepository {
     pub(crate) connection: Connection,
     pub(crate) catalog: Catalog,
+    pub(crate) reference_error: Option<&'static str>,
 }
 
 impl InventoryRepository {
@@ -288,8 +289,11 @@ impl InventoryRepository {
         let mut repository = Self {
             connection,
             catalog: Catalog::bundled().map_err(Error::InvalidInput)?,
+            reference_error: None,
         };
-        repository.restore_local_reference()?;
+        if repository.restore_local_reference().is_err() {
+            repository.reference_error = Some("Stored reference data is invalid. Inventory is retained; import a valid reference or roll back in Settings.");
+        }
         Ok(repository)
     }
 
@@ -868,6 +872,7 @@ mod tests {
         InventoryRepository {
             connection,
             catalog: Catalog::bundled().unwrap(),
+            reference_error: None,
         }
     }
 
@@ -1480,6 +1485,7 @@ mod tests {
         let repo = InventoryRepository {
             connection,
             catalog: Catalog::bundled().unwrap(),
+            reference_error: None,
         };
         let id = PokemonId::parse("00000000-0000-4000-8000-000000000000").unwrap();
         let pokemon = repo.get(&id).unwrap();

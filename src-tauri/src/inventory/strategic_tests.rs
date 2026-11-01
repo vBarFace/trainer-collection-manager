@@ -7,6 +7,7 @@ fn repository() -> InventoryRepository {
     InventoryRepository {
         connection,
         catalog: Catalog::bundled().unwrap(),
+        reference_error: None,
     }
 }
 

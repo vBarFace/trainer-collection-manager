@@ -220,6 +220,7 @@ fn repository() -> InventoryRepository {
     let mut repo = InventoryRepository {
         connection,
         catalog: Catalog::bundled().unwrap(),
+        reference_error: None,
     };
     repo.activate_reference(&fixture(false)).unwrap();
     repo

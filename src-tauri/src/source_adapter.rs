@@ -283,6 +283,14 @@ pub fn normalize(
         return Err("A source revision and YYYY-MM-DD retrieval date are required");
     }
     let value: Value = serde_json::from_slice(bytes).map_err(|_| "Malformed provider JSON")?;
+    if provider == "snapshot" {
+        crate::reference::Catalog::load(bytes)?;
+        return Ok(Normalized {
+            catalog: value, cp_multipliers: vec![],
+            coverage: vec!["Reviewed schema-1 identities, types, GO stats and explicit evolution links exactly as supplied".into()],
+            limitations: vec!["Source provenance is retained from the reviewed snapshot. No new rights, cost, eligibility or battle-performance claim follows from importing it.".into(), "No CP multiplier table in schema 1; statistical league calculations remain unavailable for this snapshot.".into()],
+        });
+    }
     let (rows, mut cpm, source_url, rights_url, license) = match provider {
         "pvpoke" => (
             pvpoke(&value)?,

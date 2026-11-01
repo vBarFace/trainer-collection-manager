@@ -24,6 +24,7 @@ export interface ReferenceStatus {
     };
   } | null;
   canRollback: boolean;
+  error?: string | null;
 }
 
 export function ReferenceSettings() {
@@ -108,6 +109,7 @@ export function ReferenceSettings() {
             PokeMiners — latest.json Game Master
           </option>
           <option value="pogoapi">PoGoAPI — local JSON source bundle</option>
+          <option value="snapshot">Reviewed Task 007 schema-1 snapshot</option>
         </select>
         <p>
           PoGoAPI bundle keys: pokemon_stats, pokemon_types, cp_multiplier.
@@ -140,6 +142,7 @@ export function ReferenceSettings() {
       </fieldset>
       {busy && <p role="status">Validating local reference…</p>}
       {error && <p role="alert">{error}</p>}
+      {status?.error && <p role="alert">{status.error}</p>}
       {message && <p role="status">{message}</p>}
       {active ? (
         <>
