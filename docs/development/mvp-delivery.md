@@ -39,8 +39,37 @@ one frontend assertion (Power Up history invalidation).
 Each increment uses a dedicated local branch and conventional commit. Branches
 stack on the prior unmerged increment. The brief requests focused PR delivery;
 repository AGENTS.md still requires explicit approval at remote publication.
-No merge or release publication is performed. Original code remains MIT;
+No pull-request merge or release publication is performed. Original code remains MIT;
 upstream data rights remain separate.
+
+## Published review stack
+
+The seven branches were pushed with explicit authorization. Review in dependency
+order: each PR targets the preceding feature branch, with PR 0 targeting main.
+PR 0 is ready for review; PRs 1–6 are drafts because the broader gameplay and
+real-image acceptance gaps remain open. Local feature-branch merges propagate
+fixes without rewriting history; no GitHub PR has been merged.
+
+| Increment | Pull request                                                          | User-visible result                                                                                  |
+| --------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| PR 0      | [#14](https://github.com/vBarFace/trainer-collection-manager/pull/14) | Await observable history invalidation and asynchronous focus restoration; Windows LF checkout policy |
+| PR 1      | [#15](https://github.com/vBarFace/trainer-collection-manager/pull/15) | User-initiated offline reference import, provenance, activation and rollback                         |
+| PR 2      | [#16](https://github.com/vBarFace/trainer-collection-manager/pull/16) | Batch review/grouping, searchable inventory, manual optional observations, protection and tags       |
+| PR 3      | [#17](https://github.com/vBarFace/trainer-collection-manager/pull/17) | Collection comparisons and explicitly bounded theoretical league statistics                          |
+| PR 4      | [#18](https://github.com/vBarFace/trainer-collection-manager/pull/18) | Explainable recommendations, owned alternatives, global goals and budget evidence                    |
+| PR 5      | [#19](https://github.com/vBarFace/trainer-collection-manager/pull/19) | UUID-linked review/compare/wait roadmaps with progress and stale-context detection                   |
+| PR 6      | [#20](https://github.com/vBarFace/trainer-collection-manager/pull/20) | Private structured export, real-source validation tooling and a local Windows preview installer      |
+
+The combined frontend checks after the synchronization follow-up passed:
+formatting, lint, strict TypeScript, 144 UI tests and 8 adapter tests. The focus
+fixes await React effects without timers, relaxed assertions or production UI
+changes. Each PR links its current frontend and native CI checks.
+
+The next acceptance work is representative authorized screenshot extraction and
+an installed-app offline journey, followed by the still-unverified source-field
+and gameplay mechanics in the [alpha acceptance matrix](mvp-alpha-validation.md).
+This stack delivers the collection/statistical preview; it does not establish
+full gameplay-MVP or personal-alpha acceptance.
 
 ## Executed baseline
 
@@ -84,8 +113,8 @@ after the integrated validation run.
 
 PR 0: local commit `b29fdf9`, branch `fix/power-up-history-synchronization`.
 Frontend checks passed (122 tests and 8 adapter tests); native format/check and
-122 native tests passed, 2 authorized-sample tests ignored. Remote CI has not
-been rerun because no branch has been pushed.
+122 native tests passed, 2 authorized-sample tests ignored. These are the initial
+pre-publication results; the review stack above records subsequent publication.
 
 PR 1: `feat/local-reference-installation` adds bounded offline provider adapters,
 Settings, per-user transactional activation/rollback and persistent identity and
