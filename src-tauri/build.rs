@@ -13,6 +13,9 @@ fn main() {
             "confirm_power_up",
             "reobserve_pokemon",
             "pokemon_history",
+            "reference_status",
+            "import_reference",
+            "rollback_reference",
         ]),
     ))
     .expect("Unable to build application permissions");

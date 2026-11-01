@@ -2,6 +2,7 @@ use rusqlite::{Connection, Transaction};
 use std::fs;
 use std::path::Path;
 
+pub const SCHEMA_VERSION: i64 = 9;
 pub const DATABASE_FILE_NAME: &str = "trainer-collection-manager.sqlite3";
 
 pub fn initialize(database_path: &Path) -> rusqlite::Result<()> {
@@ -213,6 +214,26 @@ pub(crate) fn apply_migrations(connection: &mut Connection) -> rusqlite::Result<
                 BEGIN SELECT RAISE(ABORT, 'Confirmed lifecycle events are immutable'); END;",
         )
     })?;
+    apply_migration(&transaction, 9, |transaction| {
+        transaction.execute_batch(
+            "CREATE TABLE IF NOT EXISTS local_reference_slots (
+                slot TEXT PRIMARY KEY CHECK(slot IN ('active','previous')),
+                package_json TEXT NOT NULL CHECK(json_valid(package_json))
+            ) STRICT;
+            CREATE TABLE IF NOT EXISTS local_reference_versions (
+                dataset_id TEXT NOT NULL, version TEXT NOT NULL, digest TEXT NOT NULL,
+                PRIMARY KEY(dataset_id, version)
+            ) STRICT;
+            CREATE TABLE IF NOT EXISTS local_reference_species (
+                dataset_id TEXT NOT NULL, species_id TEXT NOT NULL, dex INTEGER NOT NULL,
+                PRIMARY KEY(dataset_id, species_id), UNIQUE(dataset_id, dex)
+            ) STRICT;
+            CREATE TABLE IF NOT EXISTS local_reference_forms (
+                dataset_id TEXT NOT NULL, form_id TEXT NOT NULL, species_id TEXT NOT NULL,
+                PRIMARY KEY(dataset_id, form_id)
+            ) STRICT;",
+        )
+    })?;
     transaction.commit()
 }
 
@@ -304,7 +325,7 @@ mod tests {
                 .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            8
+            SCHEMA_VERSION
         );
         assert_eq!(
             connection
@@ -359,7 +380,7 @@ mod tests {
                 row.get(0)
             })
             .expect("migration version should be recorded");
-        assert_eq!(version, 8);
+        assert_eq!(version, SCHEMA_VERSION);
         drop(connection);
 
         fs::remove_dir_all(temporary_directory).expect("temporary database should be removable");
@@ -407,7 +428,7 @@ mod lifecycle_migration_tests {
         let mut connection = Connection::open_in_memory().unwrap();
         configure_connection(&connection).unwrap();
         apply_migrations(&mut connection).unwrap();
-        connection.execute_batch(r#"DROP TABLE pokemon_lifecycle_events; DELETE FROM schema_migrations WHERE version = 8;
+        connection.execute_batch(r#"DROP TABLE pokemon_lifecycle_events; DELETE FROM schema_migrations WHERE version >= 8;
             CREATE TABLE pokemon_lifecycle_events (
                 request_id TEXT PRIMARY KEY NOT NULL,
                 pokemon_id TEXT NOT NULL REFERENCES pokemon(id) ON DELETE CASCADE,
@@ -518,7 +539,7 @@ mod lifecycle_migration_tests {
                     0
                 ))
                 .unwrap(),
-            8
+            SCHEMA_VERSION
         );
     }
 

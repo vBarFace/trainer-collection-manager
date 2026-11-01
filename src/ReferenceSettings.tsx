@@ -1,0 +1,185 @@
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { nativeErrorMessage } from "./native";
+
+export interface ReferenceStatus {
+  active: {
+    provider: string;
+    sourceSha256: string;
+    cpMultipliers: [number, number][];
+    coverage: string[];
+    limitations: string[];
+    catalog: {
+      dataset: {
+        datasetId: string;
+        version: string;
+        sourceUrl: string;
+        upstreamRevision: string;
+        retrievedAt: string;
+        license: string;
+        notice: string;
+      };
+      species: unknown[];
+      forms: unknown[];
+    };
+  } | null;
+  canRollback: boolean;
+}
+
+export function ReferenceSettings() {
+  const [status, setStatus] = useState<ReferenceStatus | null>(null);
+  const [provider, setProvider] = useState("pvpoke");
+  const [revision, setRevision] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    let live = true;
+    void invoke<ReferenceStatus>("reference_status")
+      .then((next) => {
+        if (live) setStatus(next);
+      })
+      .catch((failure: unknown) => {
+        if (live)
+          setError(
+            nativeErrorMessage(
+              failure,
+              "Unable to load local reference settings.",
+            ),
+          );
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+  async function install(rollback = false) {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const next = rollback
+        ? await invoke<ReferenceStatus>("rollback_reference")
+        : await invoke<ReferenceStatus | null>("import_reference", {
+            provider,
+            revision,
+          });
+      if (next) {
+        setStatus(next);
+        setMessage(
+          "Local reference activated. Inventory identities remain pinned; assessments recalculate when opened.",
+        );
+      } else setMessage("Import cancelled. Active reference retained.");
+    } catch (failure) {
+      setError(
+        nativeErrorMessage(
+          failure,
+          "Reference import failed. The active data is retained.",
+        ),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  const active = status?.active;
+  return (
+    <section aria-labelledby="reference-settings-title">
+      <h2 id="reference-settings-title">Local reference data</h2>
+      <p>
+        Import a JSON source you have obtained and reviewed. The application
+        makes no network requests. Game data is stored in your application-data
+        directory and is never included in backups or releases by default.
+      </p>
+      <p>
+        Public access and a software license do not establish rights over the
+        underlying Pokémon GO data. Review the provider’s terms and notices for
+        your intended use.
+      </p>
+      <fieldset disabled={busy}>
+        <legend>Explicit offline import</legend>
+        <label htmlFor="reference-provider">Provider / file format</label>
+        <select
+          id="reference-provider"
+          value={provider}
+          onChange={(e) => setProvider(e.target.value)}
+        >
+          <option value="pvpoke">PvPoke — gamemaster.json</option>
+          <option value="pokeminers">
+            PokeMiners — latest.json Game Master
+          </option>
+          <option value="pogoapi">PoGoAPI — local JSON source bundle</option>
+        </select>
+        <p>
+          PoGoAPI bundle keys: pokemon_stats, pokemon_types, cp_multiplier.
+          Preserve each downloaded response in its corresponding key. Optional
+          fields remain unknown.
+        </p>
+        <label htmlFor="reference-revision">
+          Upstream commit or dated source identifier
+        </label>
+        <input
+          id="reference-revision"
+          value={revision}
+          maxLength={100}
+          onChange={(e) => setRevision(e.target.value)}
+        />
+        <button
+          type="button"
+          disabled={!revision.trim()}
+          onClick={() => void install()}
+        >
+          Select and activate reference JSON
+        </button>
+        <button
+          type="button"
+          disabled={!status?.canRollback}
+          onClick={() => void install(true)}
+        >
+          Roll back to previous reference
+        </button>
+      </fieldset>
+      {busy && <p role="status">Validating local reference…</p>}
+      {error && <p role="alert">{error}</p>}
+      {message && <p role="status">{message}</p>}
+      {active ? (
+        <>
+          <h3>
+            Active: {active.catalog.dataset.datasetId} /{" "}
+            {active.catalog.dataset.version}
+          </h3>
+          <p>
+            {active.catalog.species.length} species ·{" "}
+            {active.catalog.forms.length} forms · {active.cpMultipliers.length}{" "}
+            CP multipliers
+          </p>
+          <p>
+            Source:{" "}
+            <a href={active.catalog.dataset.sourceUrl}>{active.provider}</a> ·
+            revision {active.catalog.dataset.upstreamRevision} · imported{" "}
+            {active.catalog.dataset.retrievedAt}
+          </p>
+          <p>Declared license: {active.catalog.dataset.license}</p>
+          <p>{active.catalog.dataset.notice}</p>
+          <p className="digest">Source SHA-256: {active.sourceSha256}</p>
+          <h3>Supported data</h3>
+          <ul>
+            {active.coverage.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <h3>Limitations</h3>
+          <ul>
+            {active.limitations.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p>
+          No user reference installed. Confirmed observations and manual Power
+          Up remain available offline.
+        </p>
+      )}
+    </section>
+  );
+}

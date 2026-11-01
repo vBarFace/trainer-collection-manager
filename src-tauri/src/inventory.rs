@@ -276,8 +276,8 @@ fn read_tag(row: &rusqlite::Row<'_>) -> rusqlite::Result<Tag> {
 /// Open only with the app-data path resolved by native startup. Each connection
 /// enables foreign keys before migrations or repository operations.
 pub struct InventoryRepository {
-    connection: Connection,
-    catalog: Catalog,
+    pub(crate) connection: Connection,
+    pub(crate) catalog: Catalog,
 }
 
 impl InventoryRepository {
@@ -285,10 +285,12 @@ impl InventoryRepository {
         database::initialize(path)?;
         let connection = Connection::open(path)?;
         database::configure_connection(&connection)?;
-        Ok(Self {
+        let mut repository = Self {
             connection,
             catalog: Catalog::bundled().map_err(Error::InvalidInput)?,
-        })
+        };
+        repository.restore_local_reference()?;
+        Ok(repository)
     }
 
     /// Native-only whole-snapshot replacement. Invalid data leaves the current catalog intact.
@@ -1506,7 +1508,7 @@ mod tests {
                 .query_row("SELECT count(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            8
+            database::SCHEMA_VERSION
         );
     }
 

@@ -1,22 +1,14 @@
 import { useState } from "react";
 import { Inventory } from "./Inventory";
+import { ReferenceSettings } from "./ReferenceSettings";
 
-const navigationItems = [
-  "Inventory",
-  "Recommendations",
-  "Teams",
-  "Bag",
-  "Settings",
-] as const;
+const navigationItems = ["Inventory", "Recommendations", "Settings"] as const;
 type NavigationItem = (typeof navigationItems)[number];
 
 const descriptions: Record<NavigationItem, string> = {
   Inventory: "Review screenshots manually and save your local collection.",
   Recommendations:
     "Explainable, deterministic recommendations are planned for a later milestone.",
-  Teams:
-    "Team building and battle planning are not implemented in this foundation release.",
-  Bag: "Item tracking is planned; no game data is collected or inferred yet.",
   Settings:
     "Application preferences will remain local to this Windows user profile.",
 };
@@ -60,6 +52,8 @@ export function App() {
         <h1>{activeItem}</h1>
         {activeItem === "Inventory" ? (
           <Inventory />
+        ) : activeItem === "Settings" ? (
+          <ReferenceSettings />
         ) : (
           <section className="placeholder" aria-labelledby="placeholder-title">
             <p className="status">Planned</p>

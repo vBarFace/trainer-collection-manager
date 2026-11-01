@@ -5,7 +5,9 @@ mod extraction;
 pub mod inventory;
 mod ocr_regions;
 pub mod reference;
+pub mod reference_store;
 mod screenshot;
+pub mod source_adapter;
 pub mod utility;
 
 use std::sync::{
@@ -237,6 +239,124 @@ async fn pokemon_history(
     .map_err(|_| commands::CommandError::storage())?
 }
 
+#[tauri::command]
+async fn reference_status(
+    state: State<'_, NativeInventory>,
+) -> Result<reference_store::ReferenceStatus, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?
+            .reference_status()
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn import_reference(
+    window: tauri::WebviewWindow,
+    state: State<'_, NativeInventory>,
+    provider: String,
+    revision: String,
+) -> Result<Option<reference_store::ReferenceStatus>, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        use std::io::Read;
+        if !reference::valid_text(&revision, 100) {
+            return Err(commands::CommandError {
+                code: "invalid_input",
+                message: "Supply an upstream revision or dated local source identifier.",
+            });
+        }
+        let Some(path) = rfd::FileDialog::new()
+            .set_parent(&window)
+            .set_title("Import local reference JSON")
+            .add_filter("Reference JSON", &["json"])
+            .pick_file()
+        else {
+            return Ok(None);
+        };
+        let file = std::fs::File::open(path).map_err(|_| commands::CommandError {
+            code: "reference_read",
+            message: "Unable to read the selected reference file.",
+        })?;
+        if !file
+            .metadata()
+            .map_err(|_| commands::CommandError::storage())?
+            .is_file()
+        {
+            return Err(commands::CommandError::storage());
+        }
+        let mut bytes = Vec::new();
+        file.take(reference_store::MAX_SOURCE_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| commands::CommandError::storage())?;
+        if bytes.len() as u64 > reference_store::MAX_SOURCE_BYTES {
+            return Err(commands::CommandError {
+                code: "reference_limit",
+                message: "Reference source exceeds the 64 MiB limit.",
+            });
+        }
+        let mut repository = state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?;
+        let date: String = repository
+            .connection
+            .query_row("SELECT date('now')", [], |r| r.get(0))
+            .map_err(|_| commands::CommandError::storage())?;
+        let source_digest = reference_store::digest(&bytes);
+        if repository.local_package()?.is_some_and(|active| {
+            active.provider == provider
+                && active.source_sha256 == source_digest
+                && active.catalog["dataset"]["upstreamRevision"].as_str() == Some(&revision)
+        }) {
+            return repository.reference_status().map(Some).map_err(Into::into);
+        }
+        let normalized =
+            source_adapter::normalize(&provider, &bytes, &revision, &date).map_err(|message| {
+                commands::CommandError {
+                    code: "reference_invalid",
+                    message,
+                }
+            })?;
+        repository
+            .install_reference(reference_store::LocalPackage {
+                catalog: normalized.catalog,
+                cp_multipliers: normalized.cp_multipliers,
+                coverage: normalized.coverage,
+                limitations: normalized.limitations,
+                source_sha256: reference_store::digest(&bytes),
+                provider,
+            })
+            .map(Some)
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn rollback_reference(
+    state: State<'_, NativeInventory>,
+) -> Result<reference_store::ReferenceStatus, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?
+            .rollback_reference()
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
@@ -262,7 +382,10 @@ pub fn run() {
             confirm_evolution,
             confirm_power_up,
             reobserve_pokemon,
-            pokemon_history
+            pokemon_history,
+            reference_status,
+            import_reference,
+            rollback_reference
         ])
         .run(tauri::generate_context!())
         .expect("error while running Trainer Collection Manager");
