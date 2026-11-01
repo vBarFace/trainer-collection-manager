@@ -9,6 +9,11 @@ slice is a bounded gym-attack assessment, followed by gym defense. See the
 [current priority contract](mvp-current-priorities.md), which supersedes older
 next-step proposals below without claiming these assessments are implemented.
 
+For each prioritized role, first calculate usefulness from verified reference
+data and the stated gameplay context, including relevant unowned benchmarks.
+Then use the owned collection to personalize recommendations and investment
+priority. Do not substitute collection-only comparisons for role assessment.
+
 The current brief supersedes the historical Task 008 learning/hybrid proposals
 below. No ML or LLM is part of this MVP. Follow the
 [current gap matrix and delivery record](mvp-delivery.md),

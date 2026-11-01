@@ -7,6 +7,11 @@ and appraisal IVs. All other individual fields remain manual and optional.
 Prioritize gym attack/defense, Team Rocket and transfer-candidate review, then
 expand PvP. Follow the [current priority and acceptance contract](../development/mvp-current-priorities.md).
 
+Role assessments must use verified external reference facts and appropriate
+mathematical/statistical models or deterministic simulations independently of
+the owned collection. Compare owned alternatives afterward to personalize action
+and investment priority; collection-only comparisons do not satisfy the MVP.
+
 The active user brief is a deterministic/statistical, offline collection MVP,
 without ML or LLM models. ADR 0009 supersedes this document's older proposed
 learning/hybrid milestones. Implemented behavior and remaining acceptance are

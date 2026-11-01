@@ -24,8 +24,8 @@ It changes the delivery plan, not the currently implemented gameplay coverage.
 2. **Team Rocket.** Reuse verified reference facts, while modeling the selected
    Rocket opponent/context separately. Distinguish general matchup guidance from
    actual simulated performance and from current readiness.
-3. **Transfer-candidate review.** Compare owned alternatives across supported
-   roles and collection value. Explain why an individual is a candidate and what
+3. **Transfer-candidate review.** Assess reference-based role usefulness and
+   potential, then owned alternatives and collection value. Explain why an individual is a candidate and what
    still requires review. Preserve protection, favorites, unique/special forms,
    relevant special-move value and unresolved collection-value cases. Never
    recommend transfer solely from CP or IV percentage and never perform it.
@@ -37,6 +37,42 @@ Transfer review must ship before expanded PvP. State clearly that competitive
 PvP usefulness has not been fully assessed; an unassessed role is not evidence
 of no value. Keep uncertain cases under review rather than certify universal
 safe disposal. The workflow need not wait for a complete PvP engine.
+
+## Assessment foundation and personalization
+
+The user explicitly requires recommendations to draw on external reference facts
+and suitable mathematical/statistical algorithms, not only the owned collection.
+Use two distinct stages:
+
+1. **Reference-based role assessment.** Assess the individual against verified
+   mechanics and a declared gym/Rocket context, using species/form stats, types,
+   legal moves, relevant opponents, and justified calculations or simulations.
+   Where useful, benchmark against other eligible species/forms and move sets
+   in the reference universe, including those the user does not own. Preserve
+   current-versus-potential and known-versus-assumed distinctions.
+2. **Personalized action priority.** Use the owned collection, resources, goals
+   and protections to decide whether keeping, preparing or investing in this
+   individual is worthwhile for this user. An owned alternative can lower its
+   investment priority without changing its underlying assessed performance.
+
+Reference-based assessment must remain useful when the collection contains only
+this individual. A strong role assessment must not depend on the user owning weak
+alternatives, and the best owned individual must not automatically be called a
+strong performer relative to the reference benchmark. Avoid a single universal
+quality score: attack, defense and Rocket require distinct contexts and evidence.
+
+PvPoke, PokeMiners and PoGoAPI remain starting sources; select evidence per field
+and gameplay mode. A provider's PvP ranking cannot stand in for gym or Rocket
+performance. Additional datasets or published algorithms may be evaluated when
+their mechanics, assumptions, freshness, provenance and permitted local use are
+verified. Do not assert that a named source, algorithm or simulation is integrated
+or validated before that work is executed. Keep acquired data local and private.
+
+Here, models include mathematical damage/statistical models and deterministic
+simulations. The existing no-ML/no-LLM MVP requirement remains in force; the user's
+general reference to models/algorithms does not by itself authorize learned models.
+Missing evidence yields limited or unsupported output rather than an invented
+external ranking or an undisclosed assumption about the individual's moves/level.
 
 ## Behavior with optional manual inputs
 
@@ -58,6 +94,8 @@ bounded roadmap progress and local-only persistence remain the foundation.
 
 Implement the smallest end-to-end **gym-attack** assessment using verified local
 move/compatibility/type data and a stated target context, followed by gym defense.
+Calculate reference-based performance first, then personalize the recommendation
+using owned alternatives. Collection-only comparisons do not meet acceptance.
 Expose the result in the existing recommendation/details views. Reuse the current
 manual observations and pure Rust evaluation boundary; avoid rebuilding import,
 inventory or planning infrastructure.
@@ -65,6 +103,11 @@ inventory or planning infrastructure.
 Validate independently reviewed damage/matchup examples, move availability,
 missing/contradictory observations, collection alternatives, protection, stale
 results after confirmed actions or reference changes, and offline operation.
+Verify that an individual can receive a role assessment without owned peers;
+adding a stronger owned alternative changes action priority without changing the
+same individual's performance calculation under identical reference/context inputs.
+Check that weak reference-level performance is not relabeled strong merely for
+being the best owned option, and that external rankings apply to the stated mode.
 Real provider validation remains private, with original fictional committed
 fixtures and separate provenance/rights notices. Actual gameplay support may
 only be claimed after implementation and executed verification.

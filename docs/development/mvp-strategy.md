@@ -1,5 +1,11 @@
 # Deterministic collection scope
 
+This document describes the implemented `collection-1` preview. The next
+gym/Rocket/transfer work must add reference-based role assessments independent
+of owned alternatives, then personalize recommendation priority using collection
+context. The [current priority contract](mvp-current-priorities.md) defines this
+requirement; it does not imply that the present ruleset already meets it.
+
 `collection-1` is a pure Rust ruleset. It reuses utility-1 deterministic mode and
 readiness vocabulary without replacing lifecycle actions or appraisal-1.
 
