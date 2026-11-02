@@ -53,7 +53,18 @@ fn row_kind(row: &Value) -> Result<&'static str> {
             "current_pokemon_moves",
             row.get("fast_moves").is_some() && row.get("pokemon_id").is_some(),
         ),
-        ("pve_moves", row.get("move_id").is_some()),
+        (
+            "pokemon_evolutions",
+            row.get("evolutions").is_some() && row.get("pokemon_id").is_some(),
+        ),
+        (
+            "trainer_moves",
+            row.get("move_id").is_some() && row.get("turn_duration").is_some(),
+        ),
+        (
+            "pve_moves",
+            row.get("move_id").is_some() && row.get("turn_duration").is_none(),
+        ),
     ];
     let mut matches = candidates.iter().filter(|(_, applies)| *applies);
     let kind = matches
@@ -75,6 +86,12 @@ fn endpoint(kind: &str) -> &'static str {
         "charged_moves" => "https://pogoapi.net/api/v1/charged_moves.json",
         "current_pokemon_moves" => "https://pogoapi.net/api/v1/current_pokemon_moves.json",
         "type_effectiveness" => "https://pogoapi.net/api/v1/type_effectiveness.json",
+        "pokemon_evolutions" => "https://pogoapi.net/api/v1/pokemon_evolutions.json",
+        "pokemon_powerup_requirements" => {
+            "https://pogoapi.net/api/v1/pokemon_powerup_requirements.json"
+        }
+        "pvp_fast_moves" => "https://pogoapi.net/api/v1/pvp_fast_moves.json",
+        "pvp_charged_moves" => "https://pogoapi.net/api/v1/pvp_charged_moves.json",
         _ => "https://pogoapi.net/documentation/",
     }
 }
@@ -91,8 +108,8 @@ pub fn read(
     if !matches!(provider, "pvpoke" | "pokeminers" | "pogoapi" | "snapshot") {
         return Err("Unsupported reference provider");
     }
-    if paths.is_empty() || paths.len() > 7 || provider != "pogoapi" && paths.len() != 1 {
-        return Err("Select one reference JSON, or up to seven PoGoAPI endpoint responses");
+    if paths.is_empty() || paths.len() > 11 || provider != "pogoapi" && paths.len() != 1 {
+        return Err("Select one reference JSON, or up to eleven PoGoAPI endpoint responses");
     }
     if !crate::reference::valid_text(revision, 100)
         || retrieved_at.len() != 10
@@ -177,6 +194,28 @@ pub fn read(
             });
         }
         if value.is_object() {
+            if value.as_object().is_some_and(|rows| {
+                !rows.is_empty()
+                    && rows.values().all(|row| {
+                        row.get("current_level").is_some()
+                            && row.get("level_after_powering").is_some()
+                    })
+            }) {
+                if envelope
+                    .insert("pokemon_powerup_requirements", value)
+                    .is_some()
+                {
+                    return Err("Duplicate PoGoAPI Power Up requirements selected");
+                }
+                artifacts.push(artifact(
+                    "pokemon_powerup_requirements",
+                    endpoint("pokemon_powerup_requirements"),
+                    &bytes,
+                    revision,
+                    retrieved_at,
+                ));
+                continue;
+            }
             if !value.as_object().is_some_and(|chart| {
                 chart.len() == 18
                     && chart.iter().all(|(kind, row)| {
@@ -213,7 +252,16 @@ pub fn read(
         // Charged responses may contain misclassified fast entries. Inspect
         // every row rather than depend on provider ordering; the normalizer
         // records exclusions/recovery and never guesses energy costs.
-        let kind = if kind == "pve_moves" {
+        let kind = if kind == "trainer_moves" {
+            if rows
+                .iter()
+                .any(|row| row["energy_delta"].as_i64().is_some_and(|v| v < 0))
+            {
+                "pvp_charged_moves"
+            } else {
+                "pvp_fast_moves"
+            }
+        } else if kind == "pve_moves" {
             if rows.iter().any(|row| {
                 row.get("critical_chance").is_some()
                     || row["energy_delta"]
@@ -417,5 +465,34 @@ mod tests {
                 .sha256,
             digest(&chart)
         );
+    }
+
+    #[test]
+    fn preparation_and_trainer_endpoint_kinds_preserve_provenance_and_reject_duplicates() {
+        let samples=Samples::new(&[
+            br#"[{"pokemon_id":61001,"form":"Normal","evolutions":[{"pokemon_id":61002,"form":"Normal","candy_required":25}]}]"#,
+            br#"{"39.5":{"current_level":39.5,"level_after_powering":40,"candy_to_upgrade":1,"xl_candy_to_upgrade":0,"stardust_to_upgrade":10}}"#,
+            br#"[{"move_id":910001,"name":"Sample Tap","type":"Normal","power":4,"energy_delta":8,"turn_duration":2}]"#,
+            br#"[{"move_id":910002,"name":"Sample Slam","type":"Normal","power":40,"energy_delta":-40,"turn_duration":1}]"#,
+        ]);
+        let source = read("pogoapi", &samples.0, REVISION, DATE).unwrap();
+        let envelope: Value = serde_json::from_slice(&source.bytes).unwrap();
+        for key in [
+            "pokemon_evolutions",
+            "pokemon_powerup_requirements",
+            "pvp_fast_moves",
+            "pvp_charged_moves",
+        ] {
+            assert!(envelope.get(key).is_some());
+            assert!(source
+                .artifacts
+                .iter()
+                .any(|a| a.kind == key && a.source_url.ends_with(&format!("{key}.json"))));
+        }
+        let mut duplicate = samples.0.clone();
+        duplicate.push(samples.0[1].clone());
+        assert!(read("pogoapi", &duplicate, REVISION, DATE).is_err());
+        let too_many = std::iter::repeat_n(samples.0[0].clone(), 12).collect::<Vec<_>>();
+        assert!(read("pogoapi", &too_many, REVISION, DATE).is_err());
     }
 }

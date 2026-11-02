@@ -27,6 +27,12 @@ model is used.
   estimates stay in optional details; they are not current readiness or a battle
   simulation. The same UUID's roadmap adds move review and reference comparison.
   See [setup, evidence and limits](docs/development/mvp-gym-attack.md).
+- Compare **evolution and Power Up preparation paths** with imported evolution
+  requirements, Candy/XL/Stardust totals, move acquisition routes and optional
+  manual allocations. Select a path for the ordered UUID roadmap. Distinct
+  defense, Rocket and PvP signals preserve the limits of each model and keep
+  unresolved transfer value under review. See the
+  [preparation planner](docs/development/mvp-preparation-planner.md).
 - Set optional global collection/league goals and a confirmed Stardust budget.
   Inspect a per-UUID roadmap, postpone/ignore steps and open explicit observation
   confirmation. Stale plans block progress until recalculation.
@@ -40,9 +46,11 @@ model is used.
 ## Supported scope and remaining acceptance
 
 This is a bounded collection/statistical preview, **not the fully accepted gameplay
-MVP**. Broader form normalization, merged field-level provider coverage, moves,
-evolution eligibility and costs, full PvE DPS/TDO, gym-defense/Rocket simulation, meta rankings,
-rarity/event evidence and executable investment plans remain unsupported. Other
+MVP**. Broader form normalization, merged field-level provider coverage,
+complete evolution eligibility, special cost overrides, full PvE DPS/TDO,
+gym-defense/Rocket simulation, competitive meta rankings and current rarity/event
+evidence remain unsupported. Investment paths are conditional when their
+prerequisites or evaluated benefit are missing. Other
 individual observations remain manual and optional under the current approved scope;
 OCR stays limited to name, CP and appraisal IVs. Representative authorized images
 are still needed to benchmark those supported fields. Next gameplay priorities

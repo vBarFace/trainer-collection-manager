@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { GymAssessment } from "./gym-native";
+import type { PreparationPlan, RoleAssessment } from "./preparation-native";
 
 export interface StrategyRecommendation {
   id: string;
@@ -53,6 +54,8 @@ export interface StrategyReport {
   duplicateIds: string[];
   leagues: LeagueAssessment[];
   gym?: GymAssessment | null;
+  preparation?: PreparationPlan | null;
+  roles?: RoleAssessment[];
   recommendations: StrategyRecommendation[];
   steps: StrategyStep[];
   limitations: string[];

@@ -400,7 +400,7 @@ impl<'a> GymModel<'a> {
         if detail.is_some_and(|detail| detail.needs_reconfirmation) {
             result.missing.push("Optional observations predate a confirmed action; reconfirm relevant moves and variant evidence.".into());
         }
-        result.missing.push("This model does not calculate actual readiness from observed level/CP. Move acquisition and executable investment costs remain unverified.".into());
+        result.missing.push("This equal-level reference model does not establish current readiness. Review the separate preparation planner for level-dependent projections, acquisition methods, costs and remaining conditions.".into());
         result
     }
 }
@@ -497,6 +497,8 @@ pub(crate) fn fictional_package() -> LocalPackage {
         catalog: normalized.catalog,
         cp_multipliers: normalized.cp_multipliers,
         combat: normalized.combat,
+        preparation: normalized.preparation,
+        trainer_combat: normalized.trainer_combat,
         coverage: normalized.coverage,
         limitations: normalized.limitations,
         source_sha256: crate::reference_store::digest(&bytes),

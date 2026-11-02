@@ -556,6 +556,7 @@ impl InventoryRepository {
     }
 
     pub fn delete(&self, id: &PokemonId) -> Result<()> {
+        let transaction = self.connection.unchecked_transaction()?;
         if self
             .connection
             .execute("DELETE FROM pokemon WHERE id = ?1", [&id.0])?
@@ -563,6 +564,11 @@ impl InventoryRepository {
         {
             return Err(Error::NotFound("Pokemon"));
         }
+        self.connection.execute(
+            "DELETE FROM application_settings WHERE key=?1",
+            [format!("preparation-resources:{}", id.as_str())],
+        )?;
+        transaction.commit()?;
         Ok(())
     }
 

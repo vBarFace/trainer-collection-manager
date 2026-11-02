@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { nativeErrorMessage } from "./native";
 import { strategyNative, type RoadmapView } from "./strategy-native";
+import { PreparationPlannerView } from "./PreparationPlannerView";
 
 export function IndividualRoadmap({
   id,
@@ -124,6 +125,18 @@ export function IndividualRoadmap({
                   battles or investments.
                 </p>
               )}
+              {(view.report.preparation || view.report.roles?.length) && (
+                <PreparationPlannerView
+                  key={view.context + ":" + view.currentContext}
+                  pokemonId={id}
+                  expectedContext={view.currentContext}
+                  plan={view.report.preparation}
+                  roles={view.report.roles}
+                  stale={view.stale}
+                  onOpenIndividual={onOpenIndividual}
+                  onChanged={() => void reload()}
+                />
+              )}
               <ol>
                 {view.report.steps.map((step) => (
                   <li key={step.id}>
@@ -145,17 +158,22 @@ export function IndividualRoadmap({
                       <legend>Step progress</legend>
                       <button
                         type="button"
-                        disabled={!step.executable}
+                        disabled={
+                          !step.executable &&
+                          ["compare", "wait"].includes(step.action)
+                        }
                         onClick={() =>
                           void act(
                             step.id,
-                            step.action === "review"
-                              ? "review_requested"
-                              : "completed",
+                            ["compare", "wait"].includes(step.action)
+                              ? "completed"
+                              : "review_requested",
                           )
                         }
                       >
-                        I completed this
+                        {["review", "compare", "wait"].includes(step.action)
+                          ? "I completed this"
+                          : "Review / confirm in-game action"}
                       </button>
                       <button
                         type="button"

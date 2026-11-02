@@ -5,7 +5,7 @@ use crate::reference::{valid_text, BaseStats, ResolutionState};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-pub const RULESET_VERSION: &str = "collection-3";
+pub const RULESET_VERSION: &str = "collection-4";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -143,6 +143,10 @@ pub struct StrategyReport {
     pub leagues: Vec<LeagueAssessment>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gym: Option<crate::gym::GymAssessment>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preparation: Option<crate::preparation::PreparationPlan>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub roles: Vec<crate::roles::RoleAssessment>,
     pub recommendations: Vec<StrategyRecommendation>,
     pub steps: Vec<StrategyStep>,
     pub limitations: Vec<String>,
@@ -377,12 +381,14 @@ pub fn assess(
             duplicate_ids,
             leagues: Vec::new(),
             gym: None,
+            preparation: None,
+            roles: vec![],
             recommendations: Vec::new(),
             steps: Vec::new(),
             limitations: vec![
                 "Stat-product rank compares hypothetical IV spreads of the same form; it is not an overall battle ranking or a recommendation to spend resources.".into(),
-                "Current level, moves, variant, eligibility and resource costs are not established by CP or IVs. Investment actions remain blocked.".into(),
-                "PvE DPS/TDO, raid targets, gym defense, Rocket matchups, event availability and global rarity are unsupported in this ruleset.".into(),
+                "Current level, moves, variant, eligibility and resource costs are not established by CP or IVs. The preparation planner uses fresh optional manual observations and imported costs separately.".into(),
+                "Role signals and preparation alternatives are contextual models, not battle win rates, raid simulations, verified event availability or global rarity estimates.".into(),
                 "Collection uniqueness refers to the confirmed species/form only. Shiny, Shadow, Purified, costume and personal value remain unresolved unless separately confirmed.".into(),
             ],
         };

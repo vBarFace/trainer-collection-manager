@@ -1,5 +1,9 @@
 # Deterministic collection scope
 
+The newer `collection-4` [preparation and independent role increment](mvp-preparation-planner.md)
+extends the original `collection-3` scope described below. Treat the original
+unsupported-cost/role statements below as historical boundaries for that version.
+
 This document describes the implemented `collection-3` preview. The first bounded
 gym-attack model assesses reference-based potential independently of owned
 alternatives, then personalizes priority using collection context. The

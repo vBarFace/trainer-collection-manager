@@ -64,10 +64,7 @@ fn hypothetical_sample(
     let mut repository = InventoryRepository::open(&temporary.0)
         .map_err(|_| "Unable to open temporary hypothetical validation storage")?;
     repository
-        .activate_reference(
-            &serde_json::to_vec(&package.catalog)
-                .map_err(|_| "Unable to encode sample reference catalog")?,
-        )
+        .install_reference(package.clone())
         .map_err(|_| "Unable to activate sample reference in temporary storage")?;
     let ivs = AppraisalIvs {
         attack: 15,
@@ -105,13 +102,62 @@ fn hypothetical_sample(
     };
     let gym = trainer_collection_manager::gym::GymModel::new(package)?
         .map(|model| model.assess(&confirmed.0, None));
+    // Explicit developer-only hypothetical starting facts, never inferred from
+    // CP or written into the user's actual app-data database.
+    let details = repository
+        .individual_details(&individual.id)
+        .map_err(|_| "Unable to read hypothetical details")?;
+    let first = gym.as_ref().and_then(|g| g.builds.first());
+    repository
+        .save_individual_details(
+            &individual.id,
+            details
+                .observation_revision
+                .parse()
+                .map_err(|_| "Invalid hypothetical revision")?,
+            &details.evidence_token,
+            trainer_collection_manager::individual_details::IndividualDetails {
+                level: Some(39.5),
+                level_evidence: Some(
+                    "Explicit hypothetical developer input, not an observed level".into(),
+                ),
+                fast_move: first.map(|b| b.fast_move.clone()),
+                charged_move: first.map(|b| b.charged_move.clone()),
+                ..Default::default()
+            },
+        )
+        .map_err(|_| "Unable to set hypothetical details")?;
+    repository
+        .save_preparation_resources(
+            &individual.id,
+            0,
+            trainer_collection_manager::preparation_resources::ResourceValues {
+                candy: Some(1_000_000),
+                candy_xl: Some(1_000_000),
+                stardust: Some(10_000_000),
+                maximum_level: Some(50.0),
+                normal_costs_confirmed: true,
+                selected_path_id: None,
+            },
+        )
+        .map_err(|_| "Unable to set hypothetical allocations")?;
+    let native = repository
+        .collection_strategy()
+        .map_err(|_| "Unable to calculate hypothetical preparation")?;
+    let preparation = native.reports.first().and_then(|r| r.preparation.clone());
+    // Exercise real bounded roadmap persistence, not only direct domain logic.
+    repository
+        .generate_roadmap(&individual.id, &native.context)
+        .map_err(|_| "Hypothetical roadmap exceeded persistence bounds or failed")?;
     let report = strategy::assess(&[confirmed], Some(&mechanics))?
         .into_iter()
         .next()
         .ok_or("No hypothetical sample assessment was returned")?;
     let output = serde_json::json!({
         "label":"Hypothetical specimen for developer numerical validation only; not an observed user Pokémon",
-        "dex":dex,"ivs":ivs,"leagues":report.leagues,"gym":gym
+        "dex":dex,"ivs":ivs,"leagues":report.leagues,"gym":gym,
+        "preparationInput":"Hypothetical level39.5, ordinary cost profile and large allocations, not user observations",
+        "preparation":preparation,"roles":native.reports.first().map(|r|&r.roles)
     });
     drop(repository);
     Ok(output)
@@ -144,7 +190,7 @@ fn validate() -> Result<(), &'static str> {
             index += 1;
         }
     }
-    if args.len() < 4 || args.len() > 10 {
+    if args.len() < 4 || args.len() > 14 {
         return Err(
             "Usage: validate-source [--sample-dex N] PROVIDER REVISION YYYY-MM-DD FILE [FILE FILE]",
         );
@@ -156,6 +202,8 @@ fn validate() -> Result<(), &'static str> {
         catalog: normalized.catalog,
         cp_multipliers: normalized.cp_multipliers,
         combat: normalized.combat,
+        preparation: normalized.preparation,
+        trainer_combat: normalized.trainer_combat,
         coverage: normalized.coverage,
         limitations: normalized.limitations,
         source_sha256: reference_store::digest(&input.bytes),
@@ -174,6 +222,9 @@ fn validate() -> Result<(), &'static str> {
             "multiplierCount":package.cp_multipliers.len(),
             "combatMoveCount":package.combat.as_ref().map_or(0, |combat|combat.moves.len()),
             "combatPoolCount":package.combat.as_ref().map_or(0, |combat|combat.pools.len()),
+            "powerUpIntervalCount":package.preparation.as_ref().map_or(0,|p|p.power_up_costs.len()),
+            "evolutionBranchCount":package.preparation.as_ref().map_or(0,|p|p.evolutions.len()),
+            "trainerMoveCount":package.trainer_combat.as_ref().map_or(0,|p|p.moves.len()),
             "modeledMaximumLevel":package.cp_multipliers.last().map(|entry|entry.0),
             "sourceSha256":package.source_sha256,
             "artifacts":package.artifacts,

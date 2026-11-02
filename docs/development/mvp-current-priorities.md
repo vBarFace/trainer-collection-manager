@@ -9,6 +9,12 @@ assessment now connects references, type guidance and the individual roadmap.
 See [implemented behavior and validation](mvp-gym-attack.md). The remaining role
 and investment requirements below are not claims of complete gameplay coverage.
 
+Preparation follow-up, 2026-11-02: the [individual preparation planner](mvp-preparation-planner.md)
+adds imported evolution/Power Up mechanics, manual allocations, move-acquisition
+routes and goal-specific roadmap alternatives. Defense, Rocket and PvP now expose
+distinct limited signals; full battle simulation and safe-disposal certification
+remain unimplemented rather than inferred from missing evidence.
+
 ## Screenshot scope
 
 - Automatically suggest only display name, CP and the three appraisal IVs.

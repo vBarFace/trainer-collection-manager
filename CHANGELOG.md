@@ -10,6 +10,13 @@ All notable changes are documented here.
 
 ### Added
 
+- Individual preparation planner (`collection-4`, `preparation-1`): optional
+  imported evolution requirements, half-level Candy/XL/Stardust costs, ordinary
+  and Elite move acquisition routes, goal-specific alternatives, manual resource
+  allocations and explicit path selection in the UUID roadmap. Separate defense,
+  Rocket Trainer-Battle move and PvP signals retain unknown role value and
+  conservative transfer review. See docs/development/mvp-preparation-planner.md.
+
 - First reference-based gym-attack slice (`collection-3`, `gym-attack-1`): optional
   PoGoAPI combat normalization, type-oriented potential and external benchmarks,
   separate owned-alternative priority, and same-UUID roadmap review/comparison.

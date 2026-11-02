@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { nativeErrorMessage } from "./native";
 import { IndividualRoadmap } from "./IndividualRoadmap";
 import { GymAssessmentView } from "./GymAssessmentView";
+import { PreparationPlannerView } from "./PreparationPlannerView";
 import {
   strategyNative,
   type CollectionStrategy,
@@ -182,6 +183,8 @@ export function Recommendations({
                   </option>
                   <option value="collection">Collection completeness</option>
                   <option value="gym_attack">Gym attack preparation</option>
+                  <option value="gym_defense">Gym defense preparation</option>
+                  <option value="rocket">Team Rocket preparation</option>
                   <option value="great">Great League statistics</option>
                   <option value="ultra">Ultra League statistics</option>
                   <option value="master">Master League statistics</option>
@@ -334,6 +337,17 @@ export function Recommendations({
               onOpenIndividual={onOpenIndividual}
             />
           </details>
+          {(current.preparation || current.roles?.length) && (
+            <PreparationPlannerView
+              key={current.pokemonId + ":" + snapshot?.context}
+              pokemonId={current.pokemonId}
+              expectedContext={snapshot?.context}
+              plan={current.preparation}
+              roles={current.roles}
+              onOpenIndividual={onOpenIndividual}
+              onChanged={() => void load()}
+            />
+          )}
           <details>
             <summary>Evidence, versions and limitations</summary>
             <p>

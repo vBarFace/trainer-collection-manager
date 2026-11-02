@@ -20,6 +20,10 @@ pub struct LocalPackage {
     pub cp_multipliers: Vec<(f64, f64)>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub combat: Option<crate::combat_reference::CombatReference>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preparation: Option<crate::preparation_reference::PreparationReference>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trainer_combat: Option<crate::trainer_combat_reference::TrainerCombatReference>,
     pub coverage: Vec<String>,
     pub limitations: Vec<String>,
     pub source_sha256: String,
@@ -63,7 +67,41 @@ impl LocalPackage {
                 ));
             }
         }
-        if self.artifacts.len() > 7
+        if let Some(preparation) = &self.preparation {
+            if self.provider != "pogoapi"
+                || self.catalog["dataset"]["datasetId"].as_str() != Some("local-pogoapi-normal-1")
+            {
+                return Err(Error::InvalidInput(
+                    "Preparation data must use the PoGoAPI identity namespace",
+                ));
+            }
+            let ids = self.catalog["forms"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|f| f["id"].as_str().map(str::to_owned))
+                .collect();
+            crate::preparation_reference::validate(preparation, &ids)
+                .map_err(Error::InvalidInput)?;
+        }
+        if let Some(trainer) = &self.trainer_combat {
+            trainer.validate().map_err(Error::InvalidInput)?;
+            if self.provider != "pogoapi"
+                || self.catalog["dataset"]["datasetId"].as_str() != Some("local-pogoapi-normal-1")
+                || trainer.pools.iter().any(|pool| {
+                    !self.catalog["forms"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|f| f["id"].as_str() == Some(&pool.form_id))
+                })
+            {
+                return Err(Error::InvalidInput(
+                    "Trainer combat must link to the active ordinary-form catalog",
+                ));
+            }
+        }
+        if self.artifacts.len() > 11
             || self.artifacts.iter().any(|artifact| {
                 !crate::reference::valid_text(&artifact.kind, 100)
                     || !crate::reference::valid_text(&artifact.source_url, 2000)
@@ -288,6 +326,8 @@ mod tests {
             .unwrap(),
             cp_multipliers: vec![(1.0, 0.1), (2.0, 0.2)],
             combat: None,
+            preparation: None,
+            trainer_combat: None,
             coverage: vec![],
             limitations: vec![],
             source_sha256: digest(b"fictional original source"),
