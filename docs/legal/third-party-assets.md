@@ -7,6 +7,13 @@ installed Cargo package manifest) is now a direct provenance-hashing dependency.
 No new gameplay assets, recommendation models or model weights are included.
 User-controlled acquisition does not establish underlying data-use rights.
 
+The first gym model adds local PoGoAPI move/current-pool/type-chart processing,
+with separate raw artifact hashes and explicit provider-gap exclusions. No real
+records, derived sample fixtures or assets are redistributed. The mathematical
+damage model was checked against a cited primary implementation; no code or
+dependency from that implementation is incorporated. See [ADR 0010](../decisions/0010-reference-based-gym-potential.md)
+and [source evidence](../development/mvp-gym-attack.md).
+
 No third-party game images, sprites, logos or game datasets are included. Generic OCR language data is obtained through locked npm packages and bundled at build time; model bytes and generated assets are not committed.
 
 The MIT license covers only original project code and documentation. Pokémon, Pokémon GO and related marks belong to their respective owners and are not licensed by this project. Before adding any external asset, dataset, library content or model, record its source, license, redistribution rights, attribution and update/removal plan.

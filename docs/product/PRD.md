@@ -2,6 +2,21 @@
 
 ## Current MVP scope — 2026-11-01
 
+Latest user clarification: screenshot extraction is limited to display name, CP
+and appraisal IVs. All other individual fields remain manual and optional.
+Prioritize gym attack/defense, Team Rocket and transfer-candidate review, then
+expand PvP. Follow the [current priority and acceptance contract](../development/mvp-current-priorities.md).
+
+Role assessments must use verified external reference facts and appropriate
+mathematical/statistical models or deterministic simulations independently of
+the owned collection. Compare owned alternatives afterward to personalize action
+and investment priority; collection-only comparisons do not satisfy the MVP.
+
+Keep the individual roadmap central to each role increment. Recommendations
+should lead with useful type-based guidance and a few optional opponent examples,
+with detailed matchup assumptions available on demand; link the assessment to
+supported next steps for the same UUID. See the current priority contract above.
+
 The active user brief is a deterministic/statistical, offline collection MVP,
 without ML or LLM models. ADR 0009 supersedes this document's older proposed
 learning/hybrid milestones. Implemented behavior and remaining acceptance are
@@ -9,6 +24,11 @@ tracked in [the delivery audit](../development/mvp-delivery.md),
 [scope and calculations](../development/mvp-strategy.md), and
 [alpha validation](../development/mvp-alpha-validation.md). The historical
 proposals below do not claim current supported gameplay domains.
+
+The first gym increment implements bounded reference-based attack potential,
+type guidance, external comparison and same-UUID roadmap review/comparison.
+See [the current behavior and limits](../development/mvp-gym-attack.md). It does
+not establish actual battle readiness or full gym/defense/Rocket coverage.
 
 ## Vision
 

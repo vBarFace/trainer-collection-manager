@@ -5,7 +5,7 @@ use crate::reference::{valid_text, BaseStats, ResolutionState};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-pub const RULESET_VERSION: &str = "collection-1";
+pub const RULESET_VERSION: &str = "collection-3";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -141,6 +141,8 @@ pub struct StrategyReport {
     pub duplicate_count: usize,
     pub duplicate_ids: Vec<String>,
     pub leagues: Vec<LeagueAssessment>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gym: Option<crate::gym::GymAssessment>,
     pub recommendations: Vec<StrategyRecommendation>,
     pub steps: Vec<StrategyStep>,
     pub limitations: Vec<String>,
@@ -374,6 +376,7 @@ pub fn assess(
             duplicate_count,
             duplicate_ids,
             leagues: Vec::new(),
+            gym: None,
             recommendations: Vec::new(),
             steps: Vec::new(),
             limitations: vec![

@@ -133,3 +133,76 @@ it("retains a failed progress draft and reloads after a conflict", async () => {
   await screen.findByText(/progress revision 3/);
   expect(strategyNative.roadmap).toHaveBeenCalledTimes(2);
 });
+
+it("links a gym preparation option to explicit move review for the same UUID", async () => {
+  const gymReport: StrategyReport = {
+    ...report,
+    gym: {
+      state: "limited",
+      rulesetVersion: "fictional-gym-1",
+      summary: "Potential only",
+      pokemonTypes: ["normal"],
+      vulnerableTo: [],
+      missing: [],
+      limitations: [],
+      ownedAlternativePokemonId: null,
+      builds: [
+        {
+          attackType: "normal",
+          fastMove: "Sample Tap",
+          chargedMove: "Sample Slam",
+          moveState: "hypothetical",
+          neutralCycleDps: 12,
+          referencePercentile: 50,
+          comparedForms: 3,
+          referenceBest: [],
+          strongAgainst: ["fire"],
+          resistedBy: [],
+        },
+      ],
+    },
+    steps: [
+      {
+        id: "gym-review-moves",
+        action: "review",
+        required: false,
+        prerequisites: [],
+        rationale: "Optionally confirm current moves before preparing for gyms",
+        cost: null,
+        executable: true,
+      },
+    ],
+  };
+  vi.mocked(strategyNative.roadmap).mockResolvedValue({
+    ...view,
+    report: gymReport,
+  });
+  vi.mocked(strategyNative.progress).mockResolvedValue({
+    ...view,
+    report: gymReport,
+    revision: "4",
+    progress: { "gym-review-moves": "review_requested" },
+  });
+  const open = vi.fn();
+  render(<IndividualRoadmap id={id} onOpenIndividual={open} />);
+  expect(
+    await screen.findByText(
+      /Gym preparation focus: normal coverage with Sample Tap/,
+    ),
+  ).toBeVisible();
+  const step = screen
+    .getByText("Optionally confirm current moves before preparing for gyms")
+    .closest("li")!;
+  fireEvent.click(
+    within(step).getByRole("button", { name: "I completed this" }),
+  );
+  await screen.findByText(/Progress: review_requested/);
+  expect(open).toHaveBeenCalledExactlyOnceWith(id);
+  expect(strategyNative.progress).toHaveBeenCalledExactlyOnceWith(
+    id,
+    view.context,
+    "3",
+    "gym-review-moves",
+    "review_requested",
+  );
+});

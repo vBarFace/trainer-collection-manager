@@ -1,5 +1,13 @@
 # Data model
 
+The first gym-attack increment adds optional typed combat data to the existing
+local reference-package JSON and optional gym results to roadmap report JSON.
+No migration is added. Missing combat/gym fields preserve older package/report
+compatibility. Reference pools are checked against the same catalog's stable
+form IDs; all seven possible source artifacts retain hashes outside user facts.
+Strategy capture resolves saved pins with the active package from the same SQL
+snapshot, including another instance's reference activation. See [ADR 0010](../decisions/0010-reference-based-gym-potential.md).
+
 ## Deterministic MVP additions — migrations 9–11
 
 Migrations 1–8 retain their original SQL. Migration 9 adds per-user active/previous

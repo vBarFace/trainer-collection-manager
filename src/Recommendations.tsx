@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { nativeErrorMessage } from "./native";
 import { IndividualRoadmap } from "./IndividualRoadmap";
+import { GymAssessmentView } from "./GymAssessmentView";
 import {
   strategyNative,
   type CollectionStrategy,
@@ -180,6 +181,7 @@ export function Recommendations({
                     Balanced collection (default)
                   </option>
                   <option value="collection">Collection completeness</option>
+                  <option value="gym_attack">Gym attack preparation</option>
                   <option value="great">Great League statistics</option>
                   <option value="ultra">Ultra League statistics</option>
                   <option value="master">Master League statistics</option>
@@ -254,6 +256,7 @@ export function Recommendations({
                       : "Review collection value before irreversible action"}{" "}
                     · same-form peers: {report.duplicateCount}
                   </p>
+                  {report.gym && <p>{report.gym.summary}</p>}
                   {report.recommendations
                     .filter((item) => !kind || item.kind === kind)
                     .map((item) => (
@@ -318,10 +321,19 @@ export function Recommendations({
           <h2 ref={assessmentHeading} tabIndex={-1}>
             {current.displayName} · individual assessment
           </h2>
-          <LeagueStatistics
-            report={current}
-            onOpenIndividual={onOpenIndividual}
-          />
+          {current.gym && (
+            <GymAssessmentView
+              assessment={current.gym}
+              onSelectPokemon={onOpenIndividual}
+            />
+          )}
+          <details>
+            <summary>Optional league statistics</summary>
+            <LeagueStatistics
+              report={current}
+              onOpenIndividual={onOpenIndividual}
+            />
+          </details>
           <details>
             <summary>Evidence, versions and limitations</summary>
             <p>

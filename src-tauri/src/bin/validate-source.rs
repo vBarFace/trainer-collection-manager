@@ -103,13 +103,15 @@ fn hypothetical_sample(
             .map(|&(level, multiplier)| strategy::CpMultiplier { level, multiplier })
             .collect(),
     };
+    let gym = trainer_collection_manager::gym::GymModel::new(package)?
+        .map(|model| model.assess(&confirmed.0, None));
     let report = strategy::assess(&[confirmed], Some(&mechanics))?
         .into_iter()
         .next()
         .ok_or("No hypothetical sample assessment was returned")?;
     let output = serde_json::json!({
         "label":"Hypothetical specimen for developer numerical validation only; not an observed user Pokémon",
-        "dex":dex,"ivs":ivs,"leagues":report.leagues
+        "dex":dex,"ivs":ivs,"leagues":report.leagues,"gym":gym
     });
     drop(repository);
     Ok(output)
@@ -142,7 +144,7 @@ fn validate() -> Result<(), &'static str> {
             index += 1;
         }
     }
-    if args.len() < 4 || args.len() > 6 {
+    if args.len() < 4 || args.len() > 10 {
         return Err(
             "Usage: validate-source [--sample-dex N] PROVIDER REVISION YYYY-MM-DD FILE [FILE FILE]",
         );
@@ -153,6 +155,7 @@ fn validate() -> Result<(), &'static str> {
     let package = reference_store::LocalPackage {
         catalog: normalized.catalog,
         cp_multipliers: normalized.cp_multipliers,
+        combat: normalized.combat,
         coverage: normalized.coverage,
         limitations: normalized.limitations,
         source_sha256: reference_store::digest(&input.bytes),
@@ -169,6 +172,8 @@ fn validate() -> Result<(), &'static str> {
             "speciesCount":package.catalog["species"].as_array().map_or(0,Vec::len),
             "formCount":package.catalog["forms"].as_array().map_or(0,Vec::len),
             "multiplierCount":package.cp_multipliers.len(),
+            "combatMoveCount":package.combat.as_ref().map_or(0, |combat|combat.moves.len()),
+            "combatPoolCount":package.combat.as_ref().map_or(0, |combat|combat.pools.len()),
             "modeledMaximumLevel":package.cp_multipliers.last().map(|entry|entry.0),
             "sourceSha256":package.source_sha256,
             "artifacts":package.artifacts,

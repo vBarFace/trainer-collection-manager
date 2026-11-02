@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, HashMap};
 pub struct Normalized {
     pub catalog: Value,
     pub cp_multipliers: Vec<(f64, f64)>,
+    pub combat: Option<crate::combat_reference::CombatReference>,
     pub coverage: Vec<String>,
     pub limitations: Vec<String>,
 }
@@ -286,7 +287,7 @@ pub fn normalize(
     if provider == "snapshot" {
         crate::reference::Catalog::load(bytes)?;
         return Ok(Normalized {
-            catalog: value, cp_multipliers: vec![],
+            catalog: value, cp_multipliers: vec![], combat: None,
             coverage: vec!["Reviewed schema-1 identities, types, GO stats and explicit evolution links exactly as supplied".into()],
             limitations: vec!["Source provenance is retained from the reviewed snapshot. No new rights, cost, eligibility or battle-performance claim follows from importing it.".into(), "No CP multiplier table in schema 1; statistical league calculations remain unavailable for this snapshot.".into()],
         });
@@ -362,9 +363,28 @@ pub fn normalize(
     crate::reference::Catalog::load(
         &serde_json::to_vec(&catalog).map_err(|_| "Invalid normalized catalog")?,
     )?;
+    let mut combat = crate::combat_reference::normalize(provider, &value)?;
+    if let Some(combat) = &mut combat {
+        combat.pools.retain(|pool| {
+            catalog["forms"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|form| form["id"].as_str() == Some(&pool.form_id))
+        });
+        combat.validate()?;
+    }
+    let mut coverage = vec![
+        "National Dex identifiers and ordinary-form identity".into(),
+        "GO base Attack, Defense and Stamina".into(),
+        "Types where present".into(),
+    ];
+    if combat.is_some() {
+        coverage.push("Supplied PvE moves, current ordinary-form move pools and full type-effectiveness chart for a bounded gym-attack model".into());
+    }
     let mut limitations=vec![
         "Bounded ordinary forms only; regional, named, costume, Mega, Shadow and ambiguous forms are not normalized. Individual variants remain unknown.".into(),
-        "Moves, evolution eligibility/costs, availability, rarity and battle rankings are unsupported by this adapter. Missing relationships are unknown, never no-evolution claims.".into(),
+        "Evolution eligibility/costs, release availability, rarity and battle rankings remain unsupported. Current move pools do not establish legacy/event move acquisition. Missing relationships are unknown, never no-evolution claims.".into(),
         "Provider revision is user supplied; the raw-file SHA-256 identifies actual imported bytes. Rights uncertainty remains unresolved; do not redistribute downloaded datasets.".into(),
     ];
     if provider == "pokeminers" {
@@ -373,17 +393,19 @@ pub fn normalize(
     if provider == "pogoapi" {
         limitations.push("Only explicitly named Normal form rows are imported. CP multipliers above level 40 are withheld because provider documentation warns about approximation.".into());
     }
+    if combat.is_none() {
+        limitations.push("No complete supported combat reference. Gym attack needs PoGoAPI fast_moves, charged_moves, current_pokemon_moves and type_effectiveness together with stats/types.".into());
+    } else {
+        limitations.push("Non-spending charged entries, powers above 1000, ambiguous names and unmapped pool options are withheld and recorded per form. Positive-energy records listed under charged moves are recovered as fast only when a current Normal pool explicitly identifies them as fast. No cost or special mechanic is guessed; benchmarks cover supported subsets only.".into());
+    }
     if cpm.is_empty() {
         limitations.push("No supported CP multiplier table in this source; PvP level/stat-product calculations are unavailable.".into());
     }
     Ok(Normalized {
         catalog,
         cp_multipliers: cpm,
-        coverage: vec![
-            "National Dex identifiers and ordinary-form identity".into(),
-            "GO base Attack, Defense and Stamina".into(),
-            "Types where present".into(),
-        ],
+        combat,
+        coverage,
         limitations,
     })
 }

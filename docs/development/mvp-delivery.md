@@ -1,5 +1,13 @@
 # Intelligent MVP delivery audit
 
+Latest user clarification (2026-11-01): deliver gym attack/defense, Team Rocket
+and transfer-candidate review before expanded PvP. Limit automatic screenshot
+extraction to name, CP and appraisal IVs; other fields stay manual and optional.
+The first bounded gym-attack slice is now implemented; gym defense follows. See the
+[current priority contract](mvp-current-priorities.md). The audit and historical
+implementation record below predates this [gym follow-up](mvp-gym-attack.md),
+which records current coverage and executed validation. Other domains remain open.
+
 Audited 2026-11-01 against remote/local main `4378a15`. No open PRs were
 returned by GitHub. Main CI run 40602113292 passed native checks and failed
 one frontend assertion (Power Up history invalidation).
@@ -44,11 +52,13 @@ upstream data rights remain separate.
 
 ## Published review stack
 
-The seven branches were pushed with explicit authorization. Review in dependency
-order: each PR targets the preceding feature branch, with PR 0 targeting main.
-PR 0 is ready for review; PRs 1–6 are drafts because the broader gameplay and
-real-image acceptance gaps remain open. Local feature-branch merges propagate
-fixes without rewriting history; no GitHub PR has been merged.
+The seven branches were initially published on 2026-11-01 with explicit
+authorization, in dependency order. PR 0 was ready for review; PRs 1–6 were drafts
+with broader gameplay/real-image acceptance still open. Local feature-branch
+merges propagated fixes without rewriting history; the implementation agent did
+not merge any GitHub PR. Follow-up on 2026-11-02 confirmed remote main
+`6f42018` includes the merge of PR #20. The gym branch incorporates that main and
+adds the [first bounded gym-attack increment](mvp-gym-attack.md).
 
 | Increment | Pull request                                                          | User-visible result                                                                                  |
 | --------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -65,9 +75,11 @@ formatting, lint, strict TypeScript, 144 UI tests and 8 adapter tests. The focus
 fixes await React effects without timers, relaxed assertions or production UI
 changes. Each PR links its current frontend and native CI checks.
 
-The next acceptance work is representative authorized screenshot extraction and
-an installed-app offline journey, followed by the still-unverified source-field
-and gameplay mechanics in the [alpha acceptance matrix](mvp-alpha-validation.md).
+Next implementation follows the current gym/Rocket/transfer priority contract.
+Acceptance still requires validation of the supported name/CP/IV extraction and
+an installed-app offline journey, alongside the source-field and gameplay
+mechanics in the [alpha acceptance matrix](mvp-alpha-validation.md). Expanded OCR
+is deferred and does not gate the prioritized gameplay work.
 This stack delivers the collection/statistical preview; it does not establish
 full gameplay-MVP or personal-alpha acceptance.
 

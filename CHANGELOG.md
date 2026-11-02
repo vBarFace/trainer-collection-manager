@@ -10,6 +10,14 @@ All notable changes are documented here.
 
 ### Added
 
+- First reference-based gym-attack slice (`collection-3`, `gym-attack-1`): optional
+  PoGoAPI combat normalization, type-oriented potential and external benchmarks,
+  separate owned-alternative priority, and same-UUID roadmap review/comparison.
+  Native snapshots resolve identity pins with the active package from the same
+  transaction, including cross-instance changes. Catalog-only packages and old
+  roadmap JSON remain compatible; no migration or new dependency. See
+  docs/development/mvp-gym-attack.md for model and source limitations.
+
 - Deterministic MVP preview: bounded 500-image batch queue with sequential local
   extraction, explicit grouping and idempotent confirmation; inventory search,
   filters, duplicate counts and paged rendering; typed optional manual facts,

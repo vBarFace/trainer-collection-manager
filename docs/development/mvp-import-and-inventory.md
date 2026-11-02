@@ -55,6 +55,9 @@ protection control constrain later assessments.
 No representative authorized screenshot set is present in this checkout.
 Therefore no new OCR accuracy percentage, variant detection performance,
 ordinary-layout coverage claim or hundred-image extraction timing is established.
-Additional OCR for HP, dimensions, dates, moves and symbols needs a labelled
-sample set and calibrated field-level extraction before it can replace manual
-completion. These limits prevent calling the full screenshot MVP accepted.
+The user-confirmed MVP extraction scope is name, CP and appraisal IVs only.
+HP, dimensions, dates, moves, symbols and variants remain manual and optional;
+their automatic extraction is deferred. This is an accepted scope boundary,
+not a missing requirement for the current screenshot workflow. Representative
+accuracy validation is still needed for the supported name/CP/IV fields. See
+the [current delivery priorities](mvp-current-priorities.md).

@@ -49,7 +49,7 @@ structured export. Existing S2 lifecycle actions and utility-1 contracts are reu
   Inventory, Recommendations and Settings loaded with successful native commands.
   No observations, preferences or reference data were changed in the GUI.
 
-## Local build artifact
+## Initial local build artifact (2026-11-01)
 
 Ignored output: `src-tauri/target/release/bundle/nsis/Trainer Collection Manager_0.1.0_x64-setup.exe`
 (11.67 MiB). SHA-256:
@@ -59,10 +59,19 @@ Ignored output: `src-tauri/target/release/bundle/nsis/Trainer Collection Manager
 ```
 
 This is a local preview artifact, not a published release or full-MVP acceptance.
+Later builds replace the default bundle output; the initial installer is preserved
+privately outside Git as `artifacts/Trainer Collection Manager_0.1.0_preview-2026-11-01_x64-setup.exe`
+in the project workspace. For subsequent gym work, see [current increment](mvp-gym-attack.md).
 The installer wizard was not executed. No disconnected installed-app test or
 representative real-data screenshot acceptance was performed.
 
 ## Remaining release acceptance
+
+The latest user-confirmed scope limits OCR to name, CP and appraisal IVs; all
+other fields stay manually entered and optional. Prioritize gym attack/defense,
+Team Rocket and transfer-candidate review before expanded PvP. This changes the
+acceptance scope, not the implemented mechanics or previously executed results.
+See the [current priority contract](mvp-current-priorities.md).
 
 Subsequent source validation: current pinned PvPoke/GM inputs and separately
 hashed PoGoAPI responses passed the production adapters. Nine hypothetical
@@ -71,21 +80,21 @@ three sampled base-stat records agreed across all providers. See [revisions,
 fingerprints, counts and limitations](mvp-real-reference-validation.md). No real
 dataset records or derived sample fixture records are committed.
 
-| Acceptance area                              | State / required evidence                                                                                        |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Stable UUIDs, corrections, lifecycle history | Existing and new native integration tests; no game automation                                                    |
-| Local reference install/rollback/restart     | Fictional persistence tests and current pinned real-source structural validation passed                          |
-| Real provider field coverage                 | Bounded ordinary forms/stats/types/CPM only; provider snapshots remain alternatives, not merged fields           |
-| Bulk review/grouping/idempotent save         | Fictional frontend/native tests pass; real representative throughput/accuracy unmeasured                         |
-| Extended visible screenshot fields           | Manual completion implemented; extra OCR/layout/symbol recognition not accepted                                  |
-| Search/filter/duplicates                     | Implemented; exact CP string comparisons and unknown identity tested                                             |
-| Statistical league scope                     | Modeled ceiling shown; nine independent hypothetical real-reference checks passed; broader mechanics open        |
-| PvE/gym/Rocket/meta/rarity and investments   | Unsupported; missing evidence blocks spending/disposal rather than generating false scores                       |
-| Roadmaps/progress                            | Bounded collection/statistical review/compare/wait plans implemented; executable investment plans gated          |
-| Structured export                            | Implemented/tested; no backup import or catalog redistribution                                                   |
-| Windows installer / installation / live UI   | NSIS build and native launch/navigation passed; installer wizard and real-data UI journey unverified             |
-| Offline desktop execution                    | No application networking; native fictional flow executed locally; disconnected installed-app smoke remains open |
-| Dataset rights                               | Software licenses/public access do not establish underlying game-data rights; unresolved                         |
+| Acceptance area                              | State / required evidence                                                                                         |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Stable UUIDs, corrections, lifecycle history | Existing and new native integration tests; no game automation                                                     |
+| Local reference install/rollback/restart     | Fictional persistence tests and current pinned real-source structural validation passed                           |
+| Real provider field coverage                 | Bounded ordinary forms/stats/types/CPM only; provider snapshots remain alternatives, not merged fields            |
+| Bulk review/grouping/idempotent save         | Fictional frontend/native tests pass; real representative throughput/accuracy unmeasured                          |
+| Extended visible screenshot fields           | Manual and optional by approved scope; automatic extraction deferred, not required for current MVP                |
+| Search/filter/duplicates                     | Implemented; exact CP string comparisons and unknown identity tested                                              |
+| Statistical league scope                     | Modeled ceiling shown; nine independent hypothetical real-reference checks passed; broader mechanics open         |
+| PvE/gym/Rocket/meta/rarity and investments   | Bounded gym-attack potential added; full battles, defense, Rocket, meta/rarity and investments remain unsupported |
+| Roadmaps/progress                            | Bounded collection/statistical review/compare/wait plans implemented; executable investment plans gated           |
+| Structured export                            | Implemented/tested; no backup import or catalog redistribution                                                    |
+| Windows installer / installation / live UI   | NSIS build and native launch/navigation passed; installer wizard and real-data UI journey unverified              |
+| Offline desktop execution                    | No application networking; native fictional flow executed locally; disconnected installed-app smoke remains open  |
+| Dataset rights                               | Software licenses/public access do not establish underlying game-data rights; unresolved                          |
 
 No real source dataset, screenshot, private collection, secret, asset or model
 weight is committed. The original source remains MIT. See the field-level

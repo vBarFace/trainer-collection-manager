@@ -69,3 +69,42 @@ it("retains the active reference and offers retry after malformed source input",
     screen.getByRole("button", { name: "Roll back to previous reference" }),
   ).toBeDisabled();
 });
+
+it("shows supported gym-reference coverage separately from catalog counts", async () => {
+  vi.mocked(invoke).mockResolvedValueOnce({
+    canRollback: false,
+    active: {
+      provider: "pogoapi",
+      sourceSha256: "a".repeat(64),
+      cpMultipliers: [],
+      coverage: [],
+      limitations: [],
+      combat: { version: "fictional-combat-1", moves: [{}, {}], pools: [{}] },
+      catalog: {
+        species: [{}],
+        forms: [{}],
+        dataset: {
+          datasetId: "fictional",
+          version: "one",
+          sourceUrl: "https://example.invalid/source",
+          upstreamRevision: "fictional-one",
+          retrievedAt: "2026-11-02",
+          license: "Original fixture",
+          notice: "No game records",
+        },
+      },
+    },
+  });
+  render(<ReferenceSettings />);
+  expect(
+    await screen.findByText(
+      "Gym reference: 2 supported moves · 1 ordinary-form pools · fictional-combat-1",
+    ),
+  ).toBeVisible();
+  expect(
+    screen.getByRole("link", { name: "current move pools" }),
+  ).toHaveAttribute(
+    "href",
+    "https://pogoapi.net/api/v1/current_pokemon_moves.json",
+  );
+});

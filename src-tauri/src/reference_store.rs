@@ -18,6 +18,8 @@ pub fn digest(bytes: &[u8]) -> String {
 pub struct LocalPackage {
     pub catalog: Value,
     pub cp_multipliers: Vec<(f64, f64)>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub combat: Option<crate::combat_reference::CombatReference>,
     pub coverage: Vec<String>,
     pub limitations: Vec<String>,
     pub source_sha256: String,
@@ -44,7 +46,24 @@ impl LocalPackage {
             ));
         }
         let mut previous = (0.0, 0.0);
-        if self.artifacts.len() > 3
+        if let Some(combat) = &self.combat {
+            combat.validate().map_err(Error::InvalidInput)?;
+            if self.provider != "pogoapi"
+                || self.catalog["dataset"]["datasetId"].as_str() != Some("local-pogoapi-normal-1")
+                || combat.pools.iter().any(|pool| {
+                    !self.catalog["forms"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|form| form["id"].as_str() == Some(&pool.form_id))
+                })
+            {
+                return Err(Error::InvalidInput(
+                    "Combat pools must belong to the active PoGoAPI catalog",
+                ));
+            }
+        }
+        if self.artifacts.len() > 7
             || self.artifacts.iter().any(|artifact| {
                 !crate::reference::valid_text(&artifact.kind, 100)
                     || !crate::reference::valid_text(&artifact.source_url, 2000)
@@ -268,6 +287,7 @@ mod tests {
             ))
             .unwrap(),
             cp_multipliers: vec![(1.0, 0.1), (2.0, 0.2)],
+            combat: None,
             coverage: vec![],
             limitations: vec![],
             source_sha256: digest(b"fictional original source"),
