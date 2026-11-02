@@ -10,7 +10,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
-pub const VERSION: &str = "preparation-1";
+pub const VERSION: &str = "preparation-2";
 const MAX_PATHS: usize = 16;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -45,6 +45,14 @@ pub struct PreparationPath {
     pub executable: bool,
     #[serde(default)]
     pub future_roles: Vec<crate::roles::RoleAssessment>,
+    #[serde(default)]
+    pub served_roles: Vec<String>,
+    #[serde(default)]
+    pub projected_cp: Option<u32>,
+    #[serde(default)]
+    pub improvement_percent: Option<f64>,
+    #[serde(default)]
+    pub target_kind: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -57,12 +65,18 @@ pub struct PreparationPlan {
     pub limitations: Vec<String>,
     pub resources: ResourceBudget,
     pub selected_path_id: Option<String>,
+    #[serde(default)]
+    pub primary_path_id: Option<String>,
+    #[serde(default)]
+    pub planning_mode: Option<String>,
+    #[serde(default)]
+    pub conflicts: Vec<crate::integrated_planning::PlanConflict>,
 }
 
 fn type_key(kind: &PokemonType) -> String {
     format!("{kind:?}").to_ascii_lowercase()
 }
-fn cpm(package: &LocalPackage, level: f64) -> Option<f64> {
+pub(crate) fn cpm(package: &LocalPackage, level: f64) -> Option<f64> {
     package
         .cp_multipliers
         .iter()
@@ -115,7 +129,7 @@ fn cycle(
     (n * damage(moves.0) + damage(moves.1)) * 1000.0
         / (n * f64::from(moves.0.duration_ms) + f64::from(moves.1.duration_ms))
 }
-fn cp(pokemon: &Pokemon, form: &Form, multiplier: f64) -> Option<u32> {
+pub(crate) fn cp(pokemon: &Pokemon, form: &Form, multiplier: f64) -> Option<u32> {
     let base = form.base_stats.as_ref()?;
     let iv = pokemon.ivs?;
     Some(
@@ -278,6 +292,50 @@ fn league_level(pokemon: &Pokemon, form: &Form, package: &LocalPackage, limit: u
         .next_back()
 }
 
+// Explicit preparation heuristic: 90% of this form's supported level-40 model,
+// not an opponent breakpoint. Never interpolate unsupported multipliers.
+fn model_checkpoint(
+    pokemon: &Pokemon,
+    form: &Form,
+    package: &LocalPackage,
+    build: Option<&Build>,
+    role: &str,
+    current: Option<f64>,
+) -> Option<f64> {
+    let base = form.base_stats.as_ref()?;
+    let iv = pokemon.ivs?;
+    let ceiling = cpm(package, 40.0)?;
+    let value = |m: f64| -> Option<f64> {
+        if role == "ATTACKER" {
+            let b = build?;
+            return Some(cycle(
+                base,
+                iv.attack,
+                form.types.as_ref()?,
+                pair(package.combat.as_ref()?, &b.fast_move, &b.charged_move)?,
+                m,
+                cpm(package, 30.0)?,
+            ));
+        }
+        let hp = ((f64::from(base.stamina) + f64::from(iv.hp)) * m)
+            .floor()
+            .max(10.0);
+        let bulk = (f64::from(base.defense) + f64::from(iv.defense)) * m * hp;
+        Some(if role == "GYM DEF" {
+            bulk
+        } else {
+            bulk * (f64::from(base.attack) + f64::from(iv.attack)) * m
+        })
+    };
+    let target = value(ceiling)? * 0.9;
+    package
+        .cp_multipliers
+        .iter()
+        .filter(|(l, _)| *l <= 40.0 && current.is_none_or(|from| *l >= from))
+        .find(|(_, m)| value(*m).is_some_and(|v| v >= target))
+        .map(|(l, _)| *l)
+}
+
 pub fn plan(
     pokemon: &Pokemon,
     details: &DetailsView,
@@ -288,6 +346,7 @@ pub fn plan(
     protected: bool,
     goal: &str,
     role_model: &crate::roles::RoleModel,
+    preferred_forms: &[String],
 ) -> PreparationPlan {
     if resources.values.stardust.is_none() {
         resources.values.stardust = global_stardust;
@@ -295,7 +354,7 @@ pub fn plan(
     let mut current_level = (!details.needs_reconfirmation)
         .then_some(details.values.level)
         .flatten();
-    let mut result=PreparationPlan{selected_path_id:None,state:"conditional".into(),summary:"Compare keeping this Pokémon as it is with evolution, moves and level checkpoints. Choose a role before spending.".into(),current_level,paths:vec![],missing:vec![],limitations:vec![
+    let mut result=PreparationPlan{primary_path_id:None,planning_mode:None,conflicts:vec![],selected_path_id:None,state:"conditional".into(),summary:"Compare keeping this Pokémon as it is with evolution, moves and level checkpoints. Review the proposed uses before spending.".into(),current_level,paths:vec![],missing:vec![],limitations:vec![
         "Levels 30, 40 and 50 are comparison checkpoints, not optimal battle breakpoints or automatic investment advice. Stop when your selected role is served; compare lower-cost owned alternatives.".into(),
         "Costs are summed from imported half-level rows for a manually confirmed ordinary cost profile. Lucky, Shadow, Purified, special species overrides and event discounts require an in-game quote; unsupported profiles remain unknown.".into(),
         "Gym benefit uses one zero-energy neutral cycle against fixed Defense 215 at level 30. No incoming damage, motivation, shields, fainting or battle simulation. Other roles must be reviewed separately.".into(),
@@ -456,15 +515,23 @@ pub fn plan(
                     .and_then(|g| g.builds.first().map(|b| b.neutral_cycle_dps))
                     .unwrap_or(0.0)
             };
-            value(&b.0)
-                .total_cmp(&value(&a.0))
-                .then_with(|| a.0.display_name.cmp(&b.0.display_name))
+            let preferred = |p: &Pokemon| {
+                p.reference
+                    .form
+                    .as_ref()
+                    .is_some_and(|f| preferred_forms.contains(&f.id))
+            };
+            preferred(&b.0).cmp(&preferred(&a.0)).then_with(|| {
+                value(&b.0)
+                    .total_cmp(&value(&a.0))
+                    .then_with(|| a.0.display_name.cmp(&b.0.display_name))
+            })
         });
         states.truncate(3);
         states.insert(0, current);
         result.limitations.push("The bounded display selects up to three reachable future forms using the selected role's proxy (gym cycle, defensive bulk, capped stat product or Trainer fast-energy access). This is not a battle ranking; other evolution branches can serve other roles and remain unassessed here.".into());
     }
-    result.paths.push(PreparationPath{id:"keep-current-state".into(),target_form_id:form.id.clone(),target_name:pokemon.display_name.clone(),target_level:current_level,role:"retain".into(),actions:vec![PreparationAction{kind:"use_now".into(),description:"Retain the current observed state without spending. Consider current use after reviewing the role assessments.".into(),requirements:vec![],acquisition:vec![]}],cost:ResourceCost{candy:Some(0),candy_xl:Some(0),stardust:Some(0),items:vec![]},benefit:"Preserves your resources and future evolution/PvP options. This is not a claim of battle readiness.".into(),blockers:vec![],affordability:"within_budget".into(),executable:true,future_roles:vec![]});
+    result.paths.push(PreparationPath{id:"keep-current-state".into(),target_form_id:form.id.clone(),target_name:pokemon.display_name.clone(),target_level:current_level,role:"retain".into(),actions:vec![PreparationAction{kind:"use_now".into(),description:"Retain the current observed state without spending. Consider current use after reviewing the role assessments.".into(),requirements:vec![],acquisition:vec![]}],cost:ResourceCost{candy:Some(0),candy_xl:Some(0),stardust:Some(0),items:vec![]},benefit:"Preserves your resources and future evolution/PvP options. This is not a claim of battle readiness.".into(),blockers:vec![],affordability:"within_budget".into(),executable:true,future_roles:vec![],served_roles:vec![],projected_cp:current_level.and_then(|l|cpm(package,l)).and_then(|m|cp(pokemon,form,m)),improvement_percent:None,target_kind:Some("retain".into())});
     let current_score = package
         .combat
         .as_ref()
@@ -508,8 +575,13 @@ pub fn plan(
             })
         };
         let build = target_build.as_ref();
+        let efficient = if details.values.shadow == Some(true) {
+            None
+        } else {
+            model_checkpoint(pokemon, target_form, package, build, role, current_level)
+        };
         let mut levels = vec![current_level];
-        let checkpoints = match goal {
+        let mut checkpoints = match goal {
             "great" => league_level(pokemon, target_form, package, 1500)
                 .into_iter()
                 .collect(),
@@ -518,8 +590,21 @@ pub fn plan(
                 .collect(),
             _ => vec![30.0, 40.0, 50.0],
         };
+        if !matches!(goal, "great" | "ultra" | "master") {
+            if let Some(level) = efficient {
+                checkpoints.insert(0, level);
+            }
+        }
+        if let Some(intent) = result.resources.values.route_intent.as_ref().filter(|i| {
+            i.dataset_id == pokemon.reference.dataset.dataset_id
+                && i.target_form_id == target_form.id
+        }) {
+            if let Some(level) = intent.target_level {
+                checkpoints.insert(0, level);
+            }
+        }
         for checkpoint in checkpoints {
-            if current_level.is_none_or(|l| l < checkpoint) {
+            if current_level.is_none_or(|l| l < checkpoint) && !levels.contains(&Some(checkpoint)) {
                 levels.push(Some(checkpoint));
             }
         }
@@ -528,6 +613,13 @@ pub fn plan(
                 break;
             }
             let is_power = level.is_some() && level != current_level;
+            if is_power
+                && chain.is_empty()
+                && matches!((pokemon.cp,level.and_then(|l|cpm(package,l)).and_then(|m|cp(pokemon,target_form,m))),(Some(observed),Some(projected)) if i64::from(projected)<observed)
+            {
+                result.missing.push("A lower projected CP is not a reachable same-form Power Up target. Reconfirm the current level before choosing further investment.".into());
+                continue;
+            }
             let mut actions = Vec::new();
             let mut blockers = Vec::new();
             let mut cost = ResourceCost {
@@ -720,6 +812,11 @@ pub fn plan(
             {
                 benefit.push_str(&format!(" Projected CP {projected}; not an observed CP."));
             }
+            let checkpoint =
+                level == efficient && is_power && !matches!(goal, "great" | "ultra" | "master");
+            if checkpoint {
+                benefit.push_str(" This is the lowest supplied half level reaching 90% of this form's level-40 modeled cycle/bulk/stat product. It is a preparation policy, not a battle breakpoint. Evolution stages precede Power Up so resulting CP and attacks can be reviewed before further spending.");
+            }
             if gym
                 .as_ref()
                 .and_then(|g| g.builds.first())
@@ -769,6 +866,25 @@ pub fn plan(
                 } else {
                     role_model.assess(&target, None, &[])
                 },
+                served_roles: vec![role.into()],
+                projected_cp: level
+                    .and_then(|l| cpm(package, l))
+                    .and_then(|m| cp(pokemon, target_form, m)),
+                improvement_percent: target_score
+                    .zip(current_score)
+                    .map(|(future, now)| (future / now - 1.0) * 100.0),
+                target_kind: Some(
+                    if checkpoint {
+                        "model_checkpoint"
+                    } else if matches!(goal, "great" | "ultra") {
+                        "league_cap"
+                    } else if is_power {
+                        "comparison_checkpoint"
+                    } else {
+                        "current_level"
+                    }
+                    .into(),
+                ),
             });
         }
     }

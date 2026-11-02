@@ -3,12 +3,15 @@ mod batch;
 pub mod combat_reference;
 mod commands;
 mod database;
+pub mod decision;
+pub mod decision_service;
 pub mod evaluation;
 mod extraction;
 pub mod gym;
 #[cfg(test)]
 mod gym_integration_tests;
 pub mod individual_details;
+pub mod integrated_planning;
 pub mod inventory;
 #[cfg(test)]
 mod mvp_smoke_tests;
@@ -613,6 +616,24 @@ async fn pokemon_roadmap(
 }
 
 #[tauri::command]
+async fn individual_decision(
+    state: State<'_, NativeInventory>,
+    id: String,
+) -> Result<decision_service::IndividualReview, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?
+            .individual_decision(&inventory::PokemonId::parse(&id)?)
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
 async fn generate_roadmap(
     state: State<'_, NativeInventory>,
     id: String,
@@ -750,6 +771,25 @@ async fn save_preparation_resources(
 }
 
 #[tauri::command]
+async fn clear_preparation_route(
+    state: State<'_, NativeInventory>,
+    id: String,
+    expected_context: String,
+) -> Result<preparation_resources::ResourceBudget, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?
+            .clear_preparation_route(&inventory::PokemonId::parse(&id)?, &expected_context)
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
 async fn export_structured_backup(
     window: tauri::WebviewWindow,
     state: State<'_, NativeInventory>,
@@ -802,6 +842,7 @@ pub fn run() {
             confirm_pokemon_tags,
             confirm_batch_import,
             collection_strategy,
+            individual_decision,
             pokemon_roadmap,
             generate_roadmap,
             update_roadmap_progress,
@@ -809,6 +850,7 @@ pub fn run() {
             preparation_resources,
             save_preparation_resources,
             select_preparation_path,
+            clear_preparation_route,
             export_structured_backup
         ])
         .run(tauri::generate_context!())

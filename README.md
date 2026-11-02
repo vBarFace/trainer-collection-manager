@@ -33,6 +33,11 @@ model is used.
   defense, Rocket and PvP signals preserve the limits of each model and keep
   unresolved transfer value under review. See the
   [preparation planner](docs/development/mvp-preparation-planner.md).
+- Receive integrated suggested uses and an automatic roadmap in the individual's
+  Inventory view after confirmed import, evolution, Power Up or fact updates.
+  Separate current support, future preparation and missing evidence; preserve
+  applied tags and optional manual route intent across evolution stages. See the
+  [integrated decision loop](docs/development/mvp-individual-decision-loop.md).
 - Set optional global collection/league goals and a confirmed Stardust budget.
   Inspect a per-UUID roadmap, postpone/ignore steps and open explicit observation
   confirmation. Stale plans block progress until recalculation.

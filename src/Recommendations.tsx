@@ -3,6 +3,7 @@ import { nativeErrorMessage } from "./native";
 import { IndividualRoadmap } from "./IndividualRoadmap";
 import { GymAssessmentView } from "./GymAssessmentView";
 import { PreparationPlannerView } from "./PreparationPlannerView";
+import { IndividualDecisionPanel } from "./IndividualDecisionView";
 import {
   strategyNative,
   type CollectionStrategy,
@@ -173,40 +174,51 @@ export function Recommendations({
         {error && <p role="alert">{error}</p>}
         {snapshot && (
           <>
-            <fieldset disabled={busy}>
-              <legend>Optional global goals and resources</legend>
-              <label>
-                Collection goal
-                <select value={goal} onChange={(e) => setGoal(e.target.value)}>
-                  <option value="balanced">
-                    Balanced collection (default)
-                  </option>
-                  <option value="collection">Collection completeness</option>
-                  <option value="gym_attack">Gym attack preparation</option>
-                  <option value="gym_defense">Gym defense preparation</option>
-                  <option value="rocket">Team Rocket preparation</option>
-                  <option value="great">Great League statistics</option>
-                  <option value="ultra">Ultra League statistics</option>
-                  <option value="master">Master League statistics</option>
-                </select>
-              </label>
-              <label>
-                Confirmed available Stardust budget
-                <input
-                  value={budget}
-                  inputMode="numeric"
-                  onChange={(e) => setBudget(e.target.value)}
-                />
-              </label>
+            <details>
+              <summary>Optional priorities and shared budget</summary>
               <p>
-                Blank means unknown; zero is a real constraint. Costs and
-                eligibility remain required before an investment can be
-                executable.
+                Use suggestions are evaluated automatically across roles. These
+                optional preferences adjust priorities; no role choice is
+                required.
               </p>
-              <button type="button" onClick={() => void savePreferences()}>
-                Confirm goals and budget
-              </button>
-            </fieldset>
+              <fieldset disabled={busy}>
+                <legend>Optional global goals and resources</legend>
+                <label>
+                  Collection goal
+                  <select
+                    value={goal}
+                    onChange={(e) => setGoal(e.target.value)}
+                  >
+                    <option value="balanced">
+                      Balanced collection (default)
+                    </option>
+                    <option value="collection">Collection completeness</option>
+                    <option value="gym_attack">Gym attack preparation</option>
+                    <option value="gym_defense">Gym defense preparation</option>
+                    <option value="rocket">Team Rocket preparation</option>
+                    <option value="great">Great League statistics</option>
+                    <option value="ultra">Ultra League statistics</option>
+                    <option value="master">Master League statistics</option>
+                  </select>
+                </label>
+                <label>
+                  Confirmed available Stardust budget
+                  <input
+                    value={budget}
+                    inputMode="numeric"
+                    onChange={(e) => setBudget(e.target.value)}
+                  />
+                </label>
+                <p>
+                  Blank means unknown; zero is a real constraint. Costs and
+                  eligibility remain required before an investment can be
+                  executable.
+                </p>
+                <button type="button" onClick={() => void savePreferences()}>
+                  Confirm goals and budget
+                </button>
+              </fieldset>
+            </details>
             <label>
               Search recommendations
               <input
@@ -324,6 +336,15 @@ export function Recommendations({
           <h2 ref={assessmentHeading} tabIndex={-1}>
             {current.displayName} · individual assessment
           </h2>
+          {current.decision && (
+            <IndividualDecisionPanel
+              key={`${current.pokemonId}:${snapshot?.context}`}
+              id={current.pokemonId}
+              observationRevision={current.observationRevision}
+              refreshToken={0}
+              onOpenIndividual={onOpenIndividual}
+            />
+          )}
           {current.gym && (
             <GymAssessmentView
               assessment={current.gym}
@@ -337,17 +358,18 @@ export function Recommendations({
               onOpenIndividual={onOpenIndividual}
             />
           </details>
-          {(current.preparation || current.roles?.length) && (
-            <PreparationPlannerView
-              key={current.pokemonId + ":" + snapshot?.context}
-              pokemonId={current.pokemonId}
-              expectedContext={snapshot?.context}
-              plan={current.preparation}
-              roles={current.roles}
-              onOpenIndividual={onOpenIndividual}
-              onChanged={() => void load()}
-            />
-          )}
+          {!current.decision &&
+            (current.preparation || current.roles?.length) && (
+              <PreparationPlannerView
+                key={current.pokemonId + ":" + snapshot?.context}
+                pokemonId={current.pokemonId}
+                expectedContext={snapshot?.context}
+                plan={current.preparation}
+                roles={current.decision ? [] : current.roles}
+                onOpenIndividual={onOpenIndividual}
+                onChanged={() => void load()}
+              />
+            )}
           <details>
             <summary>Evidence, versions and limitations</summary>
             <p>
@@ -365,11 +387,13 @@ export function Recommendations({
               ))}
             </ul>
           </details>
-          <IndividualRoadmap
-            key={`${current.pokemonId}:${snapshot?.context}`}
-            id={current.pokemonId}
-            onOpenIndividual={onOpenIndividual}
-          />
+          {!current.decision && (
+            <IndividualRoadmap
+              key={`${current.pokemonId}:${snapshot?.context}`}
+              id={current.pokemonId}
+              onOpenIndividual={onOpenIndividual}
+            />
+          )}
         </section>
       )}
     </div>

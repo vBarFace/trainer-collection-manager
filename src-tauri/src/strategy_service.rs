@@ -300,7 +300,8 @@ impl InventoryRepository {
                 "ruleset":strategy::RULESET_VERSION,"gymRuleset":crate::gym::RULESET_VERSION,"observations":observations,
                 "latestLifecycle":lifecycle,"packageSha256":package_digest,
                 "referenceError":self.reference_error,"preferences":preferences,"preparationResources":resources,
-                "preparationRuleset":crate::preparation::VERSION,"rolesRuleset":crate::roles::RULESET_VERSION
+                "preparationRuleset":crate::preparation::VERSION,"rolesRuleset":crate::roles::RULESET_VERSION,
+                "decisionRuleset":crate::decision::VERSION,"jointPlanningRuleset":crate::integrated_planning::VERSION
             }))
             .map_err(|_| Error::InvalidInput("Unable to fingerprint strategy inputs"))?,
         );
@@ -317,7 +318,18 @@ impl InventoryRepository {
 
     pub fn collection_strategy(&self) -> Result<CollectionStrategy> {
         let transaction = self.connection.unchecked_transaction()?;
-        let result = calculate(self.capture_strategy_inputs()?)?;
+        let result = calculate(self.capture_strategy_inputs()?, None)?;
+        transaction.commit()?;
+        Ok(result)
+    }
+
+    pub(crate) fn individual_strategy_snapshot(
+        &self,
+        id: &PokemonId,
+    ) -> Result<CollectionStrategy> {
+        let transaction = self.connection.unchecked_transaction()?;
+        self.get(id)?;
+        let result = calculate(self.capture_strategy_inputs()?, Some(id.as_str()))?;
         transaction.commit()?;
         Ok(result)
     }
@@ -339,21 +351,56 @@ impl InventoryRepository {
             .get(id.as_str())
             .cloned()
             .ok_or(Error::NotFound("Pokemon"))?;
-        let report = calculate(inputs)?
+        let report = calculate(inputs, Some(id.as_str()))?
             .reports
             .into_iter()
             .find(|r| r.pokemon_id == id.as_str())
             .ok_or(Error::NotFound("Pokemon"))?;
-        if !report
+        let path = report
             .preparation
             .as_ref()
-            .is_some_and(|plan| plan.paths.iter().any(|path| path.id == path_id))
-        {
-            return Err(Error::InvalidInput(
+            .and_then(|plan| plan.paths.iter().find(|path| path.id == path_id))
+            .ok_or(Error::InvalidInput(
                 "Preparation path is not in the current assessment",
-            ));
-        }
+            ))?;
         budget.values.selected_path_id = Some(path_id.into());
+        budget.values.route_intent = Some(crate::preparation_resources::RouteIntent {
+            dataset_id: report.dataset_id.clone(),
+            target_form_id: path.target_form_id.clone(),
+            roles: if path.served_roles.is_empty() {
+                vec![path.role.clone()]
+            } else {
+                path.served_roles.clone()
+            },
+            target_level: path.target_level,
+        });
+        let next = self.save_preparation_resources_in_snapshot(
+            id,
+            parse_revision(&budget.revision)?,
+            budget.values,
+        )?;
+        transaction.commit()?;
+        Ok(next)
+    }
+
+    pub fn clear_preparation_route(
+        &self,
+        id: &PokemonId,
+        expected_context: &str,
+    ) -> Result<crate::preparation_resources::ResourceBudget> {
+        let transaction =
+            Transaction::new_unchecked(&self.connection, TransactionBehavior::Immediate)?;
+        let inputs = self.capture_strategy_inputs()?;
+        if inputs.context != expected_context {
+            return Err(Error::ObservationConflict);
+        }
+        let mut budget = inputs
+            .resources
+            .get(id.as_str())
+            .cloned()
+            .ok_or(Error::NotFound("Pokemon"))?;
+        budget.values.selected_path_id = None;
+        budget.values.route_intent = None;
         let next = self.save_preparation_resources_in_snapshot(
             id,
             parse_revision(&budget.revision)?,
@@ -437,7 +484,7 @@ impl InventoryRepository {
             return Ok(result);
         }
         let context = inputs.context.clone();
-        let report = calculate(inputs)?
+        let report = calculate(inputs, Some(id.as_str()))?
             .reports
             .into_iter()
             .find(|report| report.pokemon_id == id.as_str())
@@ -550,7 +597,7 @@ impl InventoryRepository {
     }
 }
 
-fn calculate(inputs: AnalysisInputs) -> Result<CollectionStrategy> {
+fn calculate(inputs: AnalysisInputs, target: Option<&str>) -> Result<CollectionStrategy> {
     let mut reports = strategy::assess(&inputs.collection, inputs.mechanics.as_ref())
         .map_err(Error::InvalidInput)?;
     let gym_model = inputs
@@ -566,6 +613,7 @@ fn calculate(inputs: AnalysisInputs) -> Result<CollectionStrategy> {
         .map(|(pokemon, _)| (pokemon.id.as_str(), pokemon))
         .collect();
     let role_model = crate::roles::RoleModel::new(inputs.package.as_ref());
+    let decision_model = crate::decision::DecisionModel::new(inputs.package.as_ref());
     for report in &mut reports {
         let Some(detail) = inputs.details.get(&report.pokemon_id) else {
             continue;
@@ -710,6 +758,9 @@ fn calculate(inputs: AnalysisInputs) -> Result<CollectionStrategy> {
     }
     crate::gym::personalize(&mut reports);
     for report in &mut reports {
+        if target.is_some_and(|id| id != report.pokemon_id) {
+            continue;
+        }
         let pokemon = individuals[report.pokemon_id.as_str()];
         let detail = inputs.details.get(&report.pokemon_id);
         report.roles = role_model.assess(pokemon, detail, &report.leagues);
@@ -744,7 +795,25 @@ fn calculate(inputs: AnalysisInputs) -> Result<CollectionStrategy> {
             }
         }
         if let Some(detail) = detail {
-            let plan = crate::preparation::plan(
+            let mut decision = decision_model.assess(report, pokemon, Some(detail));
+            if let Some(alternative) = report
+                .gym
+                .as_ref()
+                .and_then(|g| g.owned_alternative_pokemon_id.as_ref())
+            {
+                let name = individuals
+                    .get(alternative.as_str())
+                    .map(|p| p.display_name.as_str())
+                    .unwrap_or("another owned individual");
+                for use_ in decision
+                    .suggestions
+                    .iter_mut()
+                    .filter(|s| s.tag == "ATTACKER")
+                {
+                    use_.evidence.push(format!("Owned comparison: {name} has higher equal-level potential for the current form's modeled attack type. Compare actual readiness and investment cost; this does not reduce this individual's external potential or imply either should be transferred."));
+                }
+            }
+            let mut plan = crate::integrated_planning::candidates(
                 pokemon,
                 detail,
                 inputs.package.as_ref(),
@@ -756,33 +825,118 @@ fn calculate(inputs: AnalysisInputs) -> Result<CollectionStrategy> {
                     .unwrap_or_default(),
                 inputs.preferences.stardust_budget,
                 report.protected,
-                &inputs.preferences.goal,
                 &role_model,
+                &decision,
             );
+            let mut caps = Vec::new();
+            match inputs.preferences.goal.as_str() {
+                "great" => caps.push(1500),
+                "ultra" => caps.push(2500),
+                _ => {}
+            }
+            if let Some((_, tags)) = inputs.collection.iter().find(|(p, _)| p.id == pokemon.id) {
+                for tag in tags {
+                    match tag.name.as_str() {
+                        "PVP 1500" => caps.push(1500),
+                        "PVP 2500" => caps.push(2500),
+                        _ => {}
+                    }
+                }
+            }
+            crate::integrated_planning::finalize(
+                &mut plan,
+                &decision,
+                pokemon,
+                detail,
+                inputs.package.as_ref(),
+                &caps,
+            );
+            // The integrated policy is authoritative for proposed tags. Legacy
+            // raw role signals remain evidence, not unconditional assignments.
+            for recommendation in &mut report.recommendations {
+                if matches!(
+                    recommendation.kind.as_str(),
+                    "ATTACKER" | "GYM DEF" | "ROCKET"
+                ) {
+                    recommendation.kind = "REVIEW MISSING INFORMATION".into();
+                    recommendation.explanation.push_str(" This is reference-model evidence. The integrated suggestions below identify the supported current or future form and its remaining conditions.");
+                }
+            }
+            for suggestion in &decision.suggestions {
+                if matches!(
+                    suggestion.state.as_str(),
+                    "supported_current" | "preparation_potential"
+                ) {
+                    report.recommendations.push(StrategyRecommendation {
+                        id: format!("use-{}", suggestion.id),
+                        kind: suggestion.tag.clone(),
+                        priority: if suggestion.state == "supported_current" {
+                            12
+                        } else {
+                            20
+                        },
+                        explanation: suggestion.explanation.clone(),
+                        facts: suggestion.evidence.clone(),
+                        missing: suggestion.missing.clone(),
+                        alternative_pokemon_id: None,
+                        executable: false,
+                    });
+                }
+            }
+            report.decision = Some(decision);
             // Alternatives are surfaced together; none is automatically chosen
             // and no user tag or observed game state is changed.
             for (kind, action) in [("EVOLVE", "evolve"), ("POWER UP", "power_up")] {
-                if let Some(path) = plan.paths.iter().find(|p| {
-                    p.actions.iter().any(|a| a.kind == action) && p.affordability != "over_budget"
-                }) {
+                if let Some(path) = plan
+                    .selected_path_id
+                    .as_ref()
+                    .or(plan.primary_path_id.as_ref())
+                    .and_then(|id| plan.paths.iter().find(|p| p.id == *id))
+                    .filter(|p| {
+                        p.actions.iter().any(|a| a.kind == action)
+                            && p.affordability != "over_budget"
+                    })
+                {
                     report.recommendations.push(StrategyRecommendation{id:format!("preparation-{action}"),kind:kind.into(),priority:if report.protected{50}else{22},explanation:format!("Preparation alternative for {} at {}: {} Review the complete path and other roles before choosing.",path.target_name,path.target_level.map_or_else(||"an unconfirmed level".into(),|l|format!("level {l}")),path.benefit),facts:vec![format!("{} actions; allocation state {}",path.actions.len(),path.affordability)],missing:path.blockers.clone(),alternative_pokemon_id:None,executable:path.executable});
                 }
             }
             if !plan.paths.is_empty() {
-                report.steps.insert(0,StrategyStep{id:"review-preparation-paths".into(),action:"review".into(),required:false,prerequisites:vec![],rationale:"Choose between the complete preparation alternatives below. Review evolution requirements, Power Up totals, attack acquisition, resource allocations and competing roles before recording an actual in-game action.".into(),cost:None,executable:true});
+                report.steps.insert(0,StrategyStep{id:"review-preparation-paths".into(),action:"review".into(),required:false,prerequisites:vec![],rationale:"The app proposes a route from all supported uses. Review its evolution requirements, costs, attack acquisition and CP/move conflicts. Your existing route choice remains an optional override; no global role choice is required.".into(),cost:None,executable:true});
             }
             if let Some(path) = plan
                 .selected_path_id
                 .as_ref()
+                .or(plan.primary_path_id.as_ref())
                 .and_then(|id| plan.paths.iter().find(|p| p.id == *id))
             {
                 let mut previous = vec!["review-preparation-paths".into()];
+                let conflicts = plan
+                    .conflicts
+                    .iter()
+                    .filter(|c| c.path_id == path.id)
+                    .map(|c| c.explanation.clone())
+                    .collect::<Vec<_>>();
+                if !conflicts.is_empty() {
+                    report.steps.insert(
+                        1,
+                        StrategyStep {
+                            id: "review-compatible-uses".into(),
+                            action: "review".into(),
+                            required: true,
+                            prerequisites: previous.clone(),
+                            rationale: conflicts.join(" "),
+                            cost: None,
+                            executable: true,
+                        },
+                    );
+                    previous = vec!["review-compatible-uses".into()];
+                }
                 for (index, action) in path.actions.iter().enumerate() {
                     if action.kind == "use_now" {
                         continue;
                     }
                     let id = format!("selected-preparation-{index}");
-                    report.steps.push(StrategyStep{id:id.clone(),action:action.kind.clone(),required:true,prerequisites:previous.clone(),rationale:format!("{} {} {} After the real action, open the same individual to confirm evolution, Power Up or current attacks; then recalculate. Progress never spends resources.",action.description,action.requirements.join("; "),action.acquisition.join("; ")),cost:Some(format!("Complete path total: {} Candy, {} Candy XL, {} Stardust. {}",path.cost.candy.map_or_else(||"unknown".into(),|v|v.to_string()),path.cost.candy_xl.map_or_else(||"unknown".into(),|v|v.to_string()),path.cost.stardust.map_or_else(||"unknown".into(),|v|v.to_string()),path.cost.items.join("; "))),executable:path.executable});
+                    report.steps.push(StrategyStep{id:id.clone(),action:action.kind.clone(),required:true,prerequisites:previous.clone(),rationale:format!("{} {} {} After the real action, confirm it on this same individual. The app will reassess the remaining plan; progress never spends resources or invents observations.",action.description,action.requirements.join("; "),action.acquisition.join("; ")),cost:Some(format!("Complete path total: {} Candy, {} Candy XL, {} Stardust. {}",path.cost.candy.map_or_else(||"unknown".into(),|v|v.to_string()),path.cost.candy_xl.map_or_else(||"unknown".into(),|v|v.to_string()),path.cost.stardust.map_or_else(||"unknown".into(),|v|v.to_string()),path.cost.items.join("; "))),executable:path.executable});
                     previous = vec![id];
                 }
             }
@@ -806,6 +960,9 @@ fn calculate(inputs: AnalysisInputs) -> Result<CollectionStrategy> {
         report
             .recommendations
             .sort_by(|a, b| a.priority.cmp(&b.priority).then_with(|| a.id.cmp(&b.id)));
+    }
+    if let Some(id) = target {
+        reports.retain(|r| r.pokemon_id == id);
     }
     Ok(CollectionStrategy {
         context: inputs.context,

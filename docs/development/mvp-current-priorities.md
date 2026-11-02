@@ -1,5 +1,11 @@
 # Current MVP priorities
 
+Implemented follow-up: the [integrated individual decision loop](mvp-individual-decision-loop.md)
+now proposes qualified uses and a bounded roadmap automatically, and refreshes
+them after confirmed imports/facts/evolutions/Power Ups. Explicit user route
+intent can survive evolution stages. Competitive PvP, size rarity and a dedicated
+collection-wide change/retirement review remain follow-up work.
+
 Confirmed by the user on 2026-11-01. This project-scoped clarification supersedes
 the earlier proposal to prioritize PvP or expand screenshot extraction next.
 It changes the delivery plan, not the currently implemented gameplay coverage.

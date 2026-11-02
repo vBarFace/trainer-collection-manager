@@ -138,6 +138,7 @@ fn hypothetical_sample(
                 maximum_level: Some(50.0),
                 normal_costs_confirmed: true,
                 selected_path_id: None,
+                route_intent: None,
             },
         )
         .map_err(|_| "Unable to set hypothetical allocations")?;

@@ -19,6 +19,7 @@ import { PowerUpPanel } from "./PowerUpPanel";
 import { BatchImport } from "./BatchImport";
 import { IndividualDetails } from "./IndividualDetails";
 import { TagEditor } from "./TagEditor";
+import { IndividualDecisionPanel } from "./IndividualDecisionView";
 import {
   EvolutionPanel,
   ReobservationPanel,
@@ -85,6 +86,7 @@ export function Inventory({
   const [propertyFilter, setPropertyFilter] = useState("");
   const [duplicatesOnly, setDuplicatesOnly] = useState(false);
   const [visibleCount, setVisibleCount] = useState(100);
+  const [decisionRefresh, setDecisionRefresh] = useState(0);
 
   function releasePreview() {
     if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
@@ -109,6 +111,16 @@ export function Inventory({
         setLoadError(
           nativeErrorMessage(failure, "Unable to load the local inventory."),
         );
+    }
+  }
+
+  async function refreshConfirmedIndividual(id?: string) {
+    // The observation was already committed. A refresh failure must not make
+    // the confirmed action look unsaved or encourage repeating it.
+    await loadInventory();
+    if (mounted.current) {
+      if (id) setSelectedId(id);
+      setDecisionRefresh((value) => value + 1);
     }
   }
 
@@ -229,8 +241,10 @@ export function Inventory({
       releasePreview();
       setFields(emptyReview);
       setStatus(
-        `Saved ${record.displayName} to your local inventory. Awaiting evaluation.`,
+        `Saved ${record.displayName} to your local inventory. Automatic use assessment is refreshing.`,
       );
+      setSelectedId(record.id);
+      setDecisionRefresh((value) => value + 1);
     } catch (failure) {
       if (mounted.current)
         setError(
@@ -293,6 +307,7 @@ export function Inventory({
     ++loadVersion.current;
     try {
       const record = await native.correctIvs(selectedId, expected, corrected);
+      if (mounted.current) setDecisionRefresh((value) => value + 1);
       if (mounted.current)
         setSnapshot((current) =>
           current
@@ -321,6 +336,7 @@ export function Inventory({
     ++loadVersion.current;
     try {
       const record = await native.correctCp(selectedId, expected, revision, cp);
+      if (mounted.current) setDecisionRefresh((value) => value + 1);
       if (mounted.current)
         setSnapshot((current) =>
           current
@@ -352,6 +368,7 @@ export function Inventory({
         expected,
         identity,
       );
+      if (mounted.current) setDecisionRefresh((value) => value + 1);
       if (mounted.current)
         setSnapshot((current) =>
           current
@@ -375,6 +392,7 @@ export function Inventory({
     ++loadVersion.current;
     try {
       const record = await action();
+      if (mounted.current) setDecisionRefresh((value) => value + 1);
       if (mounted.current)
         setSnapshot((current) =>
           current
@@ -478,7 +496,7 @@ export function Inventory({
           savingIdentity ||
           savingCp
         }
-        onSaved={() => loadInventory()}
+        onSaved={(id) => refreshConfirmedIndividual(id)}
         onActiveChange={(active) =>
           setLifecycleAction((current) =>
             active ? "batch" : current === "batch" ? null : current,
@@ -497,9 +515,9 @@ export function Inventory({
           fields you explicitly confirm are saved.
         </p>
         <p>
-          Review confirms the Pokémon’s data only. Confirmed records await
-          evaluation. Run appraisal separately below; no tags are applied
-          automatically.
+          Review confirms the Pokémon’s data. Suggested uses and its progression
+          roadmap update automatically after confirmation. Applied tags remain
+          yours to manage; appraisal can also be run separately below.
         </p>
         <button
           ref={selectButton}
@@ -614,7 +632,8 @@ export function Inventory({
                   ))}
                 </fieldset>
                 <p>
-                  Confirm these data to save a new record awaiting evaluation.
+                  Confirm these data to save a new individual and assess its
+                  supported uses automatically.
                 </p>
                 <button type="submit">Confirm and save</button>{" "}
                 <button type="button" onClick={cancelReview}>
@@ -809,6 +828,27 @@ export function Inventory({
         {!loadError &&
           snapshot?.records.find((record) => record.id === selectedId) && (
             <div id="appraisal-panel">
+              <IndividualDecisionPanel
+                key={selectedId}
+                id={selectedId!}
+                observationRevision={
+                  snapshot.records.find((record) => record.id === selectedId)!
+                    .strategicObservationRevision
+                }
+                refreshToken={decisionRefresh}
+                onOpenIndividual={(id) => {
+                  setSelectedId(id);
+                  if (id === selectedId)
+                    document
+                      .getElementById(
+                        snapshot.records.find((record) => record.id === id)
+                          ?.reference.state === "resolved"
+                          ? "individual-details-title"
+                          : "reference-title",
+                      )
+                      ?.scrollIntoView?.({ block: "start" });
+                }}
+              />
               {onViewAssessment && (
                 <button
                   type="button"
@@ -832,7 +872,7 @@ export function Inventory({
                   savingCp ||
                   (lifecycleAction !== null && lifecycleAction !== "tags")
                 }
-                onSaved={() => loadInventory(true)}
+                onSaved={() => refreshConfirmedIndividual()}
                 onActiveChange={(active) =>
                   setLifecycleAction((current) =>
                     active ? "tags" : current === "tags" ? null : current,
@@ -852,7 +892,7 @@ export function Inventory({
                   savingCp ||
                   (lifecycleAction !== null && lifecycleAction !== "details")
                 }
-                onSaved={() => loadInventory(true)}
+                onSaved={() => refreshConfirmedIndividual()}
                 onActiveChange={(active) =>
                   setLifecycleAction((current) =>
                     active ? "details" : current === "details" ? null : current,

@@ -5,7 +5,7 @@ use crate::reference::{valid_text, BaseStats, ResolutionState};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-pub const RULESET_VERSION: &str = "collection-5";
+pub const RULESET_VERSION: &str = "collection-6";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -147,6 +147,8 @@ pub struct StrategyReport {
     pub preparation: Option<crate::preparation::PreparationPlan>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub roles: Vec<crate::roles::RoleAssessment>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision: Option<crate::decision::IndividualDecision>,
     pub recommendations: Vec<StrategyRecommendation>,
     pub steps: Vec<StrategyStep>,
     pub limitations: Vec<String>,
@@ -383,6 +385,7 @@ pub fn assess(
             gym: None,
             preparation: None,
             roles: vec![],
+            decision: None,
             recommendations: Vec::new(),
             steps: Vec::new(),
             limitations: vec![

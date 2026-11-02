@@ -125,6 +125,9 @@ it("shows explainable facts and distinguishes limited statistics from battle ran
 it("preserves unknown versus zero budget and saves global preferences explicitly", async () => {
   render(<Recommendations onOpenIndividual={vi.fn()} />);
   await screen.findByLabelText("Confirmed available Stardust budget");
+  screen
+    .getByText("Optional priorities and shared budget")
+    .closest("details")!.open = true;
   expect(
     screen.getByLabelText("Confirmed available Stardust budget"),
   ).toHaveValue("");
@@ -207,6 +210,9 @@ it("shows reference-based gym coverage and keeps the same individual's roadmap",
     await screen.findByRole("button", { name: "Create personalized roadmap" }),
   ).toBeVisible();
   expect(strategyNative.roadmap).toHaveBeenCalledWith(report.pokemonId);
+  screen
+    .getByText("Optional priorities and shared budget")
+    .closest("details")!.open = true;
   fireEvent.change(screen.getByLabelText("Collection goal"), {
     target: { value: "gym_attack" },
   });

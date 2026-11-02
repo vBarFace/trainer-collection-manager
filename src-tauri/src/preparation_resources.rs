@@ -3,6 +3,15 @@ use crate::inventory::{Error, InventoryRepository, PokemonId, Result};
 use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RouteIntent {
+    pub dataset_id: String,
+    pub target_form_id: String,
+    pub roles: Vec<String>,
+    pub target_level: Option<f64>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ResourceValues {
@@ -13,6 +22,8 @@ pub struct ResourceValues {
     pub normal_costs_confirmed: bool,
     #[serde(default)]
     pub selected_path_id: Option<String>,
+    #[serde(default)]
+    pub route_intent: Option<RouteIntent>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -62,11 +73,16 @@ impl InventoryRepository {
         &self,
         id: &PokemonId,
         expected_revision: i64,
-        values: ResourceValues,
+        mut values: ResourceValues,
     ) -> Result<ResourceBudget> {
         validate(&values)?;
         let transaction =
             Transaction::new_unchecked(&self.connection, TransactionBehavior::Immediate)?;
+        // Resource edits cannot accidentally clear or change a validated route
+        // choice. Only the context-checked route selection command changes it.
+        let current = self.preparation_resources(id)?;
+        values.selected_path_id = current.values.selected_path_id;
+        values.route_intent = current.values.route_intent;
         let next = self.save_preparation_resources_in_snapshot(id, expected_revision, values)?;
         transaction.commit()?;
         Ok(next)
@@ -108,6 +124,30 @@ fn revision(value: &str) -> Result<i64> {
         .ok_or(Error::InvalidInput("Invalid resource revision"))
 }
 fn validate(values: &ResourceValues) -> Result<()> {
+    if let Some(intent) = &values.route_intent {
+        if !crate::reference::valid_text(&intent.dataset_id, 100)
+            || !crate::reference::valid_text(&intent.target_form_id, 100)
+            || intent.roles.is_empty()
+            || intent.roles.len() > 8
+            || intent.roles.iter().any(|r| {
+                !matches!(
+                    r.as_str(),
+                    "ATTACKER"
+                        | "GYM DEF"
+                        | "ROCKET"
+                        | "PVP 1500"
+                        | "PVP 2500"
+                        | "PVP MASTER"
+                        | "retain"
+                )
+            })
+            || intent.target_level.is_some_and(|l| {
+                !l.is_finite() || !(1.0..=51.0).contains(&l) || (l * 2.0).fract() != 0.0
+            })
+        {
+            return Err(Error::InvalidInput("Invalid saved preparation target"));
+        }
+    }
     if values
         .selected_path_id
         .as_ref()

@@ -169,20 +169,17 @@ supported limited assessment.
   which existing suggestions or roadmaps changed and why. A justified retirement
   review preserves uncertainty, safeguards and the user's final decision.
 
-## Gap from the current implementation
+## Implementation status and remaining gaps
 
-The current preview has independent limited role signals, conditional preparation
-alternatives, cost/acquisition support, selected-path persistence and stale-plan
-safeguards. It does not yet satisfy this whole loop: paths are generated for one
-selected goal, there is no complete evidence-backed multi-role tag policy or
-cross-role path optimizer, import/actions do not automatically refresh the full
-recommendation/roadmap experience, and size-based collection rarity is not
-implemented. Existing collection snapshot calculation is not yet the dedicated
-collection-wide change-review and contribution-based retirement workflow above.
-Current PvP stat/move signals do not establish competitive viability.
+The [collection-6 increment](../development/mvp-individual-decision-loop.md)
+implements integrated contextual role suggestions, bounded joint preparation,
+automatic individual reanalysis after confirmed updates and optional persistent
+route intent through evolution stages. Missing evidence remains explicit and
+applied tags are preserved. These are heuristic decision aids with declared
+model boundaries, not exhaustive competitive or team optimization.
 
-The next cohesive development increment is the integrated individual decision
-loop: justified multi-role suggestions, compatible staged plans, automatic
-reanalysis through the existing confirmed lifecycle, and collection-wide change
-review with contribution-based retirement safeguards. This extends the existing
-engine and roadmap; it does not replace them or broaden screenshot OCR.
+The next cohesive increment is collection-wide meaningful-change review with
+contribution-based retirement safeguards. Competitive PvP viability, complete
+eligibility/event/cost coverage and size-based statistical rarity also remain
+unimplemented. Existing collection snapshot calculation is not yet that dedicated
+change-review workflow. The roadmap remains central and OCR scope is unchanged.

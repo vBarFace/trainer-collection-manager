@@ -25,6 +25,9 @@ export interface PreparationPath {
   affordability: string;
   executable: boolean;
   futureRoles?: RoleAssessment[];
+  servedRoles?: string[];
+  projectedCp?: number | null;
+  improvementPercent?: number | null;
 }
 export interface ResourceValues {
   candy: number | null;
@@ -46,6 +49,15 @@ export interface PreparationPlan {
   missing: string[];
   limitations: string[];
   resources?: ResourceBudget;
+  primaryPathId?: string | null;
+  planningMode?: string;
+  conflicts?: PlanConflict[];
+}
+export interface PlanConflict {
+  pathId: string;
+  role: string;
+  explanation: string;
+  severity: "review" | "blocked";
 }
 export interface RoleAssessment {
   role: string;
@@ -55,6 +67,8 @@ export interface RoleAssessment {
   missing: string[];
 }
 export const preparationNative = {
+  clearRoute: (id: string, expectedContext: string) =>
+    invoke<ResourceBudget>("clear_preparation_route", { id, expectedContext }),
   selectPath: (id: string, expectedContext: string, pathId: string) =>
     invoke<ResourceBudget>("select_preparation_path", {
       id,

@@ -49,7 +49,7 @@ export function BatchImport({
   onActiveChange,
 }: {
   disabled?: boolean;
-  onSaved: () => void | Promise<void>;
+  onSaved: (id?: string) => void | Promise<void>;
   onActiveChange?: (active: boolean) => void;
 }) {
   const [session, setSession] = useState<BatchSelection | null>(null);
@@ -353,7 +353,10 @@ export function BatchImport({
     setBusy(true);
     setError("");
     try {
-      await native.confirmBatchImport(items[selected].requestId, input);
+      const record = await native.confirmBatchImport(
+        items[selected].requestId,
+        input,
+      );
       if (!alive.current) return;
       setItems((current) =>
         current.map((item, i) =>
@@ -367,7 +370,7 @@ export function BatchImport({
       setStatus(
         `Screenshot ${selected + 1} saved as a new individual. Remaining screenshots are unchanged.`,
       );
-      await onSaved();
+      await onSaved(record.id);
     } catch (failure) {
       if (alive.current)
         setError(

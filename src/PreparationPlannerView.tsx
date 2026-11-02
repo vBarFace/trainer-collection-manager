@@ -5,6 +5,7 @@ import {
   type PreparationPlan,
   type ResourceBudget,
   type RoleAssessment,
+  type PlanConflict,
 } from "./preparation-native";
 
 const labels: Record<string, string> = {
@@ -27,6 +28,19 @@ function label(value: string) {
 }
 function amount(value: number | null) {
   return value === null ? "Unknown" : value.toLocaleString("en-GB");
+}
+
+function ConflictWarnings({ conflicts }: { conflicts: PlanConflict[] }) {
+  return (
+    <ul>
+      {conflicts.map((conflict, index) => (
+        <li key={`${conflict.pathId}:${conflict.role}:${index}`}>
+          {conflict.severity === "blocked" ? "Blocked" : "Review"} ·{" "}
+          {label(conflict.role)}: {conflict.explanation}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function ResourceEditor({
@@ -216,27 +230,40 @@ export function PreparationPlannerView({
   const [selection, setSelection] = useState<{
     pokemonId: string;
     context: string;
-    pathId: string;
+    pathId: string | null;
   } | null>(null);
-  const selectedPath =
+  const localSelection =
     selection?.pokemonId === pokemonId && selection.context === expectedContext
-      ? selection.pathId
+      ? selection
       : null;
+  const selectedPath = localSelection
+    ? localSelection.pathId
+    : (plan?.selectedPathId ?? plan?.resources?.selectedPathId ?? null);
   const selectionPending = useRef(false);
-  async function select(pathId: string) {
+  const activePathId = selectedPath ?? plan?.primaryPathId;
+  const activeConflicts = (plan?.conflicts ?? []).filter(
+    (conflict) => conflict.pathId === activePathId,
+  );
+  const otherConflicts = (plan?.conflicts ?? []).filter(
+    (conflict) => conflict.pathId !== activePathId,
+  );
+  async function select(pathId: string | null) {
     if (!expectedContext || stale || selectionPending.current) return;
     selectionPending.current = true;
     setSelecting(true);
     setSelectionError("");
     try {
-      await preparationNative.selectPath(pokemonId, expectedContext, pathId);
+      if (pathId === null)
+        await preparationNative.clearRoute(pokemonId, expectedContext);
+      else
+        await preparationNative.selectPath(pokemonId, expectedContext, pathId);
       setSelection({ pokemonId, context: expectedContext, pathId });
       onChanged?.();
     } catch (failure) {
       setSelectionError(
         nativeErrorMessage(
           failure,
-          "The planning context changed. Recalculate before selecting this option.",
+          "The planning context changed. Refresh the assessment before changing the roadmap route.",
         ),
       );
     } finally {
@@ -278,10 +305,49 @@ export function PreparationPlannerView({
       {plan && (
         <>
           <p>{plan.summary}</p>
+          {plan.planningMode === "automatic_multi_role" && (
+            <p>
+              The app considers supported uses together and proposes a route
+              automatically. Alternative paths remain available for review.
+            </p>
+          )}
+          {activeConflicts.length > 0 && (
+            <section aria-label="Conflicts between possible uses">
+              <h4>Review this route’s conflicts before investing</h4>
+              <ConflictWarnings conflicts={activeConflicts} />
+            </section>
+          )}
+          {otherConflicts.length > 0 && (
+            <details>
+              <summary>
+                Conflicts for other alternatives ({otherConflicts.length})
+              </summary>
+              <p>
+                These warnings apply to other preparation routes. Review them
+                before switching plans.
+              </p>
+              <ConflictWarnings conflicts={otherConflicts} />
+            </details>
+          )}
           {selectionError && <p role="alert">{selectionError}</p>}
           {selectedPath && (
+            <button
+              type="button"
+              disabled={stale || selecting || !expectedContext}
+              onClick={() => void select(null)}
+            >
+              Use the app’s automatic plan
+            </button>
+          )}
+          {localSelection && (
             <p role="status">
-              Plan selected. Recalculate the roadmap to use its ordered steps.
+              {localSelection.pathId === null
+                ? onChanged
+                  ? "Manual route cleared. Updating the app’s automatic plan…"
+                  : "Manual route cleared. Recalculate the roadmap to use the app’s automatic plan."
+                : onChanged
+                  ? "Plan selected. Updating the assessment and roadmap…"
+                  : "Plan selected. Recalculate the roadmap to use its ordered steps."}
             </p>
           )}
           <p>
@@ -304,10 +370,7 @@ export function PreparationPlannerView({
               aria-label={`Preparation option for ${path.targetName}${path.targetLevel === null ? " at an unknown level" : ` at level ${path.targetLevel}`}`}
             >
               <details
-                open={
-                  plan.paths.length === 1 ||
-                  (selectedPath ?? plan.selectedPathId) === path.id
-                }
+                open={plan.paths.length === 1 || activePathId === path.id}
               >
                 <summary>
                   <h4>
@@ -321,9 +384,24 @@ export function PreparationPlannerView({
                   {amount(path.cost.stardust)}
                 </summary>
                 <p>{path.benefit}</p>
-                {(selectedPath ?? plan.selectedPathId) === path.id && (
-                  <p>Selected roadmap plan</p>
+                {plan.primaryPathId === path.id && (
+                  <p>App-recommended preparation route</p>
                 )}
+                {path.servedRoles && path.servedRoles.length > 0 && (
+                  <p>
+                    Potential compatible uses:{" "}
+                    {path.servedRoles.map(label).join(", ")}. These labels do
+                    not establish current readiness.
+                  </p>
+                )}
+                {path.projectedCp !== null &&
+                  path.projectedCp !== undefined && (
+                    <p>
+                      Projected target CP: {path.projectedCp}. Confirm the
+                      actual CP after the in-game action.
+                    </p>
+                  )}
+                {selectedPath === path.id && <p>Selected roadmap plan</p>}
                 {path.cost.items.length > 0 && (
                   <p>Items: {path.cost.items.join(", ")}.</p>
                 )}
@@ -376,7 +454,7 @@ export function PreparationPlannerView({
                     stale ||
                     selecting ||
                     !expectedContext ||
-                    (selectedPath ?? plan.selectedPathId) === path.id
+                    selectedPath === path.id
                   }
                   onClick={() => void select(path.id)}
                 >

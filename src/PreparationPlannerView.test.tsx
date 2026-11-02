@@ -14,6 +14,7 @@ vi.mock("./preparation-native", () => ({
     resources: vi.fn(),
     saveResources: vi.fn(),
     selectPath: vi.fn(),
+    clearRoute: vi.fn(),
   },
 }));
 const id = "00000000-0000-4000-8000-000000000001";
@@ -236,6 +237,9 @@ it("persists the chosen roadmap path against the current context without reporti
     screen.getByRole("button", { name: "Use this plan in roadmap" }),
   );
   await screen.findByText("Selected roadmap plan");
+  expect(
+    screen.getByText("Plan selected. Updating the assessment and roadmap…"),
+  ).toBeVisible();
   expect(preparationNative.selectPath).toHaveBeenCalledExactlyOnceWith(
     id,
     "c".repeat(64),
@@ -284,4 +288,206 @@ it("shows other roles for an evolution and blocks stale path selection", () => {
     screen.getByRole("button", { name: "Use this plan in roadmap" }),
   ).toBeDisabled();
   expect(preparationNative.selectPath).not.toHaveBeenCalled();
+});
+
+it("shows the active route's conflicts upfront and preserves other alternatives behind a counted disclosure", () => {
+  const withConflicts: PreparationPlan = {
+    ...plan,
+    paths: [
+      plan.paths[0],
+      {
+        ...plan.paths[0],
+        id: "other-route",
+        targetName: "Fictional Branch",
+        targetLevel: 40,
+        blockers: ["Alternate route requirements"],
+      },
+    ],
+    primaryPathId: "evolve-spark",
+    conflicts: [
+      {
+        pathId: "evolve-spark",
+        role: "PVP 2500",
+        severity: "review",
+        explanation: "Preserve the current league option.",
+      },
+      {
+        pathId: "other-route",
+        role: "ATTACKER",
+        severity: "blocked",
+        explanation: "The alternate branch loses a retained attack.",
+      },
+    ],
+  };
+  const view = render(
+    <PreparationPlannerView
+      pokemonId={id}
+      plan={withConflicts}
+      onOpenIndividual={vi.fn()}
+    />,
+  );
+  const current = screen.getByRole("region", {
+    name: "Conflicts between possible uses",
+  });
+  expect(
+    within(current).getByText(/Preserve the current league option/),
+  ).toBeVisible();
+  expect(
+    within(current).queryByText(/alternate branch/),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText(/The alternate branch loses/)).not.toBeVisible();
+  expect(
+    screen.getByText("Conflicts for other alternatives (1)").closest("details"),
+  ).not.toHaveAttribute("open");
+  view.rerender(
+    <PreparationPlannerView
+      pokemonId={id}
+      plan={{ ...withConflicts, selectedPathId: "other-route" }}
+      onOpenIndividual={vi.fn()}
+    />,
+  );
+  const changed = screen.getByRole("region", {
+    name: "Conflicts between possible uses",
+  });
+  expect(within(changed).getByText(/Blocked.*alternate branch/)).toBeVisible();
+  expect(
+    within(changed).queryByText(/current league option/),
+  ).not.toBeInTheDocument();
+  const other = screen
+    .getByText("Conflicts for other alternatives (1)")
+    .closest("details")!;
+  expect(
+    screen.getByText(/Preserve the current league option/),
+  ).not.toBeVisible();
+  other.open = true;
+  expect(screen.getByText(/Preserve the current league option/)).toBeVisible();
+  expect(
+    screen.getByText(/Before proceeding: Alternate route requirements/),
+  ).toBeVisible();
+});
+
+it("keeps all alternative conflicts available without presenting one as the current route when none is selected", () => {
+  render(
+    <PreparationPlannerView
+      pokemonId={id}
+      plan={{
+        ...plan,
+        conflicts: [
+          {
+            pathId: "candidate-one",
+            role: "PVP 1500",
+            severity: "review",
+            explanation: "First future branch needs review.",
+          },
+          {
+            pathId: "candidate-two",
+            role: "ROCKET",
+            severity: "blocked",
+            explanation: "Second future branch is unavailable.",
+          },
+        ],
+      }}
+      onOpenIndividual={vi.fn()}
+    />,
+  );
+  expect(
+    screen.queryByRole("region", { name: "Conflicts between possible uses" }),
+  ).not.toBeInTheDocument();
+  const other = screen
+    .getByText("Conflicts for other alternatives (2)")
+    .closest("details")!;
+  expect(other).not.toHaveAttribute("open");
+  other.open = true;
+  expect(screen.getByText(/First future branch needs review/)).toBeVisible();
+  expect(screen.getByText(/Second future branch is unavailable/)).toBeVisible();
+});
+
+it("clears an explicit route against its current context and resumes the app's automatic plan", async () => {
+  const changed = vi.fn();
+  const open = vi.fn();
+  vi.mocked(preparationNative.clearRoute).mockResolvedValue({
+    ...plan.resources!,
+    revision: "3",
+    selectedPathId: null,
+  });
+  render(
+    <PreparationPlannerView
+      pokemonId={id}
+      expectedContext={"c".repeat(64)}
+      plan={{
+        ...plan,
+        selectedPathId: "evolve-spark",
+        primaryPathId: "automatic-route",
+        paths: [
+          plan.paths[0],
+          {
+            ...plan.paths[0],
+            id: "automatic-route",
+            targetName: "Fictional Alternative",
+          },
+        ],
+      }}
+      onChanged={changed}
+      onOpenIndividual={open}
+    />,
+  );
+  expect(screen.getByText("Selected roadmap plan")).toBeVisible();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Use the app’s automatic plan" }),
+  );
+  await screen.findByText(
+    "Manual route cleared. Updating the app’s automatic plan…",
+  );
+  expect(preparationNative.clearRoute).toHaveBeenCalledExactlyOnceWith(
+    id,
+    "c".repeat(64),
+  );
+  expect(preparationNative.selectPath).not.toHaveBeenCalled();
+  expect(preparationNative.saveResources).not.toHaveBeenCalled();
+  expect(changed).toHaveBeenCalledOnce();
+  expect(open).not.toHaveBeenCalled();
+  expect(screen.queryByText("Selected roadmap plan")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Use the app’s automatic plan" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText("App-recommended preparation route")).toBeVisible();
+});
+
+it("preserves a manual route when clearing conflicts and disables the action for a stale plan", async () => {
+  const changed = vi.fn();
+  const manual = { ...plan, selectedPathId: "evolve-spark" };
+  vi.mocked(preparationNative.clearRoute).mockRejectedValue({
+    code: "conflict",
+    message: "Route context changed",
+  });
+  const view = render(
+    <PreparationPlannerView
+      pokemonId={id}
+      expectedContext={"c".repeat(64)}
+      plan={manual}
+      onChanged={changed}
+      onOpenIndividual={vi.fn()}
+    />,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Use the app’s automatic plan" }),
+  );
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Route context changed",
+  );
+  expect(screen.getByText("Selected roadmap plan")).toBeVisible();
+  expect(changed).not.toHaveBeenCalled();
+  view.rerender(
+    <PreparationPlannerView
+      pokemonId={id}
+      expectedContext={"c".repeat(64)}
+      plan={manual}
+      stale
+      onChanged={changed}
+      onOpenIndividual={vi.fn()}
+    />,
+  );
+  expect(
+    screen.getByRole("button", { name: "Use the app’s automatic plan" }),
+  ).toBeDisabled();
 });
