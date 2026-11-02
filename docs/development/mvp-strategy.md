@@ -1,18 +1,23 @@
 # Deterministic collection scope
 
-This document describes the implemented `collection-1` preview. The next
-gym/Rocket/transfer work must add reference-based role assessments independent
-of owned alternatives, then personalize recommendation priority using collection
-context. The [current priority contract](mvp-current-priorities.md) defines this
-requirement; it does not imply that the present ruleset already meets it.
+This document describes the implemented `collection-2` preview. The first bounded
+gym-attack model assesses reference-based potential independently of owned
+alternatives, then personalizes priority using collection context. The
+[current priority contract](mvp-current-priorities.md) also covers future defense,
+Rocket and transfer assessments, which are not implemented by this ruleset.
 
-`collection-1` is a pure Rust ruleset. It reuses utility-1 deterministic mode and
+`collection-2` is a pure Rust ruleset. It reuses utility-1 deterministic mode and
 readiness vocabulary without replacing lifecycle actions or appraisal-1.
 
 Supported outputs are confirmed species/form collection uniqueness, same-form
 owned alternatives, retention/review/wait guidance, and theoretical Great/Ultra/
 Master League statistics when reference inputs support them. No universal quality
 score, learned model, meta rank or executable spending/disposal action is emitted.
+
+`collection-2` additionally attaches the bounded reference-based
+[gym-attack assessment](mvp-gym-attack.md). It keeps external performance estimates
+separate from owned-alternative investment priority and adds supported review/
+comparison steps to the same UUID's roadmap. Full battle simulation stays deferred.
 
 ## Statistical formulas and limits
 

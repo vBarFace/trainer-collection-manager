@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { GymAssessment } from "./gym-native";
 
 export interface StrategyRecommendation {
   id: string;
@@ -51,6 +52,7 @@ export interface StrategyReport {
   duplicateCount: number;
   duplicateIds: string[];
   leagues: LeagueAssessment[];
+  gym?: GymAssessment | null;
   recommendations: StrategyRecommendation[];
   steps: StrategyStep[];
   limitations: string[];

@@ -3,9 +3,10 @@
 Latest user clarification (2026-11-01): deliver gym attack/defense, Team Rocket
 and transfer-candidate review before expanded PvP. Limit automatic screenshot
 extraction to name, CP and appraisal IVs; other fields stay manual and optional.
-The next implementation slice is a bounded gym-attack assessment. See the
+The first bounded gym-attack slice is now implemented; gym defense follows. See the
 [current priority contract](mvp-current-priorities.md). The audit and historical
-implementation record below do not imply these new gameplay assessments exist.
+implementation record below predates this [gym follow-up](mvp-gym-attack.md),
+which records current coverage and executed validation. Other domains remain open.
 
 Audited 2026-11-01 against remote/local main `4378a15`. No open PRs were
 returned by GitHub. Main CI run 40602113292 passed native checks and failed
@@ -51,11 +52,13 @@ upstream data rights remain separate.
 
 ## Published review stack
 
-The seven branches were pushed with explicit authorization. Review in dependency
-order: each PR targets the preceding feature branch, with PR 0 targeting main.
-PR 0 is ready for review; PRs 1–6 are drafts because the broader gameplay and
-real-image acceptance gaps remain open. Local feature-branch merges propagate
-fixes without rewriting history; no GitHub PR has been merged.
+The seven branches were initially published on 2026-11-01 with explicit
+authorization, in dependency order. PR 0 was ready for review; PRs 1–6 were drafts
+with broader gameplay/real-image acceptance still open. Local feature-branch
+merges propagated fixes without rewriting history; the implementation agent did
+not merge any GitHub PR. Follow-up on 2026-11-02 confirmed remote main
+`6f42018` includes the merge of PR #20. The gym branch incorporates that main and
+adds the [first bounded gym-attack increment](mvp-gym-attack.md).
 
 | Increment | Pull request                                                          | User-visible result                                                                                  |
 | --------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |

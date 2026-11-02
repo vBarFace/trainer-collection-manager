@@ -13,6 +13,11 @@ These are requirements for upcoming work, not additional implemented actions.
 
 ## Implemented collection/statistical preview
 
+The first [gym-attack increment](mvp-gym-attack.md) extends this preview with the
+same UUID's proposed attack profile, optional observed-move review and an external
+reference-comparison decision. Only the existing review/compare/wait confirmation
+semantics are used; no investment or battle-completion action is fabricated.
+
 Open Recommendations, choose an individual assessment, and create its personalized
 roadmap. Inventory links to the same UUID's assessment. The roadmap covers the
 currently supported collection/statistical goal: missing-data review, comparison
@@ -37,7 +42,7 @@ Power Up with unchanged CP. Recalculation preserves the preceding report/progres
 as historical context and starts fresh progress. Same-context generation is
 idempotent. Restart retains both bounded slots and their evidence context.
 
-Six native service integration tests and six recommendation/roadmap frontend
+The initial six native service integration tests and six recommendation/roadmap frontend
 tests passed. These cover confirmation navigation, stale controls, context and
 progress conflicts, failed reload/retry, persistence, reference/preference changes
 and retention. Full gameplay investment plans remain gated on supported mechanics,

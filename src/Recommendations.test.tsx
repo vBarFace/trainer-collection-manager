@@ -107,6 +107,11 @@ it("shows explainable facts and distinguishes limited statistics from battle ran
   expect(screen.getByText(/IV rank 42 \/ 4096/)).toHaveTextContent(
     "Modeled ceiling 40",
   );
+  expect(
+    screen.getByText(/does not rank battle performance/),
+  ).not.toBeVisible();
+  screen.getByText("Optional league statistics").closest("details")!.open =
+    true;
   expect(screen.getByText(/does not rank battle performance/)).toBeVisible();
   fireEvent.click(
     screen.getByRole("button", {
@@ -155,4 +160,62 @@ it("offers retry on native failure without inventing recommendations", async () 
     screen.getByRole("button", { name: "Recalculate collection" }),
   );
   await screen.findByText("User-confirmed protection");
+});
+
+it("shows reference-based gym coverage and keeps the same individual's roadmap", async () => {
+  const gym = {
+    state: "limited",
+    rulesetVersion: "fictional-gym-1",
+    summary: "Gym potential from the installed external reference.",
+    pokemonTypes: ["normal"],
+    vulnerableTo: [],
+    missing: ["Observed moves unknown"],
+    limitations: [],
+    ownedAlternativePokemonId: null,
+    builds: [
+      {
+        attackType: "normal",
+        fastMove: "Sample Tap",
+        chargedMove: "Sample Slam",
+        moveState: "hypothetical",
+        neutralCycleDps: 12,
+        referencePercentile: 50,
+        comparedForms: 3,
+        referenceBest: ["Unowned Sampleprime"],
+        strongAgainst: ["fire"],
+        resistedBy: ["water"],
+      },
+    ],
+  };
+  vi.mocked(strategyNative.collection).mockResolvedValue({
+    ...snapshot,
+    reports: [{ ...report, gym }],
+  });
+  render(
+    <Recommendations
+      onOpenIndividual={vi.fn()}
+      initialSelectedId={report.pokemonId}
+    />,
+  );
+  expect(
+    await screen.findByRole("heading", { name: "Gym attack potential" }),
+  ).toBeVisible();
+  expect(screen.getByText("Favorable type coverage: Fire.")).toBeVisible();
+  expect(screen.getByText(/These are proposed attacks/)).toBeVisible();
+  expect(screen.getByText(/12.00 modeled damage per second/)).not.toBeVisible();
+  expect(
+    await screen.findByRole("button", { name: "Create personalized roadmap" }),
+  ).toBeVisible();
+  expect(strategyNative.roadmap).toHaveBeenCalledWith(report.pokemonId);
+  fireEvent.change(screen.getByLabelText("Collection goal"), {
+    target: { value: "gym_attack" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Confirm goals and budget" }),
+  );
+  expect(strategyNative.savePreferences).toHaveBeenCalledExactlyOnceWith(
+    "0",
+    "gym_attack",
+    null,
+  );
 });

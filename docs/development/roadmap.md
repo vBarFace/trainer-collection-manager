@@ -4,8 +4,8 @@
 
 The latest user-confirmed order is **gym attack/defense → Team Rocket →
 transfer-candidate review → expanded PvP**. Screenshot automation stays at name,
-CP and appraisal IVs; other fields are manual and optional. The next vertical
-slice is a bounded gym-attack assessment, followed by gym defense. See the
+CP and appraisal IVs; other fields are manual and optional. The first bounded
+[gym-attack slice](mvp-gym-attack.md) is implemented; gym defense follows. See the
 [current priority contract](mvp-current-priorities.md), which supersedes older
 next-step proposals below without claiming these assessments are implemented.
 

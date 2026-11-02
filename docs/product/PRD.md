@@ -25,6 +25,11 @@ tracked in [the delivery audit](../development/mvp-delivery.md),
 [alpha validation](../development/mvp-alpha-validation.md). The historical
 proposals below do not claim current supported gameplay domains.
 
+The first gym increment implements bounded reference-based attack potential,
+type guidance, external comparison and same-UUID roadmap review/comparison.
+See [the current behavior and limits](../development/mvp-gym-attack.md). It does
+not establish actual battle readiness or full gym/defense/Rocket coverage.
+
 ## Vision
 
 Trainer Collection Manager is a free, open-source, offline-first desktop app for casual Pokémon GO players to maintain a local collection and receive explainable support for manual in-game decisions.

@@ -7,6 +7,7 @@ export interface ReferenceStatus {
     provider: string;
     sourceSha256: string;
     cpMultipliers: [number, number][];
+    combat?: { version: string; moves: unknown[]; pools: unknown[] } | null;
     coverage: string[];
     limitations: string[];
     artifacts?: {
@@ -148,8 +149,10 @@ export function ReferenceSettings() {
         </select>
         <p>
           For PoGoAPI, select the downloaded pokemon_stats, pokemon_types and
-          cp_multiplier JSON files together, or one existing bundle. Optional
-          fields remain unknown.
+          cp_multiplier JSON files together, or one existing bundle. For gym
+          attack potential also select fast_moves, charged_moves,
+          current_pokemon_moves and type_effectiveness (up to seven files).
+          Individual observations remain manual and optional.
         </p>
         <p>
           Get files from{" "}
@@ -160,6 +163,18 @@ export function ReferenceSettings() {
           and{" "}
           <a href="https://pogoapi.net/api/v1/cp_multiplier.json">
             CP multipliers
+          </a>
+          , <a href="https://pogoapi.net/api/v1/fast_moves.json">fast moves</a>,{" "}
+          <a href="https://pogoapi.net/api/v1/charged_moves.json">
+            charged moves
+          </a>
+          ,{" "}
+          <a href="https://pogoapi.net/api/v1/current_pokemon_moves.json">
+            current move pools
+          </a>
+          ,{" "}
+          <a href="https://pogoapi.net/api/v1/type_effectiveness.json">
+            type effectiveness
           </a>
           , or the{" "}
           <a href="https://github.com/pvpoke/pvpoke/tree/master/src/data/gamemaster">
@@ -207,6 +222,11 @@ export function ReferenceSettings() {
             {active.catalog.species.length} species ·{" "}
             {active.catalog.forms.length} forms · {active.cpMultipliers.length}{" "}
             CP multipliers
+          </p>
+          <p>
+            {active.combat
+              ? `Gym reference: ${active.combat.moves.length} supported moves · ${active.combat.pools.length} ordinary-form pools · ${active.combat.version}`
+              : "Gym combat reference unavailable: import the four supplemental combat files with the catalog to assess attack potential."}
           </p>
           <p>
             Source:{" "}

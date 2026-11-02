@@ -111,6 +111,19 @@ export function IndividualRoadmap({
                 Generated {view.generatedAt} UTC · {view.report.rulesetVersion}{" "}
                 · progress revision {view.revision}
               </p>
+              {view.report.gym && view.report.gym.builds.length > 0 && (
+                <p>
+                  Gym preparation focus:{" "}
+                  {view.report.gym.builds
+                    .map(
+                      (build) =>
+                        `${build.attackType} coverage with ${build.fastMove} + ${build.chargedMove}`,
+                    )
+                    .join("; ")}
+                  . These are reference-based possibilities, not confirmed
+                  battles or investments.
+                </p>
+              )}
               <ol>
                 {view.report.steps.map((step) => (
                   <li key={step.id}>

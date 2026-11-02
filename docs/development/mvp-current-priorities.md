@@ -4,6 +4,11 @@ Confirmed by the user on 2026-11-01. This project-scoped clarification supersede
 the earlier proposal to prioritize PvP or expand screenshot extraction next.
 It changes the delivery plan, not the currently implemented gameplay coverage.
 
+Implementation follow-up, 2026-11-02: the first bounded gym-attack potential
+assessment now connects references, type guidance and the individual roadmap.
+See [implemented behavior and validation](mvp-gym-attack.md). The remaining role
+and investment requirements below are not claims of complete gameplay coverage.
+
 ## Screenshot scope
 
 - Automatically suggest only display name, CP and the three appraisal IVs.

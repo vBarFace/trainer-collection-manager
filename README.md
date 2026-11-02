@@ -21,6 +21,12 @@ model is used.
 - Read explainable Rust collection guidance and Great/Ultra/Master theoretical
   stat products within an explicit level-40 or level-50 mechanics ceiling. Compare
   actual owned alternatives. IV rank is not a battle-performance ranking.
+- Assess bounded **gym-attack potential** from a complete local PoGoAPI combat
+  import: broad attack-type coverage, proposed moves, external reference
+  benchmarks and separately personalized owned-alternative priority. Numerical
+  estimates stay in optional details; they are not current readiness or a battle
+  simulation. The same UUID's roadmap adds move review and reference comparison.
+  See [setup, evidence and limits](docs/development/mvp-gym-attack.md).
 - Set optional global collection/league goals and a confirmed Stardust budget.
   Inspect a per-UUID roadmap, postpone/ignore steps and open explicit observation
   confirmation. Stale plans block progress until recalculation.
@@ -35,7 +41,7 @@ model is used.
 
 This is a bounded collection/statistical preview, **not the fully accepted gameplay
 MVP**. Broader form normalization, merged field-level provider coverage, moves,
-evolution eligibility and costs, PvE DPS/TDO, gym/Rocket simulation, meta rankings,
+evolution eligibility and costs, full PvE DPS/TDO, gym-defense/Rocket simulation, meta rankings,
 rarity/event evidence and executable investment plans remain unsupported. Other
 individual observations remain manual and optional under the current approved scope;
 OCR stays limited to name, CP and appraisal IVs. Representative authorized images
