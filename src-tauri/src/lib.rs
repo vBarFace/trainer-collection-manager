@@ -3,23 +3,33 @@ mod batch;
 pub mod combat_reference;
 mod commands;
 mod database;
+pub mod decision;
+pub mod decision_service;
 pub mod evaluation;
 mod extraction;
 pub mod gym;
 #[cfg(test)]
 mod gym_integration_tests;
 pub mod individual_details;
+pub mod integrated_planning;
 pub mod inventory;
 #[cfg(test)]
 mod mvp_smoke_tests;
 mod ocr_regions;
+pub mod preparation;
+pub mod preparation_reference;
+pub mod preparation_resources;
+#[cfg(test)]
+mod preparation_tests;
 pub mod reference;
 pub mod reference_store;
+pub mod roles;
 mod screenshot;
 pub mod source_adapter;
 pub mod source_files;
 pub mod strategy;
 pub mod strategy_service;
+pub mod trainer_combat_reference;
 pub mod utility;
 
 use std::sync::{
@@ -340,6 +350,8 @@ async fn import_reference(
                 catalog: normalized.catalog,
                 cp_multipliers: normalized.cp_multipliers,
                 combat: normalized.combat,
+                preparation: normalized.preparation,
+                trainer_combat: normalized.trainer_combat,
                 coverage: normalized.coverage,
                 limitations: normalized.limitations,
                 source_sha256: reference_store::digest(&bytes),
@@ -604,6 +616,24 @@ async fn pokemon_roadmap(
 }
 
 #[tauri::command]
+async fn individual_decision(
+    state: State<'_, NativeInventory>,
+    id: String,
+) -> Result<decision_service::IndividualReview, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?
+            .individual_decision(&inventory::PokemonId::parse(&id)?)
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
 async fn generate_roadmap(
     state: State<'_, NativeInventory>,
     id: String,
@@ -675,6 +705,91 @@ async fn save_strategy_preferences(
 }
 
 #[tauri::command]
+async fn preparation_resources(
+    state: State<'_, NativeInventory>,
+    id: String,
+) -> Result<preparation_resources::ResourceBudget, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?
+            .preparation_resources(&inventory::PokemonId::parse(&id)?)
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn select_preparation_path(
+    state: State<'_, NativeInventory>,
+    id: String,
+    expected_context: String,
+    path_id: String,
+) -> Result<preparation_resources::ResourceBudget, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?
+            .select_preparation_path(
+                &inventory::PokemonId::parse(&id)?,
+                &expected_context,
+                &path_id,
+            )
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn save_preparation_resources(
+    state: State<'_, NativeInventory>,
+    id: String,
+    expected_revision: String,
+    values: preparation_resources::ResourceValues,
+) -> Result<preparation_resources::ResourceBudget, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?
+            .save_preparation_resources(
+                &inventory::PokemonId::parse(&id)?,
+                revision_arg(&expected_revision)?,
+                values,
+            )
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
+async fn clear_preparation_route(
+    state: State<'_, NativeInventory>,
+    id: String,
+    expected_context: String,
+) -> Result<preparation_resources::ResourceBudget, commands::CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state
+            .0
+            .lock()
+            .map_err(|_| commands::CommandError::storage())?
+            .clear_preparation_route(&inventory::PokemonId::parse(&id)?, &expected_context)
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| commands::CommandError::storage())?
+}
+
+#[tauri::command]
 async fn export_structured_backup(
     window: tauri::WebviewWindow,
     state: State<'_, NativeInventory>,
@@ -727,10 +842,15 @@ pub fn run() {
             confirm_pokemon_tags,
             confirm_batch_import,
             collection_strategy,
+            individual_decision,
             pokemon_roadmap,
             generate_roadmap,
             update_roadmap_progress,
             save_strategy_preferences,
+            preparation_resources,
+            save_preparation_resources,
+            select_preparation_path,
+            clear_preparation_route,
             export_structured_backup
         ])
         .run(tauri::generate_context!())

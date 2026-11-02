@@ -1,15 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { nativeErrorMessage } from "./native";
 import { strategyNative, type RoadmapView } from "./strategy-native";
+import { PreparationPlannerView } from "./PreparationPlannerView";
 
 export function IndividualRoadmap({
   id,
+  initialView,
+  onReassess,
   onOpenIndividual,
 }: {
   id: string;
+  initialView?: RoadmapView;
+  onReassess?: () => void;
   onOpenIndividual: (id: string) => void;
 }) {
-  const [view, setView] = useState<RoadmapView | null>(null);
+  const [view, setView] = useState<RoadmapView | null>(initialView ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef(false);
@@ -28,6 +33,7 @@ export function IndividualRoadmap({
     }
   }
   useEffect(() => {
+    if (initialView) return;
     let live = true;
     void strategyNative
       .roadmap(id)
@@ -41,7 +47,7 @@ export function IndividualRoadmap({
     return () => {
       live = false;
     };
-  }, [id]);
+  }, [id, initialView]);
   async function act(stepId?: string, status?: string) {
     if (!view || pending.current) return;
     pending.current = true;
@@ -111,18 +117,32 @@ export function IndividualRoadmap({
                 Generated {view.generatedAt} UTC · {view.report.rulesetVersion}{" "}
                 · progress revision {view.revision}
               </p>
-              {view.report.gym && view.report.gym.builds.length > 0 && (
-                <p>
-                  Gym preparation focus:{" "}
-                  {view.report.gym.builds
-                    .map(
-                      (build) =>
-                        `${build.attackType} coverage with ${build.fastMove} + ${build.chargedMove}`,
-                    )
-                    .join("; ")}
-                  . These are reference-based possibilities, not confirmed
-                  battles or investments.
-                </p>
+              {!view.report.decision &&
+                view.report.gym &&
+                view.report.gym.builds.length > 0 && (
+                  <p>
+                    Gym preparation focus:{" "}
+                    {view.report.gym.builds
+                      .map(
+                        (build) =>
+                          `${build.attackType} coverage with ${build.fastMove} + ${build.chargedMove}`,
+                      )
+                      .join("; ")}
+                    . These are reference-based possibilities, not confirmed
+                    battles or investments.
+                  </p>
+                )}
+              {(view.report.preparation || view.report.roles?.length) && (
+                <PreparationPlannerView
+                  key={view.context + ":" + view.currentContext}
+                  pokemonId={id}
+                  expectedContext={view.currentContext}
+                  plan={view.report.preparation}
+                  roles={view.report.decision ? [] : view.report.roles}
+                  stale={view.stale}
+                  onOpenIndividual={onOpenIndividual}
+                  onChanged={onReassess ?? (() => void reload())}
+                />
               )}
               <ol>
                 {view.report.steps.map((step) => (
@@ -145,17 +165,22 @@ export function IndividualRoadmap({
                       <legend>Step progress</legend>
                       <button
                         type="button"
-                        disabled={!step.executable}
+                        disabled={
+                          !step.executable &&
+                          ["compare", "wait"].includes(step.action)
+                        }
                         onClick={() =>
                           void act(
                             step.id,
-                            step.action === "review"
-                              ? "review_requested"
-                              : "completed",
+                            ["compare", "wait"].includes(step.action)
+                              ? "completed"
+                              : "review_requested",
                           )
                         }
                       >
-                        I completed this
+                        {["review", "compare", "wait"].includes(step.action)
+                          ? "I completed this"
+                          : "Review / confirm in-game action"}
                       </button>
                       <button
                         type="button"

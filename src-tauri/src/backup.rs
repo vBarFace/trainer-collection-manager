@@ -17,7 +17,8 @@ impl InventoryRepository {
                 "strategicObservationRevision":pokemon.strategic_observation_revision.to_string(),"createdAt":pokemon.created_at,"updatedAt":pokemon.updated_at,
                 "confirmedIdentity":pokemon.reference.identity,
                 "referencePin":pin,
-                "tags":tags,"details":self.individual_details(&pokemon.id)?,"confirmedHistory":history
+                "tags":tags,"details":self.individual_details(&pokemon.id)?,"confirmedHistory":history,
+                "preparationResources":self.preparation_resources(&pokemon.id)?
             }));
         }
         let preferences: Option<String> = self

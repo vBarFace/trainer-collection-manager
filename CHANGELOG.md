@@ -6,9 +6,26 @@ All notable changes are documented here.
 
 ### Changed
 
+- Stabilized tied Trainer-Battle move suggestions (`collection-5`, `roles-3`) using source IDs
+  after equal modeled metrics. Native regressions cover equivalent source
+  ordering and repeated collection assessment across restart and unchanged saves.
+
 - Inventory now distinguishes Pending, Evaluated, Needs data and Stale appraisal states, with record selection and explicit evaluation/re-evaluation. Import review continues to confirm data without tag selection; existing assignments remain intact.
 
 ### Added
+
+- Integrated individual decision loop (`collection-6`): calibrated multi-role
+  suggestions, automatic same-UUID review after confirmed imports/facts/actions,
+  bounded joint preparation with projected CP/costs and explicit conflicts,
+  persistent optional route intent and a return-to-automatic action. Applied
+  tags, observed facts, resources and actual confirmations remain separate.
+
+- Individual preparation planner (`collection-4`, `preparation-1`): optional
+  imported evolution requirements, half-level Candy/XL/Stardust costs, ordinary
+  and Elite move acquisition routes, goal-specific alternatives, manual resource
+  allocations and explicit path selection in the UUID roadmap. Separate defense,
+  Rocket Trainer-Battle move and PvP signals retain unknown role value and
+  conservative transfer review. See docs/development/mvp-preparation-planner.md.
 
 - First reference-based gym-attack slice (`collection-3`, `gym-attack-1`): optional
   PoGoAPI combat normalization, type-oriented potential and external benchmarks,

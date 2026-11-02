@@ -1,5 +1,10 @@
 # Individual roadmaps and confirmed progress
 
+The `collection-4` [preparation planner](mvp-preparation-planner.md) now adds
+evolution/Power Up costs, acquisition routes, explicit path selection and ordered
+actions. The earlier preview below records its original review/compare/wait
+scope; game facts still require the existing explicit confirmation workflows.
+
 ## Next role-assessment requirements
 
 The user reaffirmed that individual roadmaps remain central to the upcoming gym,

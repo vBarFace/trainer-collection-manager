@@ -8,6 +8,17 @@ export interface ReferenceStatus {
     sourceSha256: string;
     cpMultipliers: [number, number][];
     combat?: { version: string; moves: unknown[]; pools: unknown[] } | null;
+    preparation?: {
+      version: string;
+      powerUpCosts: unknown[];
+      evolutions: unknown[];
+      moveAccess: unknown[];
+    } | null;
+    trainerCombat?: {
+      version: string;
+      moves: unknown[];
+      pools: unknown[];
+    } | null;
     coverage: string[];
     limitations: string[];
     artifacts?: {
@@ -151,8 +162,11 @@ export function ReferenceSettings() {
           For PoGoAPI, select the downloaded pokemon_stats, pokemon_types and
           cp_multiplier JSON files together, or one existing bundle. For gym
           attack potential also select fast_moves, charged_moves,
-          current_pokemon_moves and type_effectiveness (up to seven files).
-          Individual observations remain manual and optional.
+          current_pokemon_moves and type_effectiveness. Add pokemon_evolutions,
+          pokemon_powerup_requirements, pvp_fast_moves and pvp_charged_moves for
+          evolution, Power Up, move acquisition and Trainer-Battle role signals
+          (up to eleven files). Individual observations remain manual and
+          optional.
         </p>
         <p>
           Get files from{" "}
@@ -176,6 +190,22 @@ export function ReferenceSettings() {
           <a href="https://pogoapi.net/api/v1/type_effectiveness.json">
             type effectiveness
           </a>
+          ,{" "}
+          <a href="https://pogoapi.net/api/v1/pokemon_evolutions.json">
+            evolutions
+          </a>
+          ,{" "}
+          <a href="https://pogoapi.net/api/v1/pokemon_powerup_requirements.json">
+            Power Up requirements
+          </a>
+          ,{" "}
+          <a href="https://pogoapi.net/api/v1/pvp_fast_moves.json">
+            Trainer fast moves
+          </a>
+          ,{" "}
+          <a href="https://pogoapi.net/api/v1/pvp_charged_moves.json">
+            Trainer charged moves
+          </a>
           , or the{" "}
           <a href="https://github.com/pvpoke/pvpoke/tree/master/src/data/gamemaster">
             PvPoke
@@ -187,6 +217,10 @@ export function ReferenceSettings() {
         <label htmlFor="reference-revision">
           Upstream commit or dated source identifier
         </label>
+        <p>
+          Use a new revision label when adding files to a previously imported
+          reference.
+        </p>
         <input
           id="reference-revision"
           value={revision}
@@ -227,6 +261,16 @@ export function ReferenceSettings() {
             {active.combat
               ? `Gym reference: ${active.combat.moves.length} supported moves · ${active.combat.pools.length} ordinary-form pools · ${active.combat.version}`
               : "Gym combat reference unavailable: import the four supplemental combat files with the catalog to assess attack potential."}
+          </p>
+          <p>
+            {active.preparation
+              ? `Preparation reference: ${active.preparation.evolutions.length} evolution branches · ${active.preparation.powerUpCosts.length} Power Up intervals · ${active.preparation.moveAccess.length} move-acquisition lists`
+              : "Preparation mechanics unavailable: add evolution and Power Up source files."}
+          </p>
+          <p>
+            {active.trainerCombat
+              ? `Trainer-Battle reference: ${active.trainerCombat.moves.length} moves · ${active.trainerCombat.pools.length} pools`
+              : "Trainer-Battle mechanics unavailable: add both PvP move source files."}
           </p>
           <p>
             Source:{" "}

@@ -636,7 +636,7 @@ describe("Inventory manual import", () => {
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Confirm and save" }));
     await screen.findByText(
-      "Saved Buddy to your local inventory. Awaiting evaluation.",
+      "Saved Buddy to your local inventory. Automatic use assessment is refreshing.",
     );
     expect(native.confirmImport).toHaveBeenCalledExactlyOnceWith({
       displayName: "Buddy",
@@ -718,7 +718,7 @@ describe("Inventory manual import", () => {
     expect(revokeObjectURL).not.toHaveBeenCalled();
     fireEvent.click(submit);
     await screen.findByText(
-      "Saved Buddy to your local inventory. Awaiting evaluation.",
+      "Saved Buddy to your local inventory. Automatic use assessment is refreshing.",
     );
     expect(native.confirmImport).toHaveBeenCalledTimes(2);
   });

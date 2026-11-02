@@ -7,6 +7,8 @@ pub struct Normalized {
     pub catalog: Value,
     pub cp_multipliers: Vec<(f64, f64)>,
     pub combat: Option<crate::combat_reference::CombatReference>,
+    pub preparation: Option<crate::preparation_reference::PreparationReference>,
+    pub trainer_combat: Option<crate::trainer_combat_reference::TrainerCombatReference>,
     pub coverage: Vec<String>,
     pub limitations: Vec<String>,
 }
@@ -287,7 +289,7 @@ pub fn normalize(
     if provider == "snapshot" {
         crate::reference::Catalog::load(bytes)?;
         return Ok(Normalized {
-            catalog: value, cp_multipliers: vec![], combat: None,
+            catalog: value, cp_multipliers: vec![], combat: None, preparation: None, trainer_combat: None,
             coverage: vec!["Reviewed schema-1 identities, types, GO stats and explicit evolution links exactly as supplied".into()],
             limitations: vec!["Source provenance is retained from the reviewed snapshot. No new rights, cost, eligibility or battle-performance claim follows from importing it.".into(), "No CP multiplier table in schema 1; statistical league calculations remain unavailable for this snapshot.".into()],
         });
@@ -354,7 +356,7 @@ pub fn normalize(
         }
         previous = (level, multiplier);
     }
-    let catalog = json!({"schemaVersion":1,"dataset":{
+    let mut catalog = json!({"schemaVersion":1,"dataset":{
         "datasetId":format!("local-{provider}-normal-1"),"version":revision,
         "sourceUrl":source_url,"upstreamRevision":revision,"license":license,
         "notice":"User-selected local data only. Original application MIT license does not cover underlying Pokémon GO data. Public accessibility is not a redistribution grant.",
@@ -363,7 +365,47 @@ pub fn normalize(
     crate::reference::Catalog::load(
         &serde_json::to_vec(&catalog).map_err(|_| "Invalid normalized catalog")?,
     )?;
+    let mut preparation = if provider == "pogoapi" {
+        crate::preparation_reference::normalize(&value)?
+    } else {
+        None
+    };
+    if let Some(reference) = &mut preparation {
+        let ids: std::collections::BTreeSet<String> = catalog["forms"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|f| f["id"].as_str().map(str::to_owned))
+            .collect();
+        reference
+            .evolutions
+            .retain(|e| ids.contains(&e.from_form_id) && ids.contains(&e.to_form_id));
+        reference.move_access.retain(|a| ids.contains(&a.form_id));
+        crate::preparation_reference::validate(reference, &ids)?;
+        // Only explicit imported ordinary-form branches are exposed to the
+        // existing UUID-preserving evolution confirmation workflow.
+        for form in catalog["forms"].as_array_mut().unwrap() {
+            let edges = reference.evolutions.iter().filter(|e|Some(e.from_form_id.as_str())==form["id"].as_str()).map(|e|json!({"targetFormId":e.to_form_id,"requirements":e.requirements.iter().map(|r|r.description.clone()).chain(std::iter::once(format!("{} Candy; verify all in-game prerequisites before evolving",e.candy))).collect::<Vec<_>>()})).collect::<Vec<_>>();
+            if !edges.is_empty() {
+                form["evolutions"] = json!(edges);
+            }
+        }
+        crate::reference::Catalog::load(
+            &serde_json::to_vec(&catalog).map_err(|_| "Invalid preparation catalog")?,
+        )?;
+    }
     let mut combat = crate::combat_reference::normalize(provider, &value)?;
+    let mut trainer_combat = crate::trainer_combat_reference::normalize(provider, &value)?;
+    if let Some(trainer) = &mut trainer_combat {
+        trainer.pools.retain(|pool| {
+            catalog["forms"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|f| f["id"].as_str() == Some(&pool.form_id))
+        });
+        trainer.validate()?;
+    }
     if let Some(combat) = &mut combat {
         combat.pools.retain(|pool| {
             catalog["forms"]
@@ -382,9 +424,12 @@ pub fn normalize(
     if combat.is_some() {
         coverage.push("Supplied PvE moves, current ordinary-form move pools and full type-effectiveness chart for a bounded gym-attack model".into());
     }
+    if preparation.is_some() {
+        coverage.push("Imported evolution branches, prerequisites, normal half-level Power Up costs and ordinary/Elite move acquisition lists".into());
+    }
     let mut limitations=vec![
         "Bounded ordinary forms only; regional, named, costume, Mega, Shadow and ambiguous forms are not normalized. Individual variants remain unknown.".into(),
-        "Evolution eligibility/costs, release availability, rarity and battle rankings remain unsupported. Current move pools do not establish legacy/event move acquisition. Missing relationships are unknown, never no-evolution claims.".into(),
+        "Evolution prerequisite completeness, special cost modifiers, release/event availability, rarity and battle rankings remain unverified. Missing relationships are unknown, never no-evolution claims.".into(),
         "Provider revision is user supplied; the raw-file SHA-256 identifies actual imported bytes. Rights uncertainty remains unresolved; do not redistribute downloaded datasets.".into(),
     ];
     if provider == "pokeminers" {
@@ -405,6 +450,8 @@ pub fn normalize(
         catalog,
         cp_multipliers: cpm,
         combat,
+        preparation,
+        trainer_combat,
         coverage,
         limitations,
     })

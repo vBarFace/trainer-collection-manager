@@ -1,5 +1,11 @@
 # Current MVP priorities
 
+Implemented follow-up: the [integrated individual decision loop](mvp-individual-decision-loop.md)
+now proposes qualified uses and a bounded roadmap automatically, and refreshes
+them after confirmed imports/facts/evolutions/Power Ups. Explicit user route
+intent can survive evolution stages. Competitive PvP, size rarity and a dedicated
+collection-wide change/retirement review remain follow-up work.
+
 Confirmed by the user on 2026-11-01. This project-scoped clarification supersedes
 the earlier proposal to prioritize PvP or expand screenshot extraction next.
 It changes the delivery plan, not the currently implemented gameplay coverage.
@@ -8,6 +14,33 @@ Implementation follow-up, 2026-11-02: the first bounded gym-attack potential
 assessment now connects references, type guidance and the individual roadmap.
 See [implemented behavior and validation](mvp-gym-attack.md). The remaining role
 and investment requirements below are not claims of complete gameplay coverage.
+
+Preparation follow-up, 2026-11-02: the [individual preparation planner](mvp-preparation-planner.md)
+adds imported evolution/Power Up mechanics, manual allocations, move-acquisition
+routes and goal-specific roadmap alternatives. Defense, Rocket and PvP now expose
+distinct limited signals; full battle simulation and safe-disposal certification
+remain unimplemented rather than inferred from missing evidence.
+
+Latest user clarification, 2026-11-02: the complete acceptance target is the
+[individual decision loop](../product/individual-decision-loop.md): simultaneous
+justified role/tag suggestions, collection preservation, compatible staged
+evolution/Power Up/move paths, and reanalysis after each confirmed change of the
+same UUID. The current planner is a foundation, not completion of that loop.
+That target supersedes the historical next-increment description below where
+the latter still refers only to the first gym-attack slice.
+
+The same clarification requires an explicit collection-wide reanalysis and change
+review. A useful existing individual is not retired merely because a newcomer
+has greater future potential or shares its species/role. Preserve useful team
+depth, coverage, reserves, other roles and collection value; distinguish stopping
+investment from a justified transfer review. Multiple individuals may remain
+valuable even for the same role.
+
+Collection-wide reassessment must be deterministic: unchanged evidence and rule
+versions produce unchanged decisions, including after restart. Stable tie-breaks
+and an explicit cause for each meaningful change are acceptance requirements;
+cosmetic changes must not trigger retirement/replacement advice. See the
+[consistency contract](../product/individual-decision-loop.md#consistency-is-required-for-collection-wide-review).
 
 ## Screenshot scope
 

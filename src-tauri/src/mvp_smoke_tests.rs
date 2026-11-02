@@ -102,6 +102,8 @@ fn offline_reference_import_collection_roadmap_confirmation_restart_and_backup()
             catalog: normalized.catalog,
             cp_multipliers: normalized.cp_multipliers,
             combat: normalized.combat,
+            preparation: normalized.preparation,
+            trainer_combat: normalized.trainer_combat,
             coverage: normalized.coverage,
             limitations: normalized.limitations,
             source_sha256: digest(&raw),
