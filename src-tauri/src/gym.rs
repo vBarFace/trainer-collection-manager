@@ -400,7 +400,7 @@ impl<'a> GymModel<'a> {
         if detail.is_some_and(|detail| detail.needs_reconfirmation) {
             result.missing.push("Optional observations predate a confirmed action; reconfirm relevant moves and variant evidence.".into());
         }
-        result.missing.push("Current level, battle readiness, move acquisition and investment costs remain unverified.".into());
+        result.missing.push("This model does not calculate actual readiness from observed level/CP. Move acquisition and executable investment costs remain unverified.".into());
         result
     }
 }
@@ -511,10 +511,12 @@ mod tests {
     use crate::inventory::{AppraisalIvs, InventoryRepository, PokemonInput};
     use crate::reference::Identity;
     fn pokemon(name: &str) -> Pokemon {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let path = std::env::temp_dir().join(format!(
-            "gym-unit-{}-{}-{}.sqlite3",
+            "gym-unit-{}-{}-{}-{}.sqlite3",
             std::process::id(),
             name,
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()

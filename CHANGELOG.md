@@ -10,7 +10,7 @@ All notable changes are documented here.
 
 ### Added
 
-- First reference-based gym-attack slice (`collection-2`, `gym-attack-1`): optional
+- First reference-based gym-attack slice (`collection-3`, `gym-attack-1`): optional
   PoGoAPI combat normalization, type-oriented potential and external benchmarks,
   separate owned-alternative priority, and same-UUID roadmap review/comparison.
   Native snapshots resolve identity pins with the active package from the same

@@ -1,6 +1,6 @@
 # First gym-attack assessment and roadmap
 
-Implemented scope: `collection-2` / `gym-attack-1`, 2026-11-02. This is a bounded
+Implemented scope: `collection-3` / `gym-attack-1`, 2026-11-02. This is a bounded
 reference-potential assessment, not full gym battle simulation, actual readiness,
 gym defense, Rocket performance or a transfer recommendation.
 
@@ -109,7 +109,7 @@ normalization, partial/ambiguous moves, external comparisons and confirmation.
 
 Completed checks for this increment: `npm run check` passed formatting, lint,
 strict TypeScript, **152 frontend tests** and **8 adapter tests**. Native
-all-target/reference-tools tests passed **172**, with **2 authorized-screenshot
+all-target/reference-tools tests passed **173**, with **2 authorized-screenshot
 tests ignored**. Production native reference CLI tests passed **2**. Initial
 sandbox attempts at backup/fixture atomic renames failed on filesystem permissions;
 the unchanged checks passed outside that sandbox. An independent static review
@@ -119,10 +119,10 @@ real-image OCR accuracy claim.
 
 Rust formatting/check and the Windows executable/NSIS build passed. The ignored
 local output is `src-tauri/target/release/bundle/nsis/Trainer Collection Manager_0.1.0_x64-setup.exe`
-(12,318,065 bytes), SHA-256:
+(12,320,436 bytes), SHA-256:
 
 ```text
-329C3752412BABA01E4C9737EE0481B586E3CE96193D333DC95AAAB1DC321FF6
+CEFCA266D2BFB7513B5D781C506B5B0C5E1CB12E67BC6ED98BD8E97F0D95286E
 ```
 
 This is a local preview build, not a published release. The installer wizard and

@@ -595,7 +595,7 @@ fn calculate(inputs: AnalysisInputs) -> Result<CollectionStrategy> {
             if let Some(compare) = report
                 .steps
                 .iter_mut()
-                .find(|step| step.action == "compare")
+                .find(|step| step.id == "compare-alternatives")
             {
                 compare
                     .prerequisites
@@ -632,7 +632,7 @@ fn calculate(inputs: AnalysisInputs) -> Result<CollectionStrategy> {
                 if let Some(compare) = report
                     .steps
                     .iter_mut()
-                    .find(|step| step.action == "compare")
+                    .find(|step| step.id == "compare-alternatives")
                 {
                     compare.rationale=format!("For your {} goal, compare this individual's supported statistical potential with actual owned alternatives of this form. Moves, eligibility, personal value and battle readiness still require review.",league.league);
                 }

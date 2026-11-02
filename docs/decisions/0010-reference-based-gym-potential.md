@@ -19,7 +19,7 @@ attacking-to-defending type chart support this first model. Store artifacts and
 digests under the existing bounded, transactional activation/rollback contract.
 Keep schema-1 identity namespaces and immutable SQLite migrations unchanged.
 Old packages without combat data load as before; old roadmap JSON defaults its
-missing gym assessment to unknown. `collection-2` and `gym-attack-1` version the
+missing gym assessment to unknown. `collection-3` and `gym-attack-1` version the
 new results and stale earlier plans.
 
 Compute a fixed reference scenario, not an actual battle simulation:

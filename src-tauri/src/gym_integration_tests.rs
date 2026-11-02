@@ -9,9 +9,11 @@ use crate::reference::Identity;
 struct Database(std::path::PathBuf);
 impl Database {
     fn new() -> Self {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         Self(std::env::temp_dir().join(format!(
-                "gym-flow-{}-{}.sqlite3",
+            "gym-flow-{}-{}-{}.sqlite3",
                 std::process::id(),
+            NEXT.fetch_add(1,std::sync::atomic::Ordering::Relaxed),
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
@@ -251,4 +253,67 @@ fn combat_activation_rollback_restart_and_old_report_compatibility() {
     );
     assert_eq!(reopened.get(&id).unwrap().id, id);
     drop(reopened);
+}
+
+#[test]
+fn league_goal_and_stale_details_do_not_repurpose_the_gym_comparison_step() {
+    let path = Database::new();
+    let mut repo = InventoryRepository::open(&path.0).unwrap();
+    repo.install_reference(fictional_package()).unwrap();
+    let id = create(&repo, "Sampleton");
+    let pokemon = repo.get(&id).unwrap();
+    let draft = repo.individual_details(&id).unwrap();
+    repo.save_individual_details(
+        &id,
+        pokemon.strategic_observation_revision,
+        &draft.evidence_token,
+        IndividualDetails {
+            fast_move: Some("Sample Tap".into()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    repo.save_strategy_preferences(0, "master", None).unwrap();
+    let first = repo.collection_strategy().unwrap();
+    let steps = &first.reports[0].steps;
+    assert!(steps
+        .iter()
+        .find(|step| step.id == "gym-compare-reference")
+        .unwrap()
+        .rationale
+        .contains("normal attack coverage"));
+    assert!(steps
+        .iter()
+        .find(|step| step.id == "compare-alternatives")
+        .unwrap()
+        .rationale
+        .contains("Master League"));
+    let individual = repo.get(&id).unwrap();
+    repo.confirm_power_up(
+        &id,
+        PowerUpConfirmation {
+            request_id: "00000000-0000-4000-8000-000000000080",
+            expected_revision: individual.strategic_observation_revision,
+            cp: None,
+            performed_in_game_confirmed: true,
+        },
+    )
+    .unwrap();
+    let second = repo.collection_strategy().unwrap();
+    let steps = &second.reports[0].steps;
+    let gym = steps
+        .iter()
+        .find(|step| step.id == "gym-compare-reference")
+        .unwrap();
+    assert!(gym.rationale.contains("normal attack coverage"));
+    assert!(gym.executable);
+    let league = steps
+        .iter()
+        .find(|step| step.id == "compare-alternatives")
+        .unwrap();
+    assert!(!league.executable);
+    assert!(league
+        .prerequisites
+        .contains(&"review-optional-observations".into()));
+    drop(repo);
 }
