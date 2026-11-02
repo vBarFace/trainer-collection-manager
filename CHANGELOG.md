@@ -6,6 +6,10 @@ All notable changes are documented here.
 
 ### Changed
 
+- Stabilized tied Trainer-Battle move suggestions (`collection-5`, `roles-3`) using source IDs
+  after equal modeled metrics. Native regressions cover equivalent source
+  ordering and repeated collection assessment across restart and unchanged saves.
+
 - Inventory now distinguishes Pending, Evaluated, Needs data and Stale appraisal states, with record selection and explicit evaluation/re-evaluation. Import review continues to confirm data without tag selection; existing assignments remain intact.
 
 ### Added

@@ -117,3 +117,25 @@ original fictional specimens and mechanics; real-source validation stays private
 The installer wizard and a real-collection installed-app journey were not run.
 These checks verify software behavior and model arithmetic, not actual battle
 outcomes, a competitive meta model or complete evolution prerequisite coverage.
+
+## Consistency follow-up — collection-5 / roles-3
+
+The user requires stable collection-wide reassessment. A regression reproduced
+an order-dependent tie in Trainer-move suggestions; source IDs now break equal
+modeled metrics consistently. The aggregate ruleset version makes this deliberate
+change visible and invalidates earlier saved plans once.
+
+Native coverage now includes identical serialized collection results across
+repeated unchanged assessment, unchanged-value saves and reopening the native
+repository. A real budget change produces a changed result that is then stable
+on repeated assessment. Adding an unrelated weaker specimen changes the snapshot
+fingerprint without changing the existing individual's advice. These checks also
+confirm that assessment does not rewrite observed Pokémon facts or applied tags.
+
+Executed:203 native tests passed with2 private-image tests ignored;
+`npm run check` passed158 UI and8 adapter tests; Rust format/check and the Windows
+NSIS release build passed. The new installer is12,421,655 bytes, SHA-256
+`3826934a022222edef23b3b01f593655144ac3a4147ef799129d99c413b5f6bd`.
+
+The collection-wide change-review UI and its material-change policy remain future
+work under the [consistency contract](../product/individual-decision-loop.md#consistency-is-required-for-collection-wide-review).

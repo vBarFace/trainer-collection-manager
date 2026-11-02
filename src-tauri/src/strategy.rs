@@ -5,7 +5,7 @@ use crate::reference::{valid_text, BaseStats, ResolutionState};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-pub const RULESET_VERSION: &str = "collection-4";
+pub const RULESET_VERSION: &str = "collection-5";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

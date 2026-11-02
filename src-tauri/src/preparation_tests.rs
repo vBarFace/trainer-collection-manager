@@ -452,3 +452,121 @@ fn known_special_species_cost_override_cannot_be_overruled_by_ordinary_checkbox(
             && p.cost.stardust.is_none()
             && !p.executable));
 }
+
+#[test]
+fn unchanged_collection_reassessment_is_identical_across_repeats_noops_and_restart() {
+    let db = Database::new();
+    let mut repo = InventoryRepository::open(&db.0).unwrap();
+    let mut reference = package();
+    reference.trainer_combat = Some(crate::trainer_combat_reference::fictional_reference());
+    repo.install_reference(reference).unwrap();
+    let id = specimen(&repo);
+    let other = specimen(&repo);
+    level(&repo, &id, 29.5);
+    level(&repo, &other, 30.0);
+    repo.save_preparation_resources(&id, 0, budget()).unwrap();
+    let snapshot = repo.collection_strategy().unwrap();
+    let expected = serde_json::to_vec(&snapshot).unwrap();
+    let road = repo.generate_roadmap(&id, &snapshot.context).unwrap();
+    let road_expected = serde_json::to_vec(&road).unwrap();
+    let observed = repo.get(&id).unwrap();
+    let tags = repo.tags_for(&id).unwrap();
+    for _ in 0..10 {
+        assert_eq!(
+            serde_json::to_vec(&repo.collection_strategy().unwrap()).unwrap(),
+            expected
+        );
+        assert_eq!(
+            serde_json::to_vec(&repo.generate_roadmap(&id, &snapshot.context).unwrap()).unwrap(),
+            road_expected
+        );
+    }
+    // Saving the same confirmed values is not a semantic change.
+    let details = repo.individual_details(&id).unwrap();
+    repo.save_individual_details(
+        &id,
+        details.observation_revision.parse().unwrap(),
+        &details.evidence_token,
+        details.values,
+    )
+    .unwrap();
+    repo.save_preparation_resources(&id, 1, budget()).unwrap();
+    assert_eq!(
+        serde_json::to_vec(&repo.collection_strategy().unwrap()).unwrap(),
+        expected
+    );
+    drop(repo);
+    let repo = InventoryRepository::open(&db.0).unwrap();
+    assert_eq!(
+        serde_json::to_vec(&repo.collection_strategy().unwrap()).unwrap(),
+        expected
+    );
+    assert_eq!(
+        serde_json::to_vec(&repo.roadmap(&id).unwrap()).unwrap(),
+        road_expected
+    );
+    // A real budget change may change the decision; rerunning that new state
+    // must then be stable too. Neither assessment rewrites Pokémon facts/tags.
+    let mut zero = budget();
+    zero.stardust = Some(0);
+    repo.save_preparation_resources(&id, 1, zero).unwrap();
+    let changed = repo.collection_strategy().unwrap();
+    assert_ne!(changed.context, snapshot.context);
+    assert_ne!(
+        serde_json::to_vec(&changed.reports).unwrap(),
+        serde_json::to_vec(&snapshot.reports).unwrap()
+    );
+    let updated = serde_json::to_vec(&changed).unwrap();
+    for _ in 0..10 {
+        assert_eq!(
+            serde_json::to_vec(&repo.collection_strategy().unwrap()).unwrap(),
+            updated
+        );
+    }
+    assert_eq!(repo.get(&id).unwrap(), observed);
+    assert_eq!(repo.tags_for(&id).unwrap(), tags);
+}
+
+#[test]
+fn adding_an_unrelated_weaker_individual_does_not_rewrite_existing_advice() {
+    let db = Database::new();
+    let mut repo = InventoryRepository::open(&db.0).unwrap();
+    repo.install_reference(package()).unwrap();
+    let id = specimen(&repo);
+    level(&repo, &id, 30.0);
+    let before = repo.collection_strategy().unwrap();
+    let expected = serde_json::to_vec(
+        before
+            .reports
+            .iter()
+            .find(|r| r.pokemon_id == id.as_str())
+            .unwrap(),
+    )
+    .unwrap();
+    let added = repo
+        .create(&PokemonInput {
+            display_name: "Samplelittle".into(),
+            cp: None,
+            ivs: Some(AppraisalIvs {
+                attack: 15,
+                defense: 15,
+                hp: 15,
+            }),
+        })
+        .unwrap();
+    repo.correct_identity(
+        &added.id,
+        None,
+        Some(Identity {
+            species: "Samplelittle".into(),
+            form: Some("Normal".into()),
+        }),
+    )
+    .unwrap();
+    let after = repo.collection_strategy().unwrap();
+    assert_ne!(
+        before.context, after.context,
+        "The collection snapshot changed"
+    );
+    assert_eq!(expected,serde_json::to_vec(after.reports.iter().find(|r|r.pokemon_id==id.as_str()).unwrap()).unwrap(),"A changed collection fingerprint alone does not establish changed advice for every individual");
+}

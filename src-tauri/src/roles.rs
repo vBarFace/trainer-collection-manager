@@ -11,7 +11,7 @@ use crate::trainer_combat_reference::{TrainerCombatReference, TrainerMove};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const RULESET_VERSION: &str = "roles-2";
+pub const RULESET_VERSION: &str = "roles-3";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -94,14 +94,25 @@ fn trainer_kits<'a>(reference: &'a TrainerCombatReference, form_id: &str) -> Vec
         .collect();
     let mut by_type = BTreeMap::<&str, TrainerKit<'a>>::new();
     let prefer = |candidate: TrainerKit<'a>, previous: TrainerKit<'a>| {
-        candidate.first_fast_turns < previous.first_fast_turns
-            || candidate.first_fast_turns == previous.first_fast_turns
-                && (candidate.charged.power / -f64::from(candidate.charged.energy_delta)
-                    > previous.charged.power / -f64::from(previous.charged.energy_delta)
-                    || candidate.charged.power / -f64::from(candidate.charged.energy_delta)
-                        == previous.charged.power / -f64::from(previous.charged.energy_delta)
-                        && candidate.fast.power / f64::from(candidate.fast.turns)
-                            > previous.fast.power / f64::from(previous.fast.turns))
+        // Stable IDs break true metric ties, independently of provider record
+        // order. These IDs do not imply a meaningful battle advantage.
+        let charged_efficiency = |m: &TrainerMove| m.power / -f64::from(m.energy_delta);
+        let fast_efficiency = |m: &TrainerMove| m.power / f64::from(m.turns);
+        candidate
+            .first_fast_turns
+            .cmp(&previous.first_fast_turns)
+            .then_with(|| {
+                charged_efficiency(previous.charged)
+                    .total_cmp(&charged_efficiency(candidate.charged))
+            })
+            .then_with(|| {
+                fast_efficiency(previous.fast).total_cmp(&fast_efficiency(candidate.fast))
+            })
+            .then_with(|| {
+                (&candidate.fast.id, &candidate.charged.id)
+                    .cmp(&(&previous.fast.id, &previous.charged.id))
+            })
+            .is_lt()
     };
     for fast in pool
         .fast_move_ids
@@ -691,6 +702,33 @@ mod tests {
             .iter()
             .any(|missing| missing.starts_with("Trainer-Battle move power")));
         assert_eq!(roles[3].state, "retention_review");
+    }
+
+    #[test]
+    fn tied_trainer_options_do_not_change_when_equivalent_source_order_changes() {
+        let mut package = crate::gym::fictional_package();
+        let mut trainer = crate::trainer_combat_reference::fictional_reference();
+        let mut tied = trainer
+            .moves
+            .iter()
+            .find(|m| m.kind == "fast")
+            .unwrap()
+            .clone();
+        tied.id = "move-999999".into();
+        tied.name = "Alternative Sample Tap".into();
+        trainer.pools[0].fast_move_ids.push(tied.id.clone());
+        trainer.moves.push(tied);
+        package.trainer_combat = Some(trainer);
+        let before = RoleModel::new(Some(&package)).assess(&pokemon(&package), None, &[]);
+        let reference = package.trainer_combat.as_mut().unwrap();
+        reference.moves.reverse();
+        reference.pools[0].fast_move_ids.reverse();
+        reference.pools[0].charged_move_ids.reverse();
+        let after = RoleModel::new(Some(&package)).assess(&pokemon(&package), None, &[]);
+        assert_eq!(
+            before, after,
+            "Equivalent move ordering must not change the chosen role recommendations"
+        );
     }
 
     #[test]
