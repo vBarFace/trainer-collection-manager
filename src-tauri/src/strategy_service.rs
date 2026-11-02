@@ -37,7 +37,7 @@ impl GoalContext {
     fn validate(&self) -> Result<()> {
         if !matches!(
             self.goal.as_str(),
-            "balanced" | "collection" | "great" | "ultra" | "master"
+            "balanced" | "collection" | "gym_attack" | "great" | "ultra" | "master"
         ) || parse_revision(&self.revision).is_err()
         {
             return Err(Error::InvalidInput(
@@ -84,6 +84,7 @@ struct AnalysisInputs {
     details: BTreeMap<String, DetailsView>,
     mechanics: Option<Mechanics>,
     preferences: GoalContext,
+    package: Option<crate::reference_store::LocalPackage>,
 }
 
 struct StoredRoadmap {
@@ -226,7 +227,14 @@ impl InventoryRepository {
         let mut collection = Vec::new();
         let mut details = BTreeMap::new();
         let mut observations = Vec::new();
-        let mut pokemons = self.list()?;
+        // Another application instance can activate a new package. Resolve the
+        // saved identity pins with the package from this same database snapshot,
+        // never old in-memory stats mixed with new combat/CP mechanics.
+        let package = self.local_package().ok().flatten();
+        let live_catalog = package.as_ref().and_then(|package| package.validate().ok());
+        let package = package.filter(|_| live_catalog.is_some());
+        let mut pokemons =
+            self.list_with_catalog(live_catalog.as_ref().unwrap_or(&self.catalog))?;
         pokemons.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
         for pokemon in pokemons {
             let mut tags = self.tags_for(&pokemon.id)?;
@@ -252,11 +260,6 @@ impl InventoryRepository {
             let (id, request) = row?;
             lifecycle.insert(id, request);
         }
-        let package = self
-            .local_package()
-            .ok()
-            .flatten()
-            .filter(|package| package.validate().is_ok());
         let package_digest = package
             .as_ref()
             .map(|package| encode(package, 64 * 1024 * 1024).map(|text| digest(text.as_bytes())))
@@ -281,7 +284,7 @@ impl InventoryRepository {
         let preferences = self.strategy_preferences()?;
         let context = digest(
             &serde_json::to_vec(&serde_json::json!({
-                "ruleset":strategy::RULESET_VERSION,"observations":observations,
+                "ruleset":strategy::RULESET_VERSION,"gymRuleset":crate::gym::RULESET_VERSION,"observations":observations,
                 "latestLifecycle":lifecycle,"packageSha256":package_digest,
                 "referenceError":self.reference_error,"preferences":preferences
             }))
@@ -293,6 +296,7 @@ impl InventoryRepository {
             details,
             mechanics,
             preferences,
+            package,
         })
     }
 
@@ -493,10 +497,46 @@ impl InventoryRepository {
 fn calculate(inputs: AnalysisInputs) -> Result<CollectionStrategy> {
     let mut reports = strategy::assess(&inputs.collection, inputs.mechanics.as_ref())
         .map_err(Error::InvalidInput)?;
+    let gym_model = inputs
+        .package
+        .as_ref()
+        .map(crate::gym::GymModel::new)
+        .transpose()
+        .map_err(Error::InvalidInput)?
+        .flatten();
+    let individuals: BTreeMap<_, _> = inputs
+        .collection
+        .iter()
+        .map(|(pokemon, _)| (pokemon.id.as_str(), pokemon))
+        .collect();
     for report in &mut reports {
         let Some(detail) = inputs.details.get(&report.pokemon_id) else {
             continue;
         };
+        let assessment = gym_model.as_ref().map_or_else(
+            || crate::gym::unavailable("Install a complete local PoGoAPI combat reference to assess gym attack potential."),
+            |model| model.assess(individuals[report.pokemon_id.as_str()],Some(detail)));
+        if let Some(build) = assessment.builds.first() {
+            report.recommendations.push(StrategyRecommendation {
+                id:"gym-attack-potential".into(),kind:"ATTACKER".into(),priority:18,
+                explanation:assessment.summary.clone(),
+                facts:vec![format!("Potential {} coverage with {} + {}; compared with {} ordinary reference forms, including unowned options.",build.attack_type,build.fast_move,build.charged_move,build.compared_forms)],
+                missing:assessment.missing.clone(),alternative_pokemon_id:None,executable:false,
+            });
+            report.steps.insert(0,StrategyStep {id:"gym-review-moves".into(),action:"review".into(),required:false,
+                prerequisites:vec![],rationale:format!("Optional gym preparation review: compare the reference set {} + {} with this individual's current attacks. Proposed moves are not observations. Acquisition/cost and actual readiness are unverified; confirm only facts you observed.",build.fast_move,build.charged_move),cost:None,executable:true});
+            report.steps.insert(1,StrategyStep {id:"gym-compare-reference".into(),action:"compare".into(),required:false,
+                prerequisites:vec![],rationale:format!("Review {} attack coverage against {} types and the external benchmark, then decide whether to keep this gym preparation option. This planning decision does not record a battle, spending or changed moves.",build.attack_type,if build.strong_against.is_empty(){"no established favorable".into()}else{build.strong_against.join(", ")}),cost:None,executable:true});
+            if inputs.preferences.goal == "gym_attack" {
+                report
+                    .recommendations
+                    .iter_mut()
+                    .find(|item| item.id == "gym-attack-potential")
+                    .unwrap()
+                    .priority = 12;
+            }
+        }
+        report.gym = Some(assessment);
         let mut retention = Vec::new();
         if detail.values.protected {
             retention.push("Explicit individual protection".to_string());
@@ -611,6 +651,27 @@ fn calculate(inputs: AnalysisInputs) -> Result<CollectionStrategy> {
             .recommendations
             .sort_by(|a, b| a.priority.cmp(&b.priority).then_with(|| a.id.cmp(&b.id)));
     }
+    crate::gym::personalize(&mut reports);
+    for report in &mut reports {
+        let alternative = report
+            .gym
+            .as_ref()
+            .and_then(|gym| gym.owned_alternative_pokemon_id.clone());
+        if let Some(alternative) = alternative {
+            if let Some(recommendation) = report
+                .recommendations
+                .iter_mut()
+                .find(|item| item.id == "gym-attack-potential")
+            {
+                recommendation.alternative_pokemon_id = Some(alternative);
+                recommendation.priority = 26;
+                recommendation.explanation.push_str(" An owned alternative has a higher cycle estimate for this attack type. This lowers preparation priority, not reference-based potential; actual readiness still requires review.");
+            }
+        }
+        report
+            .recommendations
+            .sort_by(|a, b| a.priority.cmp(&b.priority).then_with(|| a.id.cmp(&b.id)));
+    }
     Ok(CollectionStrategy {
         context: inputs.context,
         reports,
@@ -645,6 +706,7 @@ mod tests {
                 .map(|i| (1.0 + f64::from(i) / 2.0, 0.1 + f64::from(i) * 0.0075))
                 .collect(),
             coverage: vec![],
+            combat: None,
             limitations: vec![],
             source_sha256: digest(b"original fictional strategy source"),
             provider: "fictional".into(),

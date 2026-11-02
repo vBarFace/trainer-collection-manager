@@ -101,6 +101,7 @@ fn offline_reference_import_collection_roadmap_confirmation_restart_and_backup()
         .install_reference(LocalPackage {
             catalog: normalized.catalog,
             cp_multipliers: normalized.cp_multipliers,
+            combat: normalized.combat,
             coverage: normalized.coverage,
             limitations: normalized.limitations,
             source_sha256: digest(&raw),

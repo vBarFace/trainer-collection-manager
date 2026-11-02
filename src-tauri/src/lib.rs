@@ -1,9 +1,13 @@
 pub mod backup;
 mod batch;
+pub mod combat_reference;
 mod commands;
 mod database;
 pub mod evaluation;
 mod extraction;
+pub mod gym;
+#[cfg(test)]
+mod gym_integration_tests;
 pub mod individual_details;
 pub mod inventory;
 #[cfg(test)]
@@ -335,6 +339,7 @@ async fn import_reference(
             .install_reference(reference_store::LocalPackage {
                 catalog: normalized.catalog,
                 cp_multipliers: normalized.cp_multipliers,
+                combat: normalized.combat,
                 coverage: normalized.coverage,
                 limitations: normalized.limitations,
                 source_sha256: reference_store::digest(&bytes),

@@ -373,11 +373,15 @@ impl InventoryRepository {
 
     /// Deterministic ordering; no domain ranking is implied.
     pub fn list(&self) -> Result<Vec<Pokemon>> {
+        self.list_with_catalog(&self.catalog)
+    }
+
+    pub(crate) fn list_with_catalog(&self, catalog: &Catalog) -> Result<Vec<Pokemon>> {
         let mut statement = self
             .connection
             .prepare(&format!("{POKEMON_SELECT} ORDER BY p.created_at, p.id"))?;
         let records = statement
-            .query_map([], |row| read_pokemon(row, &self.catalog))?
+            .query_map([], |row| read_pokemon(row, catalog))?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(records)
     }
